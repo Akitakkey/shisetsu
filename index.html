@@ -1,0 +1,1522 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>施設訪問記録</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#f5f5f7;--card:#fff;--blue:#007aff;--blue-bg:rgba(0,122,255,.08);
+  --green:#34c759;--red:#ff3b30;--p1:#1d1d1f;--p2:#6e6e73;--p3:#aeaeb2;
+  --sep:#d2d2d7;--fill:#f2f2f7;--r:12px;--rsm:8px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic UI',sans-serif;
+  background:var(--bg);color:var(--p1);font-size:14px;line-height:1.5;}
+
+/* Navbar */
+.nav{background:rgba(255,255,255,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-bottom:.5px solid var(--sep);height:52px;display:flex;align-items:center;
+  justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:50;}
+.nav-title{font-size:16px;font-weight:600;}
+.nav-date{font-size:12px;color:var(--p2);}
+.icon-btn{width:34px;height:34px;border-radius:50%;border:none;background:var(--fill);
+  color:var(--blue);font-size:15px;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;transition:background .15s;}
+.icon-btn:hover{background:#e5e5ea;}
+
+/* Content */
+.content{max-width:800px;margin:0 auto;padding:20px 16px 100px;}
+
+/* Card */
+.card{background:var(--card);border-radius:var(--r);overflow:hidden;margin-bottom:16px;}
+.sec-label{font-size:12px;font-weight:600;color:var(--p2);text-transform:uppercase;
+  letter-spacing:.5px;padding:0 4px 8px;display:block;}
+
+/* Patient row */
+.p-row{padding:13px 16px;border-bottom:.5px solid var(--fill);
+  display:flex;align-items:center;gap:10px;}
+.p-row:last-of-type{border-bottom:none;}
+.p-room{font-size:15px;font-weight:600;min-width:36px;}
+.p-name{flex:1;font-size:15px;}
+.p-pts{font-size:12px;color:var(--p2);white-space:nowrap;}
+
+/* Toggle switch */
+.sw{position:relative;width:42px;height:24px;flex-shrink:0;}
+.sw input{display:none;}
+.sw-track{position:absolute;inset:0;background:var(--sep);border-radius:12px;
+  cursor:pointer;transition:background .2s;}
+.sw input:checked+.sw-track{background:var(--green);}
+.sw-thumb{position:absolute;top:2px;left:2px;width:20px;height:20px;
+  background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.2);
+  transition:transform .2s;pointer-events:none;}
+.sw input:checked~.sw-thumb{transform:translateX(18px);}
+
+/* Badges */
+.badge{font-size:11px;font-weight:500;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+.badge-done{background:#d4edda;color:#155724;}
+
+/* Buttons */
+.btn{padding:8px 16px;border-radius:var(--rsm);border:none;font-size:14px;font-weight:500;
+  cursor:pointer;transition:all .15s;font-family:inherit;}
+.btn-primary{background:var(--blue);color:#fff;}
+.btn-primary:hover{background:#0066d6;}
+.btn-primary:disabled{background:var(--p3);cursor:not-allowed;}
+.btn-secondary{background:var(--fill);color:var(--p1);}
+.btn-secondary:hover{background:#e5e5ea;}
+.btn-ghost{background:transparent;color:var(--blue);padding:6px 10px;}
+.btn-ghost:hover{background:var(--blue-bg);}
+.btn-danger{background:transparent;color:var(--red);padding:6px 10px;}
+.btn-danger:hover{background:rgba(255,59,48,.08);}
+.btn-sm{padding:5px 12px;font-size:13px;}
+.btn-full{width:100%;padding:13px;font-size:15px;border-radius:var(--r);}
+
+/* Form */
+.form-group{margin-bottom:12px;}
+.form-label{font-size:12px;font-weight:500;color:var(--p2);margin-bottom:5px;
+  display:flex;justify-content:space-between;align-items:center;}
+textarea,input[type=text],input[type=password],select{
+  width:100%;padding:9px 12px;border:1px solid var(--sep);border-radius:var(--rsm);
+  font-size:14px;font-family:inherit;color:var(--p1);background:var(--card);
+  resize:vertical;line-height:1.6;outline:none;transition:border-color .15s,box-shadow .15s;}
+textarea:focus,input:focus,select:focus{
+  border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,122,255,.12);}
+
+/* Points chips */
+.chips{display:flex;gap:6px;flex-wrap:wrap;}
+.chip{padding:6px 14px;border-radius:20px;border:1px solid var(--sep);background:var(--card);
+  color:var(--p1);font-size:13px;cursor:pointer;transition:all .15s;font-family:inherit;}
+.chip:hover{border-color:var(--blue);color:var(--blue);}
+.chip.sel{background:var(--blue);color:#fff;border-color:var(--blue);}
+
+/* Input panel (expanded) */
+.p-input{background:var(--fill);border-top:.5px solid var(--sep);padding:16px;}
+
+/* Dropzone */
+.dropzone{border:2px dashed var(--sep);border-radius:var(--r);padding:28px 20px;
+  text-align:center;color:var(--p2);cursor:pointer;transition:all .2s;margin-bottom:16px;}
+.dropzone:hover,.dropzone.over{border-color:var(--blue);background:var(--blue-bg);color:var(--blue);}
+.dz-icon{font-size:28px;margin-bottom:6px;}
+.dz-title{font-size:15px;font-weight:500;margin-bottom:3px;}
+.dz-sub{font-size:12px;}
+
+/* Progress */
+.prog-wrap{margin-bottom:16px;}
+.prog-text{display:flex;justify-content:space-between;font-size:13px;color:var(--p2);margin-bottom:6px;}
+.prog-bar{height:4px;background:var(--fill);border-radius:2px;overflow:hidden;}
+.prog-fill{height:100%;background:var(--blue);border-radius:2px;transition:width .3s;}
+
+/* Action bar */
+.action-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.92);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:.5px solid var(--sep);
+  padding:12px 16px;display:flex;gap:10px;justify-content:center;}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;
+  align-items:center;justify-content:center;z-index:100;padding:20px;}
+.modal{background:var(--card);border-radius:16px;width:100%;max-width:460px;
+  max-height:88vh;overflow-y:auto;}
+.modal-hd{padding:18px 18px 14px;border-bottom:.5px solid var(--sep);
+  display:flex;justify-content:space-between;align-items:center;}
+.modal-title{font-size:16px;font-weight:600;}
+.modal-body{padding:18px;}
+.modal-ft{padding:14px 18px;border-top:.5px solid var(--sep);
+  display:flex;gap:8px;justify-content:flex-end;}
+
+/* Toast */
+.toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);
+  background:#1d1d1f;color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;
+  z-index:200;opacity:0;pointer-events:none;transition:opacity .2s;white-space:nowrap;}
+.toast.show{opacity:1;}
+
+/* Today list */
+.today-card{background:var(--card);border-radius:var(--r);overflow:hidden;margin-bottom:8px;}
+.today-hd{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+.today-hd:hover{background:var(--fill);}
+.today-body{display:none;padding:0 16px 14px;}
+.today-body.open{display:block;}
+
+/* Setup */
+.setup{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:70vh;text-align:center;}
+.setup-icon{font-size:52px;margin-bottom:16px;}
+.setup-title{font-size:22px;font-weight:600;margin-bottom:8px;}
+.setup-desc{font-size:15px;color:var(--p2);margin-bottom:28px;max-width:280px;line-height:1.6;}
+
+/* Voice */
+.voice-btn{padding:4px 10px;border-radius:20px;border:1px solid var(--blue);
+  background:transparent;color:var(--blue);font-size:11px;cursor:pointer;
+  transition:all .15s;font-family:inherit;}
+.voice-btn:hover{background:var(--blue-bg);}
+.voice-btn.rec{background:var(--red);color:#fff;border-color:var(--red);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+
+/* Spinner */
+.spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.4);
+  border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Error */
+.err{background:#fff2f2;border:1px solid #ffcdd2;color:#c62828;
+  padding:10px 14px;border-radius:var(--rsm);font-size:13px;margin-bottom:12px;}
+
+/* Utils */
+hr{border:none;border-top:.5px solid var(--sep);margin:14px 0;}
+.flex-bc{display:flex;justify-content:space-between;align-items:center;}
+.flex-c{display:flex;align-items:center;}
+.gap-8{gap:8px;}
+.mt-12{margin-top:12px;}
+.text-sm{font-size:13px;}
+.text-xs{font-size:12px;}
+.text-p2{color:var(--p2);}
+.w100{width:100%;}
+.empty{text-align:center;padding:32px 20px;color:var(--p2);}
+.empty-icon{font-size:32px;margin-bottom:10px;}
+
+/* Horizontal patient row */
+.h-header,.h-row{
+  display:grid;
+  grid-template-columns:36px minmax(68px,100px) 1fr 2fr 44px 44px 60px;
+  gap:8px;padding:8px 12px;align-items:start;
+}
+.h-header{
+  font-size:11px;font-weight:600;color:var(--p2);text-transform:uppercase;
+  letter-spacing:.3px;border-bottom:.5px solid var(--sep);
+  padding:6px 12px;align-items:center;
+}
+.h-row{border-bottom:.5px solid var(--fill);}
+.col-room{font-size:15px;font-weight:600;line-height:34px;}
+.col-nc{display:flex;flex-direction:column;align-items:center;gap:3px;padding-top:4px;}
+.nc-lbl{font-size:10px;color:var(--p2);}
+.cb-nc{width:18px;height:18px;cursor:pointer;accent-color:var(--green);margin-top:2px;}
+.sw-danger input:checked+.sw-track{background:var(--red);}
+.compact-ta{
+  padding:7px 9px;resize:none;overflow:hidden;
+  min-height:34px;line-height:1.5;font-size:13px;border-radius:6px;
+}
+.name-input{
+  width:100%;border:none;background:transparent;font-size:14px;color:var(--p1);
+  font-family:inherit;padding:0 6px;border-radius:6px;height:34px;outline:none;
+}
+.name-input:hover{background:var(--fill);}
+.name-input:focus{background:var(--card);border:1px solid var(--blue);
+  box-shadow:0 0 0 3px rgba(0,122,255,.12);}
+.out-panel{background:var(--fill);border-top:.5px solid var(--sep);padding:12px;}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <button class="btn btn-ghost" style="padding:4px 8px;font-size:16px;font-weight:600;"
+    onclick="showFacilityPicker()" id="nav-fac">施設を選択 ▾</button>
+  <span class="nav-date" id="nav-date"></span>
+  <div class="flex-c gap-8">
+    <button class="icon-btn" onclick="showPatientMgr()" title="患者管理">👥</button>
+    <button class="icon-btn" onclick="showSettings()" title="設定">⚙️</button>
+  </div>
+</nav>
+
+<div class="content" id="app"></div>
+
+<div class="action-bar" id="action-bar" style="display:none">
+  <button class="btn btn-secondary" onclick="downloadTxt()">⬇ ダウンロード</button>
+  <button class="btn btn-primary" onclick="sendSlack()">✈ Slackに送信</button>
+</div>
+
+<div class="toast" id="toast"></div>
+<div id="modal-root"></div>
+
+<script>
+// ─── Constants & State ────────────────────────────────────────────────────────
+const LS_FAC   = 'shisetsu_fac';
+const LS_CUR   = 'shisetsu_cur';
+const LS_TODAY = 'shisetsu_today';
+const LS_API   = 'shisetsu_api';
+const LS_PROXY = 'shisetsu_proxy_url';
+
+// GASプロキシ経由でSlackに送る共通関数（CORS回避）
+async function callProxy(payload) {
+  const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
+  if (!proxyUrl) throw new Error('GAS Proxy URLが未設定です');
+  const res = await fetch(proxyUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: JSON.stringify(payload),
+    redirect: 'follow'
+  });
+  if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
+  return res.json();
+}
+
+let facilities   = [];
+let currentFacId = null;
+let todayVisits  = [];
+let expandedRoom = null;
+const inputState = {}; // room -> {s, o, points, output, noChange}
+let recognition  = null;
+let recTarget    = null;
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  load();
+  document.getElementById('nav-date').textContent = fmtDate(new Date());
+  renderApp();
+});
+
+function load() {
+  try { facilities  = JSON.parse(localStorage.getItem(LS_FAC)   || '[]'); } catch { facilities = []; }
+  try { todayVisits = JSON.parse(localStorage.getItem(LS_TODAY)  || '[]'); } catch { todayVisits = []; }
+  currentFacId = localStorage.getItem(LS_CUR) || null;
+  if (currentFacId && !facilities.find(f => f.id === currentFacId)) currentFacId = null;
+}
+
+function save() {
+  localStorage.setItem(LS_FAC,   JSON.stringify(facilities));
+  localStorage.setItem(LS_TODAY, JSON.stringify(todayVisits));
+  if (currentFacId) localStorage.setItem(LS_CUR, currentFacId);
+}
+
+function getFac() {
+  return facilities.find(f => f.id === currentFacId) || null;
+}
+
+// ─── Main render ──────────────────────────────────────────────────────────────
+function renderApp() {
+  const fac = getFac();
+  document.getElementById('nav-fac').textContent =
+    (fac ? fac.name : '施設を選択') + ' ▾';
+
+  if (!fac) { renderSetup(); return; }
+
+  const total = fac.patients.length;
+  const done  = todayVisits.length;
+  let html = '';
+
+  // Progress
+  if (total > 0) {
+    const pct = Math.round(done / total * 100);
+    html += `<div class="prog-wrap">
+      <div class="prog-text">
+        <span>本日の進捗　<span style="font-weight:600">${done} / ${total}名</span></span>
+        <div class="flex-c gap-8">
+          <button class="btn btn-secondary btn-sm" onclick="showBulkSOInput()">📋 S/O一括入力</button>
+          <button class="btn btn-primary btn-sm" id="bulk-btn" onclick="generateAll()">⚡ 一括作成</button>
+        </div>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }
+
+  // Dropzone (when no patients)
+  if (total === 0) {
+    html += `<div class="dropzone" id="dz"
+      onclick="document.getElementById('fi').click()"
+      ondrop="onDrop(event)" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
+      <div class="dz-icon">📂</div>
+      <div class="dz-title">前回記録ファイルをドロップ</div>
+      <div class="dz-sub">.txt ファイルをドロップするか、クリックして選択</div>
+    </div>
+    <input type="file" id="fi" accept=".txt" style="display:none" onchange="onFileInput(event)">`;
+  }
+
+  // Patient list
+  if (total > 0) {
+    html += `<span class="sec-label">患者リスト</span><div class="card" id="plist">
+      <div class="h-header">
+        <span>室</span><span>氏名</span>
+        <span>S（訴え）</span><span>O（診察サマリ）</span>
+        <span style="text-align:center">変更なし</span>
+        <span style="text-align:center">入院中</span>
+        <span></span>
+      </div>`;
+    fac.patients.forEach(p => { html += buildRow(p, fac); });
+    html += `</div>
+    <div style="text-align:center;margin-bottom:16px;display:flex;gap:8px;justify-content:center;">
+      <button class="btn btn-ghost btn-sm text-xs" onclick="document.getElementById('fi2').click()">
+        📂 ファイルを追加インポート</button>
+      <input type="file" id="fi2" accept=".txt" style="display:none" onchange="onFileInput(event)">
+      <button class="btn btn-ghost btn-sm text-xs" onclick="showPasteImport()">
+        📋 テキストを貼り付けて追加</button>
+    </div>`;
+  }
+
+  // Today completed
+  if (done > 0) {
+    html += `<span class="sec-label" style="margin-top:4px">本日完了分</span>`;
+    todayVisits.forEach((v, i) => {
+      html += `<div class="today-card">
+        <div class="today-hd" onclick="toggleToday(${i})">
+          <div>
+            <span style="font-weight:600">${esc(v.room)}　${esc(v.name)}</span>
+            <span class="text-xs text-p2" style="margin-left:8px">${esc(v.points)}</span>
+          </div>
+          <div class="flex-c gap-8">
+            <button class="btn btn-danger btn-sm"
+              onclick="event.stopPropagation();removeToday(${i})">削除</button>
+            <span class="text-p2 text-xs" id="tc-${i}">▸</span>
+          </div>
+        </div>
+        <div class="today-body" id="tb-${i}">
+          <textarea rows="14" style="font-size:13px;line-height:1.8;"
+            onchange="todayVisits[${i}].content=this.value;save()">${esc(v.content)}</textarea>
+        </div>
+      </div>`;
+    });
+  }
+
+  document.getElementById('app').innerHTML = html;
+  document.getElementById('action-bar').style.display = done > 0 ? 'flex' : 'none';
+
+}
+
+function buildRow(p, fac) {
+  const isDone   = todayVisits.some(v => v.room === p.room);
+  const isHosp   = p.hospitalized || false;
+  const st       = inputState[p.room] || {};
+  const noChange = st.noChange || false;
+  const pts      = st.points !== undefined ? st.points : p.defaultPoints;
+  const sVal     = st.s || '';
+  const oVal     = st.o || '';
+  const out      = st.output || '';
+
+  const rowDim  = isDone ? 'opacity:.4;pointer-events:none;' : isHosp ? 'opacity:.4;' : '';
+  const dis     = isDone || isHosp ? 'disabled' : '';
+
+  let html = `<div style="${rowDim}">
+    <div class="h-row">
+      <span class="col-room">${esc(p.room)}</span>
+      <input class="name-input" type="text" value="${esc(p.name)}" ${dis}
+        onchange="updatePatientName('${esc(p.room)}',this.value)">
+      <textarea class="compact-ta" id="s-${esc(p.room)}" rows="1" ${dis}
+        oninput="storeInput('${esc(p.room)}','s',this.value);autoResize(this)">${esc(sVal)}</textarea>
+      <textarea class="compact-ta" id="o-${esc(p.room)}" rows="1" ${dis}
+        oninput="storeInput('${esc(p.room)}','o',this.value);autoResize(this)">${esc(oVal)}</textarea>
+      <div class="col-nc" style="pointer-events:${isDone?'none':'auto'}">
+        <input type="checkbox" class="cb-nc" ${noChange?'checked':''} ${dis}
+          onchange="toggleNoChange('${esc(p.room)}',this.checked)">
+      </div>
+      <div class="col-nc" style="pointer-events:auto;opacity:1;">
+        <label class="sw sw-danger" style="cursor:pointer">
+          <input type="checkbox" ${isHosp?'checked':''}
+            onchange="toggleHospitalized('${esc(p.room)}',this.checked)">
+          <div class="sw-track"></div>
+          <div class="sw-thumb"></div>
+        </label>
+      </div>
+      ${isDone
+        ? `<span class="badge badge-done" style="margin-top:5px">完了</span>`
+        : isHosp
+          ? `<span class="badge" style="background:#fff0f0;color:var(--red);margin-top:5px">入院中</span>`
+          : `<button class="btn btn-primary btn-sm" style="margin-top:2px"
+               id="gen-${esc(p.room)}" onclick="generateRecord('${esc(p.room)}')">作成</button>`}
+    </div>
+    <div id="err-${esc(p.room)}"></div>`;
+
+  // Output panel — shown only after generation
+  if (out && !isDone) {
+    html += `<div class="out-panel">
+      <div class="form-label" style="margin-bottom:6px">生成結果（編集可）</div>
+      <textarea id="out-${esc(p.room)}" rows="14" style="font-size:13px;line-height:1.8;"
+        oninput="inputState['${esc(p.room)}'].output=this.value">${esc(out)}</textarea>
+      <button class="btn btn-primary btn-full" style="margin-top:8px"
+        onclick="saveRecord('${esc(p.room)}')">✚ 一覧に追加して次の患者へ</button>
+    </div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+// ─── Patient interactions ─────────────────────────────────────────────────────
+function updatePatientName(room, name) {
+  const fac = getFac();
+  const p = fac?.patients.find(p => p.room === room);
+  if (p && name.trim()) { p.name = name.trim(); save(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+function onPtsChange(room, sel) {
+  if (!inputState[room]) inputState[room] = initSt(room);
+  if (sel.value === 'その他') {
+    const v = prompt('点数を入力してください（例：500点）');
+    if (v) { inputState[room].points = v; }
+    else { sel.value = inputState[room].points || '342点'; }
+  } else {
+    inputState[room].points = sel.value;
+  }
+}
+
+function storeInput(room, key, val) {
+  if (!inputState[room]) inputState[room] = initSt(room);
+  inputState[room][key] = val;
+}
+
+function initSt(room) {
+  const fac = getFac();
+  const p   = fac?.patients.find(p => p.room === room);
+  return { s:'', o:'', points: p?.defaultPoints||'342点', output:'', noChange:false };
+}
+
+function toggleExpand(room) {
+  if (expandedRoom === room) { expandedRoom = null; }
+  else {
+    expandedRoom = room;
+    if (!inputState[room]) inputState[room] = initSt(room);
+  }
+  renderApp();
+  if (expandedRoom) {
+    setTimeout(() => {
+      document.getElementById('panel-' + expandedRoom)
+        ?.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    }, 80);
+  }
+}
+
+function toggleNoChange(room, checked) {
+  if (!inputState[room]) inputState[room] = initSt(room);
+  inputState[room].noChange = checked;
+  renderApp();
+}
+
+function toggleHospitalized(room, checked) {
+  const fac = getFac();
+  const p = fac?.patients.find(p => p.room === room);
+  if (!p) return;
+  p.hospitalized = checked;
+  save();
+  renderApp();
+}
+
+function setPoints(room, pts) {
+  if (!inputState[room]) inputState[room] = initSt(room);
+  inputState[room].points = pts;
+  renderApp();
+}
+
+function setPointsOther(room) {
+  if (!inputState[room]) inputState[room] = initSt(room);
+  inputState[room].points = '';
+  renderApp();
+  setTimeout(() => document.getElementById('pts-' + room)?.focus(), 60);
+}
+
+// ─── Gemini ───────────────────────────────────────────────────────────────────
+async function generateRecord(room) {
+  const fac = getFac();
+  const p   = fac.patients.find(p => p.room === room);
+  const st  = inputState[room] || initSt(room);
+
+  const sEl   = document.getElementById('s-'    + room);
+  const oEl   = document.getElementById('o-'    + room);
+  const prevEl= document.getElementById('prev-' + room);
+  const sVal  = (sEl   ? sEl.value   : st.s)   .trim();
+  const oVal  = (oEl   ? oEl.value   : st.o)   .trim();
+  const prev  = (prevEl? prevEl.value: p.lastRecord||'').trim();
+  const pts   = st.points || p.defaultPoints;
+
+  if (sEl)   { st.s = sEl.value;   inputState[room] = st; }
+  if (oEl)   { st.o = oEl.value;   inputState[room] = st; }
+
+  const apiKey = localStorage.getItem(LS_API) || '';
+  const errEl  = document.getElementById('err-' + room);
+  errEl.innerHTML = '';
+
+  if (!apiKey) {
+    errEl.innerHTML = '<div class="err">⚠️ Gemini APIキーが未設定です。右上 ⚙️ から入力してください。</div>';
+    return;
+  }
+
+  const btn = document.getElementById('gen-' + room);
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> 生成中...';
+
+  const now      = new Date();
+  const reiwa    = now.getFullYear() - 2018;
+  const reiwaStr = `R${reiwa}.${now.getMonth()+1}`;
+  const dateStr  = `${now.getMonth()+1}/${now.getDate()}`;
+
+  const noChange = inputState[room]?.noChange || false;
+  const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange);
+
+  try {
+    const data = await callGemini(apiKey, prompt);
+    const text = normalize((data.candidates?.[0]?.content?.parts?.[0]?.text||'').trim());
+    inputState[room].output = text;
+    renderApp();
+    setTimeout(() => {
+      document.getElementById('out-' + room)?.scrollIntoView({ behavior:'smooth', block:'center' });
+    }, 120);
+  } catch(e) {
+    errEl.innerHTML = `<div class="err">⚠️ ${esc(e.message)}</div>`;
+    const b = document.getElementById('gen-' + room);
+    if (b) { b.disabled = false; b.innerHTML = '▶ 薬歴を生成'; }
+  }
+}
+
+function buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange=false) {
+  const hasA = fac.hasA;
+  const noChangeNote = noChange ? `
+【重要】今回は「変更なし」フラグが立っています。
+・##S##：（施設スタッフ）特に変わったことはなく過ごされています。落ち着いた療養が継続されています。
+・処方変更なしとして扱うこと。
+・##A##（Aあり施設のみ）：##OP##から2剤をピックアップし、効果が得られているか副作用（具体的症状）が出ていないかをアセスメントする。
+・##EP##：##OP##から2剤を抽出し副作用（具体的な症状）への注意を促す指導内容を作成する。「このままお薬を続けましょう」は不可。必ず薬の効果・副作用に言及すること。
+` : '';
+
+  if (hasA) {
+    // ナーシングホーム用（A あり：S・O・A・EP・OP）
+    return `あなたは在宅医療に特化した薬局に勤めるベテラン薬剤師として、施設訪問薬歴の作成を支援するAIです。薬学的管理に精通しており、特に緩和ケア・褥瘡領域に秀でた立場で記録を作成してください。
+${noChangeNote}
+【本日の日付】${reiwaStr}（${dateStr}）
+【算定点数】${pts}
+
+【今回のS入力】
+${sVal || '（入力なし）'}
+
+【今回のO入力（配薬日付・診察サマリなど）】
+${oVal || '（入力なし）'}
+
+【前回の記録】
+${prev || '（なし）'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【出力形式】余計な前置き・説明は一切加えず以下の形式のみで出力すること。
+
+##S##
+##O##
+##A##
+##EP##
+##OP##
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【各項目のルール】
+
+①##S##
+今回のS入力をうまく書き換えて記載する。
+冒頭に（施設スタッフ）または（本人）を入力内容から判断して付け、改行してから内容を記載する。
+
+②##O##
+原則1週間分の定期配薬を行う。O入力から以下の形式で記載する：
+定期訪問、定期配薬：
+・定時薬　○/○ー○/○　※処方変更なし（または変更内容を記載）
+
+医師診察同行がある場合（O入力に診察内容が含まれる場合）は上記の下に続けて記載する：
+【${dateStr}診察時サマリ】
+（診察内容）
+処方変更があれば「${reiwaStr}/${dateStr.split('/')[1]}　薬剤名　変更内容」の形式で追記する。
+
+③##A##
+・##O##で処方変更があった場合 → 変更をメインに##OP##の情報と照らし合わせた薬学的アセスメントを2〜3文で記載。なぜその薬が追加・変更になったか、作用機序・期待される効果・注意点を含める。
+・##O##に変更がない場合 → ##OP##内の現服用薬から2剤をピックアップし、効果が得られているか、副作用（具体的な症状名）が出ていないかをアセスメントする。
+いずれも長くしすぎないこと。
+
+④##EP##
+##A##の内容をメインに1〜2文で薬学的指導内容を作成する。変更がない場合は##OP##から2剤抽出し副作用（具体的な症状）への注意を促す。
+・「このままお薬を続けましょう」「安心しました」などの表現は不可。
+・必ず薬の効果・副作用に関する内容を含める。
+・##A##と同一内容にならないよう注意する。
+
+⑤##OP##
+前回の##OP##を一字一句変えずにそのまま転記する。
+・##O##で薬剤変更があった場合 → 該当する＃プロブレムに「${reiwaStr}/${dateStr.split('/')[1]}　変更内容」を追記。適切な＃がない場合のみ末尾に新規＃を追加。
+・★の部分 → 処方変更があればフォローアップ内容に上書き。★が2段になることは絶対に避ける。変更がなければ一字一句変えずに残す。
+フォーマット：＃プロブレムは行頭から、詳細内容は全角スペース1つでインデント。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【出力前の確認事項】
+1. 文字化け・記号の乱れ・全角半角の不自然な混在がないか
+2. ①〜⑤のルールに完全に適合しているか。特に##OP##の一字一句転記、★の2段化がないか、##EP##に薬の効果・副作用への言及があるか
+3. 前回記録にない情報を勝手に追加・創作していないか`;
+  }
+
+  // みつば用（A なし：S・O・EP・OP）
+  return `あなたは在宅医療に特化した薬局に勤めるベテラン薬剤師として、施設訪問薬歴の作成を支援するAIです。薬学的管理に精通しており、特に緩和ケア・褥瘡領域に秀でた立場で記録を作成してください。
+${noChangeNote}
+【本日の日付】${reiwaStr}（${dateStr}）
+【算定点数】${pts}
+
+【今回のS入力】
+${sVal || '（入力なし）'}
+
+【今回のO入力（診察時サマリ）】
+${oVal || '（入力なし）'}
+
+【前回の記録】
+${prev || '（なし）'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【出力形式】余計な前置き・説明は一切加えず以下の形式のみで出力すること。
+
+##S##
+##O##
+##EP##
+##OP##
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【各項目のルール】
+
+①##S##
+今回のS入力をうまく書き換えて記載する。
+冒頭に（施設スタッフ）または（本人）を入力内容から判断して付け、改行してから内容を記載する。
+
+②##O##
+前回の##O##の内容を基本的にそのまま引き継ぐ。
+【診察時サマリ】の日付を【${dateStr}診察時サマリ】に書き換え、今回のO入力内容に差し替える。
+処方変更があれば「${reiwaStr}/${dateStr.split('/')[1]}　薬剤名　変更内容」の形式で追記する。
+前回##O##内に採血データがある場合はそのまま残す。薬剤情報は変更があれば上書き、なければそのまま残す。
+
+③##EP##
+##O##で処方変更になった部分をメインに1〜2文で薬学的指導内容を作成する。
+変更がない場合は##OP##から1〜2剤を抽出し、副作用（具体的な症状）への注意を促す指導内容を作成する。
+・「このままお薬を続けましょう」などの表現は不可。
+・必ず薬の効果・副作用に関する内容を含める。
+
+④##OP##
+前回の##OP##を一字一句変えずにそのまま転記する。
+・##O##で薬剤変更があった場合 → 該当する＃プロブレムに「${reiwaStr}/${dateStr.split('/')[1]}　変更内容」を追記。適切な＃がない場合のみ末尾に新規＃を追加。
+・★の部分 → 処方変更があればフォローアップ内容に上書き。★が2段になることは絶対に避ける。変更がなければ一字一句変えずに残す。
+フォーマット：＃プロブレムは行頭から、詳細内容は全角スペース1つでインデント。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【出力前の確認事項】
+1. 文字化け・記号の乱れ・全角半角の不自然な混在がないか
+2. ①〜④のルールに完全に適合しているか。特に##OP##の一字一句転記、★の2段化がないか、##EP##に薬の効果・副作用への言及があるか
+3. 前回記録にない情報を勝手に追加・創作していないか`;
+}
+
+async function callGemini(apiKey, prompt) {
+  const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+  let lastErr = null;
+  for (const model of models) {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ contents:[{parts:[{text:prompt}]}],
+          generationConfig:{temperature:0.35} }) }
+    );
+    if (!res.ok) {
+      const err = await res.json();
+      lastErr = new Error(err.error?.message || `APIエラー(${res.status})`);
+      if (!lastErr.message.includes('overloaded') && !lastErr.message.includes('high demand')) throw lastErr;
+      continue;
+    }
+    return res.json();
+  }
+  throw lastErr || new Error('APIエラー');
+}
+
+// ─── Bulk S/O input ──────────────────────────────────────────────────────────
+function showBulkSOInput() {
+  showModal(`
+    <div class="form-group">
+      <div class="form-label">S/O一括入力</div>
+      <div class="text-xs text-p2" style="margin-bottom:8px">
+        形式：部屋番号　S内容　O内容（全角スペース区切り）<br>
+        例）201　落ち着いています。<br>
+        　　202　掻痒感が続いています。　レボセチリジン追加しています。
+      </div>
+      <textarea id="bulk-so-input" rows="12" style="font-size:13px;line-height:1.8;"
+        placeholder="201　落ち着いています。&#10;202　掻痒感が続いています。　レボセチリジン追加。"></textarea>
+    </div>
+  `, 'S/O一括入力',
+  `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+   <button class="btn btn-primary" onclick="applyBulkSO()">反映</button>`);
+}
+
+function applyBulkSO() {
+  const raw = document.getElementById('bulk-so-input')?.value || '';
+  const fac = getFac();
+  if (!fac) return;
+
+  let count = 0;
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const parts = trimmed.split('　');
+    const room = parts[0]?.trim();
+    if (!room || !fac.patients.find(p => p.room === room)) continue;
+    if (!inputState[room]) inputState[room] = initSt(room);
+    inputState[room].s = parts[1]?.trim() || '';
+    inputState[room].o = parts.slice(2).join('　').trim();
+    count++;
+  }
+
+  closeModal();
+  showToast(`${count}名分のS/Oを反映しました`);
+  renderApp();
+  // テキストエリアのサイズ調整
+  setTimeout(() => {
+    fac.patients.forEach(p => {
+      ['s-','o-'].forEach(pre => {
+        const el = document.getElementById(pre + p.room);
+        if (el) autoResize(el);
+      });
+    });
+  }, 50);
+}
+
+// ─── Bulk generate ───────────────────────────────────────────────────────────
+async function generateAll() {
+  const fac = getFac();
+  if (!fac) return;
+
+  const apiKey = localStorage.getItem(LS_API) || '';
+  if (!apiKey) {
+    showToast('⚠️ Gemini APIキーを設定してください');
+    return;
+  }
+
+  const pending = fac.patients.filter(p =>
+    !todayVisits.some(v => v.room === p.room) && !p.hospitalized
+  );
+  if (!pending.length) { showToast('全員完了済みです（入院中を除く）'); return; }
+
+  const btn = document.getElementById('bulk-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '生成中...'; }
+
+  let count = 0;
+  for (const p of pending) {
+    if (!inputState[p.room]) inputState[p.room] = initSt(p.room);
+    const st = inputState[p.room];
+
+    const now      = new Date();
+    const reiwa    = now.getFullYear() - 2018;
+    const reiwaStr = `R${reiwa}.${now.getMonth()+1}`;
+    const dateStr  = `${now.getMonth()+1}/${now.getDate()}`;
+    const pts      = st.points || p.defaultPoints;
+    const sVal     = st.s || '';
+    const oVal     = st.o || '';
+    const prev     = p.lastRecord || '';
+
+    showToast(`${p.room}号室 作成中… (${count+1}/${pending.length})`, 60000);
+
+    try {
+      const noChange = inputState[p.room]?.noChange || false;
+      const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange);
+      const data   = await callGemini(apiKey, prompt);
+      const text   = normalize((data.candidates?.[0]?.content?.parts?.[0]?.text||'').trim());
+
+      // Auto-save directly to today list
+      const rec = { room: p.room, name: p.name, points: pts, content: text };
+      const idx = todayVisits.findIndex(v => v.room === p.room);
+      if (idx >= 0) todayVisits[idx] = rec; else todayVisits.push(rec);
+      todayVisits.sort((a, b) => Number(a.room) - Number(b.room));
+      p.lastRecord  = text;
+      p.lastUpdated = fmtDate(now);
+      count++;
+      save();
+    } catch(e) {
+      if (e.message.includes('429') || e.message.includes('RESOURCE_EXHAUSTED') || e.message.includes('quota')) {
+        showToast(`レート制限に達しました。30秒待機中…`, 30000);
+        await new Promise(r => setTimeout(r, 30000));
+        // リトライ
+        try {
+          const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr);
+          const data   = await callGemini(apiKey, prompt);
+          const text   = normalize((data.candidates?.[0]?.content?.parts?.[0]?.text||'').trim());
+          const rec = { room: p.room, name: p.name, points: pts, content: text };
+          const idx = todayVisits.findIndex(v => v.room === p.room);
+          if (idx >= 0) todayVisits[idx] = rec; else todayVisits.push(rec);
+          p.lastRecord  = text;
+          p.lastUpdated = fmtDate(now);
+          count++;
+          save();
+        } catch(e2) {
+          showToast(`${p.room}号室 エラー: ${e2.message}`, 4000);
+        }
+      } else {
+        showToast(`${p.room}号室 エラー: ${e.message}`, 4000);
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+    // 7秒待機（無料枠：10リクエスト/分 = 6秒/リクエスト）
+    if (count < pending.length) {
+      showToast(`次の患者まで待機中… (${count}/${pending.length}完了)`, 7000);
+      await new Promise(r => setTimeout(r, 7000));
+    }
+  }
+
+  save();
+  showToast(`一括作成完了：${count}名`);
+  renderApp();
+}
+
+// ─── Save record ──────────────────────────────────────────────────────────────
+function saveRecord(room) {
+  const outEl   = document.getElementById('out-' + room);
+  const content = outEl ? outEl.value.trim() : (inputState[room]?.output || '');
+  if (!content) { showToast('生成結果がありません'); return; }
+
+  const fac = getFac();
+  const p   = fac.patients.find(p => p.room === room);
+  const pts = inputState[room]?.points || p.defaultPoints;
+
+  const rec = { room, name: p.name, points: pts, content };
+  const idx = todayVisits.findIndex(v => v.room === room);
+  if (idx >= 0) todayVisits[idx] = rec;
+  else todayVisits.push(rec);
+  todayVisits.sort((a, b) => Number(a.room) - Number(b.room));
+
+  // Update patient last record
+  p.lastRecord  = content;
+  p.lastUpdated = fmtDate(new Date());
+
+  save();
+  expandedRoom = null;
+  delete inputState[room];
+  showToast(`${room}号室 ${p.name} を保存しました`);
+  renderApp();
+}
+
+// ─── Today list ───────────────────────────────────────────────────────────────
+function toggleToday(i) {
+  const body = document.getElementById('tb-' + i);
+  const chev = document.getElementById('tc-' + i);
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  if (chev) chev.textContent = open ? '▾' : '▸';
+}
+
+function removeToday(i) {
+  if (!confirm('この記録を削除しますか？')) return;
+  todayVisits.splice(i, 1);
+  save();
+  renderApp();
+}
+
+// ─── Download ─────────────────────────────────────────────────────────────────
+function downloadTxt() {
+  if (!todayVisits.length) { showToast('ダウンロードする記録がありません'); return; }
+  const fac = getFac();
+  const today = new Date();
+  const ds = `${today.getFullYear()}${pad(today.getMonth()+1)}${pad(today.getDate())}`;
+  const fname = `${fac?.name||'施設'}_${ds}.txt`;
+
+  const text = todayVisits.map(v =>
+    `${v.room}　${v.name}　${v.points}\n\n${v.content}`
+  ).join('\n\n\n');
+
+  const blob = new Blob([text], { type:'text/plain;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = fname; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Slack ────────────────────────────────────────────────────────────────────
+function sendSlack() {
+  const fac = getFac();
+  if (!fac?.slackToken || !fac?.slackChannel) {
+    showModal('<div class="err">⚠️ Slack設定が未完了です。⚙️設定からBotトークンとチャンネルIDを入力してください。</div>', 'Slack未設定');
+    return;
+  }
+  if (!localStorage.getItem(LS_PROXY)) {
+    showModal('<div class="err">⚠️ GAS Proxy URLが未設定です。⚙️設定から登録してください。</div>', 'GAS Proxy未設定');
+    return;
+  }
+  if (!todayVisits.length) { showToast('送信する記録がありません'); return; }
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+  const tmpl = fac.slackMessage || '{施設名}　{月}月{日}日に転記お願いします。';
+
+  showModal(`
+    <div class="form-group">
+      <div class="form-label">日付を選択</div>
+      <input type="date" id="slack-date" value="${todayStr}"
+        oninput="updateSlackPreview()" style="width:auto;">
+    </div>
+    <div class="form-group">
+      <div class="form-label">送信メッセージ（編集可）</div>
+      <input type="text" id="slack-msg-preview" value="">
+    </div>
+    <div class="text-xs text-p2" style="margin-top:4px">${todayVisits.length}名分のファイルを添付して送信します</div>
+  `, 'Slackに送信',
+  `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+   <button class="btn btn-primary" onclick="execSlackSend()">送信</button>`);
+
+  // 初期プレビューを生成
+  updateSlackPreview();
+}
+
+function updateSlackPreview() {
+  const fac      = getFac();
+  const dateEl   = document.getElementById('slack-date');
+  const previewEl= document.getElementById('slack-msg-preview');
+  if (!dateEl || !previewEl) return;
+
+  const [y, m, d] = dateEl.value.split('-');
+  const tmpl = fac.slackMessage || '{施設名}　{月}月{日}日に転記お願いします。';
+  previewEl.value = tmpl
+    .replace(/{施設名}/g, fac.name)
+    .replace(/{月}/g, String(Number(m)))
+    .replace(/{日}/g, String(Number(d)));
+}
+
+async function execSlackSend() {
+  const fac     = getFac();
+  const dateEl  = document.getElementById('slack-date');
+  const msgEl   = document.getElementById('slack-msg-preview');
+  const message = msgEl?.value || '';
+  const dateVal = dateEl?.value || '';
+  const ds      = dateVal.replace(/-/g, '');
+
+  closeModal();
+
+  const fname = `${fac.name}_${ds}.txt`;
+  const text  = todayVisits.map(v =>
+    `${v.room}　${v.name}　${v.points}\n\n${v.content}`
+  ).join('\n\n\n');
+
+  try {
+    const data = await callProxy({
+      token: fac.slackToken,
+      channelId: fac.slackChannel,
+      filename: fname,
+      content: text,
+      initialComment: message
+    });
+    if (!data.ok) throw new Error(data.error || 'unknown error');
+    showToast('Slackに送信しました ✓');
+  } catch(e) {
+    showToast('送信エラー: ' + e.message);
+  }
+}
+
+// ─── File import ──────────────────────────────────────────────────────────────
+function onDragOver(e)  { e.preventDefault(); document.getElementById('dz')?.classList.add('over'); }
+function onDragLeave()  { document.getElementById('dz')?.classList.remove('over'); }
+function onDrop(e)      { e.preventDefault(); document.getElementById('dz')?.classList.remove('over');
+  const f = e.dataTransfer.files[0]; if (f) readFile(f); }
+function onFileInput(e) { const f = e.target.files[0]; if (f) readFile(f); e.target.value = ''; }
+
+function readFile(file) {
+  const r = new FileReader();
+  r.onload = e => importText(e.target.result);
+  r.readAsText(file, 'UTF-8');
+}
+
+function importText(raw) {
+  const fac = getFac();
+  if (!fac) return;
+
+  const lines  = raw.split('\n');
+  const blocks = [];
+  let cur = null;
+
+  for (const line of lines) {
+    // 行頭の # を除去してから判定（###101　山田　太郎 などに対応）
+    const stripped = line.replace(/^[#＃]+/, '').trim();
+    const m = stripped.match(/^(\d{2,4})[　\s]*/);
+    if (m && stripped.length <= 30 && !stripped.match(/^##[SOAEP]/)) {
+      if (cur) blocks.push(cur);
+      const parts = stripped.split(/[　\s]+/);
+      const room = parts[0];
+      const pointsStr = parts.find(p => p.endsWith('点')) || '';
+      // 部屋番号・点数以外をすべて結合（姓名間スペース対応）
+      const nameParts = parts.slice(1).filter(p => !p.endsWith('点') && p.trim());
+      cur = {
+        room,
+        name  : nameParts.join(''),
+        points: pointsStr,
+        lines : []
+      };
+    } else if (cur) {
+      cur.lines.push(line);
+    }
+  }
+  if (cur) blocks.push(cur);
+
+  let added = 0, updated = 0;
+
+  for (const b of blocks) {
+    const rawBlock = b.lines.join('\n').trim();
+    if (!rawBlock) continue;
+    const start  = rawBlock.indexOf('##');
+    const record = start >= 0 ? rawBlock.substring(start).trim() : rawBlock;
+
+    const existing = fac.patients.find(p => p.room === b.room);
+    if (existing) {
+      existing.lastRecord  = record;
+      existing.lastUpdated = fmtDate(new Date());
+      if (b.name) existing.name = b.name;
+      if (b.points) existing.defaultPoints = b.points;
+      updated++;
+    } else {
+      fac.patients.push({
+        room         : b.room,
+        name         : b.name || `${b.room}号室`,
+        defaultPoints: b.points || '342点',
+        lastRecord   : record,
+        lastUpdated  : fmtDate(new Date())
+      });
+      added++;
+    }
+  }
+
+  fac.patients.sort((a, b) => Number(a.room) - Number(b.room));
+  save();
+  showToast(`取り込み完了：新規 ${added}名・更新 ${updated}名`);
+  renderApp();
+}
+
+// ─── Paste import ────────────────────────────────────────────────────────────
+function showPasteImport() {
+  showModal(`
+    <div class="form-group">
+      <div class="form-label">テキストを貼り付けて患者を追加・更新</div>
+      <div class="text-xs text-p2" style="margin-bottom:8px">
+        前回記録のテキストをそのまま貼り付けてください。<br>
+        既存の患者は薬歴が更新され、新規患者は追加されます。
+      </div>
+      <textarea id="paste-import-text" rows="14" style="font-size:12px;line-height:1.7;"
+        placeholder="101　田中花子　342点&#10;##S##&#10;..."></textarea>
+    </div>
+  `, 'テキストを貼り付けて追加',
+  `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+   <button class="btn btn-primary" onclick="execPasteImport()">取り込む</button>`);
+}
+
+function execPasteImport() {
+  const raw = document.getElementById('paste-import-text')?.value || '';
+  if (!raw.trim()) { showToast('テキストが入力されていません'); return; }
+  closeModal();
+  importText(raw);
+}
+
+// ─── Setup screen ─────────────────────────────────────────────────────────────
+function renderSetup() {
+  document.getElementById('action-bar').style.display = 'none';
+  document.getElementById('app').innerHTML = `
+    <div class="setup">
+      <div class="setup-icon">🏥</div>
+      <div class="setup-title">施設訪問記録</div>
+      <div class="setup-desc">最初に施設を登録してください。<br>複数施設に対応しています。</div>
+      <button class="btn btn-primary" style="padding:12px 32px;font-size:15px"
+        onclick="showAddFacility()">施設を追加する</button>
+    </div>`;
+}
+
+// ─── Modals ───────────────────────────────────────────────────────────────────
+function showModal(bodyHtml, title='', footerHtml='') {
+  document.getElementById('modal-root').innerHTML = `
+    <div class="overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        ${title ? `<div class="modal-hd">
+          <span class="modal-title">${title}</span>
+          <button class="icon-btn" onclick="closeModal()">✕</button>
+        </div>` : ''}
+        <div class="modal-body">${bodyHtml}</div>
+        ${footerHtml ? `<div class="modal-ft">${footerHtml}</div>` : ''}
+      </div>
+    </div>`;
+}
+function closeModal() { document.getElementById('modal-root').innerHTML = ''; }
+
+// ── Facility picker ──
+function showFacilityPicker() {
+  let html = '';
+  if (facilities.length === 0) {
+    html = '<div class="empty"><div class="empty-icon">🏥</div><p>施設が登録されていません</p></div>';
+  } else {
+    html = `<div class="card" style="margin:0">` +
+      facilities.map(f => `
+        <div class="p-row" style="cursor:pointer" onclick="selectFacility('${f.id}')">
+          <span style="flex:1;font-size:15px;font-weight:${f.id===currentFacId?'600':'400'}">${esc(f.name)}</span>
+          <span class="text-xs text-p2">${f.hasA?'A欄あり':'A欄なし'}</span>
+          ${f.id===currentFacId?'<span style="color:var(--blue)">✓</span>':''}
+        </div>`).join('') + `</div>`;
+  }
+  showModal(
+    html + `<button class="btn btn-ghost w100" style="margin-top:12px"
+      onclick="closeModal();showAddFacility()">＋ 施設を追加</button>`,
+    '施設を選択'
+  );
+}
+
+function selectFacility(id) {
+  currentFacId = id;
+  todayVisits  = [];
+  Object.keys(inputState).forEach(k => delete inputState[k]);
+  expandedRoom = null;
+  save();
+  closeModal();
+  renderApp();
+}
+
+// ── Add facility ──
+let _addHasA = false;
+function showAddFacility() {
+  _addHasA = false;
+  showModal(`
+    <div class="form-group">
+      <div class="form-label">施設名</div>
+      <input type="text" id="af-name" placeholder="例：みつば領家西1階">
+    </div>
+    <div class="form-group">
+      <div class="form-label">##A## 欄</div>
+      <div class="chips">
+        <button class="chip sel" id="af-no"  onclick="afSelectA(false)">なし（S・O・EP・OP）</button>
+        <button class="chip"     id="af-yes" onclick="afSelectA(true)">あり（S・O・A・EP・OP）</button>
+      </div>
+    </div>
+  `, '施設を追加',
+  `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+   <button class="btn btn-primary" onclick="addFacility()">追加</button>`);
+}
+
+function afSelectA(val) {
+  _addHasA = val;
+  document.getElementById('af-no') ?.classList.toggle('sel', !val);
+  document.getElementById('af-yes')?.classList.toggle('sel',  val);
+}
+
+function addFacility() {
+  const name = document.getElementById('af-name')?.value.trim();
+  if (!name) { alert('施設名を入力してください'); return; }
+  const fac = {
+    id: Date.now().toString(), name, hasA: _addHasA,
+    noChangeS: '特に変わったことはなく過ごされています。落ち着いた療養が出来ています。',
+    noChangeO: '内科的に特に問題はない。現行治療で継続。\n※処方変更なし。',
+    slackToken: '', slackChannel: '',
+    slackMessage: '{施設名}　{月}月{日}日に転記お願いします。',
+    patients: []
+  };
+  facilities.push(fac);
+  currentFacId = fac.id;
+  save();
+  closeModal();
+  renderApp();
+}
+
+// ── Settings ──
+let _sHasA = false;
+function showSettings() {
+  const fac    = getFac();
+  const apiKey = localStorage.getItem(LS_API) || '';
+  const proxy  = localStorage.getItem(LS_PROXY) || '';
+  _sHasA = fac?.hasA || false;
+
+  showModal(`
+    <div class="form-group">
+      <div class="form-label">Gemini APIキー</div>
+      <input type="password" id="s-api" value="${esc(apiKey)}" placeholder="AIza...">
+    </div>
+    <div class="form-group">
+      <div class="form-label">GAS Proxy URL <span style="font-weight:400;color:var(--p3)">Slack送信の中継（全施設共通）</span></div>
+      <input type="text" id="s-proxy" value="${esc(proxy)}" placeholder="https://script.google.com/macros/s/.../exec" style="font-family:monospace;font-size:12px;">
+    </div>
+    ${fac ? `
+    <hr>
+    <div style="font-size:13px;font-weight:600;color:var(--p2);margin-bottom:10px">
+      施設設定：${esc(fac.name)}</div>
+    <div class="form-group">
+      <div class="form-label">##A## 欄</div>
+      <div class="chips" id="s-chips">
+        <button class="chip ${!_sHasA?'sel':''}" onclick="sSelectA(false)">なし</button>
+        <button class="chip ${_sHasA?'sel':''}"  onclick="sSelectA(true)">あり</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">「変更なし」S 定型文</div>
+      <textarea id="s-nos" rows="2">${esc(fac.noChangeS||'')}</textarea>
+    </div>
+    <div class="form-group">
+      <div class="form-label">「変更なし」O 定型文</div>
+      <textarea id="s-noo" rows="2">${esc(fac.noChangeO||'')}</textarea>
+    </div>
+    <hr>
+    <div style="font-size:13px;font-weight:600;color:var(--p2);margin-bottom:10px">Slack設定</div>
+    <div class="form-group">
+      <div class="form-label">Bot トークン <span style="font-weight:400;color:var(--p3)">xoxb-...</span></div>
+      <input type="password" id="s-token" value="${esc(fac.slackToken||'')}" placeholder="xoxb-...">
+    </div>
+    <div class="form-group">
+      <div class="form-label">チャンネルID <span style="font-weight:400;color:var(--p3)">C...</span></div>
+      <input type="text" id="s-ch" value="${esc(fac.slackChannel||'')}" placeholder="C0XXXXXXXXX">
+    </div>
+    <div class="form-group">
+      <div class="form-label">送信メッセージ
+        <span style="font-weight:400;color:var(--p3)">{施設名} {月} {日} が使えます</span>
+      </div>
+      <input type="text" id="s-msg" value="${esc(fac.slackMessage||'{施設名}　{月}月{日}日に転記お願いします。')}">
+    </div>
+    <hr>
+    <button class="btn btn-danger w100"
+      onclick="if(confirm('本日の記録をすべてリセットしますか？'))resetToday()">
+      本日の記録をリセット</button>
+    <button class="btn btn-danger w100" style="margin-top:8px"
+      onclick="if(confirm('この施設を削除しますか？'))deleteFacility()">
+      この施設を削除</button>
+    ` : ''}
+  `, '設定',
+  `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+   <button class="btn btn-primary" onclick="saveSettings()">保存</button>`);
+}
+
+function sSelectA(val) {
+  _sHasA = val;
+  const chips = document.getElementById('s-chips');
+  chips?.querySelectorAll('.chip').forEach((c,i) => c.classList.toggle('sel', i===(val?1:0)));
+}
+
+function saveSettings() {
+  const apiKey = document.getElementById('s-api')?.value.trim();
+  if (apiKey) localStorage.setItem(LS_API, apiKey);
+
+  const proxy = document.getElementById('s-proxy')?.value.trim();
+  if (proxy) localStorage.setItem(LS_PROXY, proxy);
+  else localStorage.removeItem(LS_PROXY);
+
+  const fac = getFac();
+  if (fac) {
+    fac.hasA = _sHasA;
+    const nos = document.getElementById('s-nos'); if (nos) fac.noChangeS = nos.value;
+    const noo = document.getElementById('s-noo'); if (noo) fac.noChangeO = noo.value;
+    const tok = document.getElementById('s-token'); if (tok) fac.slackToken   = tok.value.trim();
+    const ch  = document.getElementById('s-ch');    if (ch)  fac.slackChannel = ch.value.trim();
+    const msg = document.getElementById('s-msg');   if (msg) fac.slackMessage = msg.value;
+  }
+  save(); closeModal(); showToast('設定を保存しました');
+}
+
+function resetToday() {
+  todayVisits = []; save(); closeModal(); renderApp();
+}
+
+function deleteFacility() {
+  facilities = facilities.filter(f => f.id !== currentFacId);
+  currentFacId = facilities[0]?.id || null;
+  todayVisits = [];
+  save(); closeModal(); renderApp();
+}
+
+// ── Patient manager ──
+function showPatientMgr() {
+  const fac = getFac();
+  if (!fac) { showToast('施設を選択してください'); return; }
+
+  let listHtml = '';
+  if (fac.patients.length === 0) {
+    listHtml = '<div class="empty"><div class="empty-icon">👥</div><p>患者が登録されていません</p></div>';
+  } else {
+    listHtml = `<div class="card" style="margin-bottom:12px">` +
+      fac.patients.map((p, i) => `
+        <div class="p-row">
+          <span class="p-room">${esc(p.room)}</span>
+          <span class="p-name">${esc(p.name)}</span>
+          <span class="p-pts">${esc(p.defaultPoints)}</span>
+          <button class="btn btn-ghost btn-sm" onclick="showEditPatient(${i})">編集</button>
+          <button class="btn btn-danger btn-sm" onclick="deletePatient(${i})">削除</button>
+        </div>`).join('') + `</div>`;
+  }
+
+  showModal(
+    listHtml + `<button class="btn btn-ghost w100" onclick="showAddPatient()">＋ 患者を追加</button>`,
+    `患者管理（${esc(fac.name)}）`
+  );
+}
+
+// ── Add patient ──
+let _apPts = '342点';
+function showAddPatient() {
+  _apPts = '342点';
+  showModal(`
+    <div class="form-group">
+      <div class="form-label">部屋番号</div>
+      <input type="text" id="ap-room" placeholder="例：101">
+    </div>
+    <div class="form-group">
+      <div class="form-label">氏名</div>
+      <input type="text" id="ap-name" placeholder="例：田中 花子">
+    </div>
+    <div class="form-group">
+      <div class="form-label">デフォルト算定点数</div>
+      <div class="chips" id="ap-chips">
+        <button class="chip sel" onclick="apPts(this,'342点')">342点</button>
+        <button class="chip" onclick="apPts(this,'442点')">442点</button>
+        <button class="chip" onclick="apPts(this,'320点')">320点</button>
+        <button class="chip" onclick="apPts(this,'other')">その他</button>
+      </div>
+      <input type="text" id="ap-other" placeholder="点数を入力" style="display:none;margin-top:8px">
+    </div>
+    <div class="form-group">
+      <div class="form-label">
+        疾患名・薬剤名
+        <span style="font-weight:400;color:var(--p3)">新患OP生成用（任意）</span>
+      </div>
+      <textarea id="ap-dis" rows="5" placeholder="例：
+高血圧　アムロジピン5mg
+糖尿病　メトホルミン500mg
+不眠症　デエビゴ5mg"></textarea>
+    </div>
+  `, '患者を追加',
+  `<button class="btn btn-secondary" onclick="showPatientMgr()">戻る</button>
+   <button class="btn btn-primary" onclick="addPatient()">追加</button>`);
+}
+
+function apPts(btn, val) {
+  document.getElementById('ap-chips').querySelectorAll('.chip').forEach(c => c.classList.remove('sel'));
+  btn.classList.add('sel');
+  _apPts = val;
+  document.getElementById('ap-other').style.display = val === 'other' ? 'block' : 'none';
+}
+
+function addPatient() {
+  const fac   = getFac();
+  const room  = document.getElementById('ap-room')?.value.trim();
+  const name  = document.getElementById('ap-name')?.value.trim();
+  const other = document.getElementById('ap-other')?.value.trim();
+  const pts   = _apPts === 'other' ? other : _apPts;
+  const dis   = document.getElementById('ap-dis')?.value.trim();
+
+  if (!room) { alert('部屋番号を入力してください'); return; }
+  if (!name) { alert('氏名を入力してください'); return; }
+  if (fac.patients.find(p => p.room === room)) { alert(`${room}号室はすでに登録されています`); return; }
+
+  fac.patients.push({
+    room, name,
+    defaultPoints: pts || '342点',
+    lastRecord   : dis ? buildInitialOP(dis) : '',
+    lastUpdated  : dis ? fmtDate(new Date()) : ''
+  });
+  fac.patients.sort((a, b) => Number(a.room) - Number(b.room));
+  save();
+  showToast(`${room}号室 ${name} を追加しました`);
+  showPatientMgr();
+}
+
+function buildInitialOP(diseases) {
+  const lines = diseases.split('\n').filter(l => l.trim());
+  let op = '##OP##\n';
+  for (const line of lines) {
+    const parts   = line.trim().split(/[\s　]+/);
+    const disease = parts[0] || '';
+    const drugs   = parts.slice(1).join('、');
+    if (disease) {
+      op += `＃${disease}\n`;
+      if (drugs) op += `　・${drugs}\n`;
+    }
+  }
+  return op;
+}
+
+// ── Edit patient ──
+function showEditPatient(i) {
+  const fac = getFac();
+  const p   = fac.patients[i];
+  showModal(`
+    <div class="form-group">
+      <div class="form-label">部屋番号</div>
+      <input type="text" id="ep-room" value="${esc(p.room)}">
+    </div>
+    <div class="form-group">
+      <div class="form-label">氏名</div>
+      <input type="text" id="ep-name" value="${esc(p.name)}">
+    </div>
+    <div class="form-group">
+      <div class="form-label">デフォルト算定点数</div>
+      <input type="text" id="ep-pts" value="${esc(p.defaultPoints)}">
+    </div>
+    <div class="form-group">
+      <div class="form-label">
+        前回記録 / OP
+        <span class="text-xs text-p2">${p.lastUpdated ? '最終: '+p.lastUpdated : '新患'}</span>
+      </div>
+      <textarea id="ep-rec" rows="10" style="font-size:12px">${esc(p.lastRecord||'')}</textarea>
+    </div>
+  `, `${esc(p.room)}号室 ${esc(p.name)}`,
+  `<button class="btn btn-secondary" onclick="showPatientMgr()">キャンセル</button>
+   <button class="btn btn-primary" onclick="updatePatient(${i})">保存</button>`);
+}
+
+function updatePatient(i) {
+  const fac = getFac();
+  const p   = fac.patients[i];
+  p.room          = document.getElementById('ep-room')?.value.trim() || p.room;
+  p.name          = document.getElementById('ep-name')?.value.trim() || p.name;
+  p.defaultPoints = document.getElementById('ep-pts') ?.value.trim() || p.defaultPoints;
+  p.lastRecord    = document.getElementById('ep-rec') ?.value || '';
+  fac.patients.sort((a, b) => Number(a.room) - Number(b.room));
+  save(); showToast('更新しました'); showPatientMgr();
+}
+
+function deletePatient(i) {
+  const fac = getFac();
+  const p   = fac.patients[i];
+  if (!confirm(`${p.room}号室 ${p.name} を削除しますか？`)) return;
+  fac.patients.splice(i, 1);
+  save(); showPatientMgr();
+}
+
+// ─── Voice input ──────────────────────────────────────────────────────────────
+function startVoice(targetId) {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('音声入力はGoogle Chromeでご利用ください。'); return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (recognition && recTarget === targetId) { recognition.stop(); return; }
+  if (recognition) recognition.stop();
+  recognition = new SR();
+  recognition.lang = 'ja-JP'; recognition.continuous = true; recognition.interimResults = false;
+  recTarget = targetId;
+  const btn = document.querySelector(`button[onclick="startVoice('${targetId}')"]`);
+  if (btn) { btn.textContent = '⏹ 停止'; btn.classList.add('rec'); }
+  recognition.onresult = e => {
+    const ta = document.getElementById(targetId);
+    if (!ta) return;
+    let t = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
+    ta.value += (ta.value ? '\n' : '') + t;
+    const room = targetId.replace('s-', '');
+    if (inputState[room]) inputState[room].s = ta.value;
+  };
+  const resetBtn = () => {
+    const b = document.querySelector(`button[onclick="startVoice('${targetId}')"]`);
+    if (b) { b.textContent = '🎤 音声'; b.classList.remove('rec'); }
+    recTarget = null;
+  };
+  recognition.onend  = resetBtn;
+  recognition.onerror= resetBtn;
+  recognition.start();
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function normalize(t) {
+  return t
+    .replace(/㎎/g,'mg').replace(/㎜/g,'mm').replace(/㎝/g,'cm')
+    .replace(/㎞/g,'km').replace(/㎏/g,'kg').replace(/㎖/g,'mL')
+    .replace(/㏄/g,'cc').replace(/㎡/g,'m2').replace(/℃/g,'°C')
+    .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0)-0xFEE0))
+    .replace(/[Ａ-Ｚ]/g, s => String.fromCharCode(s.charCodeAt(0)-0xFEE0))
+    .replace(/[ａ-ｚ]/g, s => String.fromCharCode(s.charCodeAt(0)-0xFEE0));
+}
+
+function fmtDate(d) {
+  return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}`;
+}
+
+function pad(n) { return String(n).padStart(2,'0'); }
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let _toastTimer = null;
+function showToast(msg, ms=2400) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+</script>
+</body>
+</html>
