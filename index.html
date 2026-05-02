@@ -212,6 +212,7 @@ hr{border:none;border-top:.5px solid var(--sep);margin:14px 0;}
     onclick="showFacilityPicker()" id="nav-fac">施設を選択 ▾</button>
   <span class="nav-date" id="nav-date"></span>
   <div class="flex-c gap-8">
+    <span id="settings-status" style="font-size:11px;color:var(--p2);white-space:nowrap;"></span>
     <button class="icon-btn" onclick="showPatientMgr()" title="患者管理">👥</button>
     <button class="icon-btn" onclick="showSettings()" title="設定">⚙️</button>
   </div>
@@ -262,6 +263,7 @@ window.addEventListener('DOMContentLoaded', () => {
   load();
   document.getElementById('nav-date').textContent = fmtDate(new Date());
   renderApp();
+  updateSettingsStatus();
 });
 
 function load() {
@@ -1146,6 +1148,7 @@ function selectFacility(id) {
   expandedRoom = null;
   save();
   closeModal();
+  updateSettingsStatus();
   renderApp();
 }
 
@@ -1265,6 +1268,15 @@ function sSelectA(val) {
   chips?.querySelectorAll('.chip').forEach((c,i) => c.classList.toggle('sel', i===(val?1:0)));
 }
 
+function updateSettingsStatus() {
+  const apiSet   = !!localStorage.getItem(LS_API);
+  const proxySet = !!localStorage.getItem(LS_PROXY);
+  const fac = getFac();
+  const slackSet = !!(fac?.slackToken && fac?.slackChannel && proxySet);
+  const el = document.getElementById('settings-status');
+  if (el) el.textContent = `API ${apiSet ? '✅' : '❌'}　Slack ${slackSet ? '✅' : '❌'}`;
+}
+
 function saveSettings() {
   const apiKey = document.getElementById('s-api')?.value.trim();
   if (apiKey) localStorage.setItem(LS_API, apiKey);
@@ -1282,7 +1294,7 @@ function saveSettings() {
     const ch  = document.getElementById('s-ch');    if (ch)  fac.slackChannel = ch.value.trim();
     const msg = document.getElementById('s-msg');   if (msg) fac.slackMessage = msg.value;
   }
-  save(); closeModal(); showToast('設定を保存しました');
+  save(); closeModal(); showToast('設定を保存しました'); updateSettingsStatus();
 }
 
 function resetToday() {
