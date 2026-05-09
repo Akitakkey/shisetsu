@@ -144,12 +144,6 @@ textarea:focus,input:focus,select:focus{
 .setup-title{font-size:22px;font-weight:600;margin-bottom:8px;}
 .setup-desc{font-size:15px;color:var(--p2);margin-bottom:28px;max-width:280px;line-height:1.6;}
 
-/* Voice */
-.voice-btn{padding:4px 10px;border-radius:20px;border:1px solid var(--blue);
-  background:transparent;color:var(--blue);font-size:11px;cursor:pointer;
-  transition:all .15s;font-family:inherit;}
-.voice-btn:hover{background:var(--blue-bg);}
-.voice-btn.rec{background:var(--red);color:#fff;border-color:var(--red);animation:pulse 1s infinite;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
 
 /* Spinner */
@@ -255,8 +249,6 @@ let currentFacId = null;
 let todayVisits  = [];
 let expandedRoom = null;
 const inputState = {}; // room -> {s, o, points, output, noChange}
-let recognition  = null;
-let recTarget    = null;
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
@@ -1494,38 +1486,6 @@ function deletePatient(i) {
   if (!confirm(`${p.room}号室 ${p.name} を削除しますか？`)) return;
   fac.patients.splice(i, 1);
   save(); showPatientMgr();
-}
-
-// ─── Voice input ──────────────────────────────────────────────────────────────
-function startVoice(targetId) {
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    alert('音声入力はGoogle Chromeでご利用ください。'); return;
-  }
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (recognition && recTarget === targetId) { recognition.stop(); return; }
-  if (recognition) recognition.stop();
-  recognition = new SR();
-  recognition.lang = 'ja-JP'; recognition.continuous = true; recognition.interimResults = false;
-  recTarget = targetId;
-  const btn = document.querySelector(`button[onclick="startVoice('${targetId}')"]`);
-  if (btn) { btn.textContent = '⏹ 停止'; btn.classList.add('rec'); }
-  recognition.onresult = e => {
-    const ta = document.getElementById(targetId);
-    if (!ta) return;
-    let t = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
-    ta.value += (ta.value ? '\n' : '') + t;
-    const room = targetId.replace('s-', '');
-    if (inputState[room]) inputState[room].s = ta.value;
-  };
-  const resetBtn = () => {
-    const b = document.querySelector(`button[onclick="startVoice('${targetId}')"]`);
-    if (b) { b.textContent = '🎤 音声'; b.classList.remove('rec'); }
-    recTarget = null;
-  };
-  recognition.onend  = resetBtn;
-  recognition.onerror= resetBtn;
-  recognition.start();
 }
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
