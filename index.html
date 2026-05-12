@@ -372,12 +372,7 @@ function buildRow(p, fac) {
   const hasShinsatsu = st.hasShinsatsu || false;
   const pts          = st.points !== undefined ? st.points : p.defaultPoints;
   const sVal         = st.s || '';
-  let   oVal         = st.o || '';
-  if (fac.hasA && !oVal) {
-    oVal = getOTemplate();
-    if (!inputState[p.room]) inputState[p.room] = initSt(p.room);
-    inputState[p.room].o = oVal;
-  }
+  const oVal         = st.oEdited ? (st.o || '') : (fac.hasA ? getOTemplate() : '');
   const out      = st.output || '';
 
   const rowDim  = isDone ? 'opacity:.4;pointer-events:none;' : isHosp ? 'opacity:.4;' : '';
@@ -459,12 +454,13 @@ function onPtsChange(room, sel) {
 function storeInput(room, key, val) {
   if (!inputState[room]) inputState[room] = initSt(room);
   inputState[room][key] = val;
+  if (key === 'o') inputState[room].oEdited = true;
 }
 
 function initSt(room) {
   const fac = getFac();
   const p   = fac?.patients.find(p => p.room === room);
-  return { s:'', o:'', points: p?.defaultPoints||'342点', output:'', noChange:false, hasShinsatsu:false };
+  return { s:'', o:'', oEdited:false, points: p?.defaultPoints||'342点', output:'', noChange:false, hasShinsatsu:false };
 }
 
 function getOTemplate() {
@@ -814,7 +810,7 @@ async function generateAll() {
     const dateStr  = `${now.getMonth()+1}/${now.getDate()}`;
     const pts      = st.points || p.defaultPoints;
     const sVal     = st.s || '';
-    const oVal     = st.o || '';
+    const oVal     = st.oEdited ? (st.o || '') : (fac.hasA ? getOTemplate() : '');
     const prev     = p.lastRecord || '';
 
     showToast(`${p.room}号室 作成中… (${count+1}/${pending.length})`, 60000);
