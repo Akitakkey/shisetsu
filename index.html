@@ -464,9 +464,12 @@ function initSt(room) {
 }
 
 function getOTemplate() {
-  const now = new Date();
-  const s = `${now.getMonth()+1}/${now.getDate()}`;
-  const end = new Date(now.getTime() + 6*24*60*60*1000);
+  const now   = new Date();
+  const day   = now.getDay(); // 0=日, 1=月, ..., 6=土
+  const daysToNextMonday = ((8 - day) % 7) || 7;
+  const start = new Date(now.getTime() + daysToNextMonday * 864e5);
+  const end   = new Date(start.getTime() + 6 * 864e5);
+  const s = `${start.getMonth()+1}/${start.getDate()}`;
   const e = `${end.getMonth()+1}/${end.getDate()}`;
   return `定期訪問、定期配薬：\n・定時薬　${s}ー${e}　※処方変更なし`;
 }
