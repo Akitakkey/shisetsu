@@ -224,12 +224,12 @@ hr{border:none;border-top:.5px solid var(--sep);margin:14px 0;}
 
 <script>
 // ─── Constants & State ────────────────────────────────────────────────────────
-const LS_FAC   = 'shisetsu_fac';
-const LS_CUR   = 'shisetsu_cur';
-const LS_TODAY = 'shisetsu_today';
-const LS_API   = 'shisetsu_api';
-const LS_PROXY = 'shisetsu_proxy_url';
-const LS_TDATE = 'shisetsu_today_date';
+const LS_FAC        = 'shisetsu_fac';
+const LS_CUR        = 'shisetsu_cur';
+const LS_TODAY      = 'shisetsu_today';
+const LS_CLAUDE_API = 'shisetsu_claude_api';
+const LS_PROXY      = 'shisetsu_proxy_url';
+const LS_TDATE      = 'shisetsu_today_date';
 
 // GASプロキシ経由でSlackに送る共通関数（CORS回避）
 async function callProxy(payload) {
@@ -488,7 +488,7 @@ function toggleHospitalized(room, checked) {
   renderApp();
 }
 
-// ─── Gemini ───────────────────────────────────────────────────────────────────
+// ─── Claude ───────────────────────────────────────────────────────────────────
 async function generateRecord(room) {
   const fac = getFac();
   const p   = fac.patients.find(p => p.room === room);
@@ -504,12 +504,17 @@ async function generateRecord(room) {
   if (sEl)   { st.s = sEl.value;   inputState[room] = st; }
   if (oEl)   { st.o = oEl.value;   inputState[room] = st; }
 
-  const apiKey = localStorage.getItem(LS_API) || '';
-  const errEl  = document.getElementById('err-' + room);
+  const apiKey  = localStorage.getItem(LS_CLAUDE_API) || '';
+  const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
+  const errEl   = document.getElementById('err-' + room);
   errEl.innerHTML = '';
 
   if (!apiKey) {
-    errEl.innerHTML = '<div class="err">⚠️ Gemini APIキーが未設定です。右上 ⚙️ から入力してください。</div>';
+    errEl.innerHTML = '<div class="err">⚠️ Claude APIキーが未設定です。右上 ⚙️ から入力してください。</div>';
+    return;
+  }
+  if (!proxyUrl) {
+    errEl.innerHTML = '<div class="err">⚠️ GAS Proxy URLが未設定です。右上 ⚙️ から入力してください。</div>';
     return;
   }
 
@@ -527,8 +532,7 @@ async function generateRecord(room) {
   const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
 
   try {
-    const data = await callGemini(apiKey, prompt);
-    const text = normalize((data.candidates?.[0]?.content?.parts?.[0]?.text||'').trim());
+    const text = normalize(await callClaude(apiKey, prompt));
     inputState[room].output = text;
     renderApp();
     setTimeout(() => {
@@ -686,27 +690,30 @@ ${prev || '（なし）'}
 3. 前回記録にない情報を勝手に追加・創作していないか`;
 }
 
-async function callGemini(apiKey, prompt) {
-  const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
-  let lastErr = null;
-  for (const model of models) {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: `あなたは訪問薬剤師の施設訪問記録作成を支援する専門アシスタントです。以下の方針で記載してください。\n・簡潔・正確な医療日本語で記載する\n・感情的表現・共感表現・励まし・お気持ち系の言葉は一切使わない\n・薬剤師としての専門的視点（薬効・副作用・相互作用）から客観的に記録する\n・患者の「気持ち」ではなく「状態」を記録する` }] },
-          contents:[{parts:[{text:prompt}]}],
-          generationConfig:{temperature:0.35} }) }
-    );
-    if (!res.ok) {
-      const err = await res.json();
-      lastErr = new Error(err.error?.message || `APIエラー(${res.status})`);
-      if (!lastErr.message.includes('overloaded') && !lastErr.message.includes('high demand')) throw lastErr;
-      continue;
-    }
-    return res.json();
-  }
-  throw lastErr || new Error('APIエラー');
+async function callClaude(apiKey, prompt) {
+  const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
+  if (!proxyUrl) throw new Error('GAS Proxy URLが未設定です');
+
+  const res = await fetch(proxyUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: JSON.stringify({
+      type: 'claude',
+      apiKey,
+      model: 'claude-haiku-4-5-20251001',
+      maxTokens: 4096,
+      system: 'あなたは訪問薬剤師の施設訪問記録作成を支援する専門アシスタントです。以下の方針で記載してください。\n・簡潔・正確な医療日本語で記載する\n・感情的表現・共感表現・励まし・お気持ち系の言葉は一切使わない\n・薬剤師としての専門的視点（薬効・副作用・相互作用）から客観的に記録する\n・患者の「気持ち」ではなく「状態」を記録する',
+      messages: [{ role: 'user', content: prompt }]
+    }),
+    redirect: 'follow'
+  });
+
+  if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || `Claude APIエラー: ${data.error.type}`);
+  const text = data.content?.[0]?.text;
+  if (!text) throw new Error('レスポンスが空です');
+  return text;
 }
 
 // ─── Bulk S/O input ──────────────────────────────────────────────────────────
@@ -764,9 +771,14 @@ async function generateAll() {
   const fac = getFac();
   if (!fac) return;
 
-  const apiKey = localStorage.getItem(LS_API) || '';
+  const apiKey   = localStorage.getItem(LS_CLAUDE_API) || '';
+  const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
   if (!apiKey) {
-    showToast('⚠️ Gemini APIキーを設定してください');
+    showToast('⚠️ Claude APIキーを設定してください');
+    return;
+  }
+  if (!proxyUrl) {
+    showToast('⚠️ GAS Proxy URLを設定してください');
     return;
   }
 
@@ -791,17 +803,15 @@ async function generateAll() {
     const sVal     = st.s || '';
     const oVal     = st.o || '';
     const prev     = p.lastRecord || '';
-    const noChange     = inputState[p.room]?.noChange || false;
-    const hasShinsatsu = inputState[p.room]?.hasShinsatsu || false;
+    const noChange     = st.noChange || false;
+    const hasShinsatsu = st.hasShinsatsu || false;
 
     showToast(`${p.room}号室 作成中… (${count+1}/${pending.length})`, 60000);
 
     try {
       const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
-      const data   = await callGemini(apiKey, prompt);
-      const text   = normalize((data.candidates?.[0]?.content?.parts?.[0]?.text||'').trim());
+      const text   = normalize(await callClaude(apiKey, prompt));
 
-      // Auto-save directly to today list
       const rec = { room: p.room, name: p.name, points: pts, content: text };
       const idx = todayVisits.findIndex(v => v.room === p.room);
       if (idx >= 0) todayVisits[idx] = rec; else todayVisits.push(rec);
@@ -811,14 +821,12 @@ async function generateAll() {
       count++;
       save();
     } catch(e) {
-      if (e.message.includes('429') || e.message.includes('RESOURCE_EXHAUSTED') || e.message.includes('quota')) {
-        showToast(`レート制限に達しました。30秒待機中…`, 30000);
-        await new Promise(r => setTimeout(r, 30000));
-        // リトライ
+      if (e.message.includes('429') || e.message.includes('rate_limit') || e.message.includes('overloaded')) {
+        showToast(`レート制限に達しました。10秒待機中…`, 10000);
+        await new Promise(r => setTimeout(r, 10000));
         try {
           const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
-          const data   = await callGemini(apiKey, prompt);
-          const text   = normalize((data.candidates?.[0]?.content?.parts?.[0]?.text||'').trim());
+          const text   = normalize(await callClaude(apiKey, prompt));
           const rec = { room: p.room, name: p.name, points: pts, content: text };
           const idx = todayVisits.findIndex(v => v.room === p.room);
           if (idx >= 0) todayVisits[idx] = rec; else todayVisits.push(rec);
@@ -831,13 +839,8 @@ async function generateAll() {
         }
       } else {
         showToast(`${p.room}号室 エラー: ${e.message}`, 4000);
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 1000));
       }
-    }
-    // 7秒待機（無料枠：10リクエスト/分 = 6秒/リクエスト）
-    if (count < pending.length) {
-      showToast(`次の患者まで待機中… (${count}/${pending.length}完了)`, 7000);
-      await new Promise(r => setTimeout(r, 7000));
     }
   }
 
@@ -1202,14 +1205,14 @@ function addFacility() {
 let _sHasA = false;
 function showSettings() {
   const fac    = getFac();
-  const apiKey = localStorage.getItem(LS_API) || '';
+  const apiKey = localStorage.getItem(LS_CLAUDE_API) || '';
   const proxy  = localStorage.getItem(LS_PROXY) || '';
   _sHasA = fac?.hasA || false;
 
   showModal(`
     <div class="form-group">
-      <div class="form-label">Gemini APIキー</div>
-      <input type="password" id="s-api" value="${esc(apiKey)}" placeholder="AIza...">
+      <div class="form-label">Claude APIキー</div>
+      <input type="password" id="s-api" value="${esc(apiKey)}" placeholder="sk-ant-...">
     </div>
     <div class="form-group">
       <div class="form-label">GAS Proxy URL <span style="font-weight:400;color:var(--p3)">Slack送信の中継（全施設共通）</span></div>
@@ -1270,7 +1273,7 @@ function sSelectA(val) {
 }
 
 function updateSettingsStatus() {
-  const apiSet   = !!localStorage.getItem(LS_API);
+  const apiSet   = !!localStorage.getItem(LS_CLAUDE_API);
   const proxySet = !!localStorage.getItem(LS_PROXY);
   const fac = getFac();
   const slackSet = !!(fac?.slackToken && fac?.slackChannel && proxySet);
@@ -1280,7 +1283,7 @@ function updateSettingsStatus() {
 
 function saveSettings() {
   const apiKey = document.getElementById('s-api')?.value.trim();
-  if (apiKey) localStorage.setItem(LS_API, apiKey);
+  if (apiKey) localStorage.setItem(LS_CLAUDE_API, apiKey);
 
   const proxy = document.getElementById('s-proxy')?.value.trim();
   if (proxy) localStorage.setItem(LS_PROXY, proxy);
