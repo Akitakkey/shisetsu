@@ -229,6 +229,7 @@ const LS_CUR   = 'shisetsu_cur';
 const LS_TODAY = 'shisetsu_today';
 const LS_API   = 'shisetsu_api';
 const LS_PROXY = 'shisetsu_proxy_url';
+const LS_TDATE = 'shisetsu_today_date';
 
 // GASプロキシ経由でSlackに送る共通関数（CORS回避）
 async function callProxy(payload) {
@@ -247,7 +248,6 @@ async function callProxy(payload) {
 let facilities   = [];
 let currentFacId = null;
 let todayVisits  = [];
-let expandedRoom = null;
 const inputState = {}; // room -> {s, o, points, output, noChange}
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
@@ -263,11 +263,17 @@ function load() {
   try { todayVisits = JSON.parse(localStorage.getItem(LS_TODAY)  || '[]'); } catch { todayVisits = []; }
   currentFacId = localStorage.getItem(LS_CUR) || null;
   if (currentFacId && !facilities.find(f => f.id === currentFacId)) currentFacId = null;
+  // 日付が変わっていたら本日完了分をリセット
+  if (localStorage.getItem(LS_TDATE) !== fmtDate(new Date())) {
+    todayVisits = [];
+    localStorage.removeItem(LS_TODAY);
+  }
 }
 
 function save() {
   localStorage.setItem(LS_FAC,   JSON.stringify(facilities));
   localStorage.setItem(LS_TODAY, JSON.stringify(todayVisits));
+  localStorage.setItem(LS_TDATE, fmtDate(new Date()));
   if (currentFacId) localStorage.setItem(LS_CUR, currentFacId);
 }
 
@@ -440,27 +446,15 @@ function autoResize(el) {
   el.style.height = el.scrollHeight + 'px';
 }
 
-function onPtsChange(room, sel) {
-  if (!inputState[room]) inputState[room] = initSt(room);
-  if (sel.value === 'その他') {
-    const v = prompt('点数を入力してください（例：500点）');
-    if (v) { inputState[room].points = v; }
-    else { sel.value = inputState[room].points || '342点'; }
-  } else {
-    inputState[room].points = sel.value;
-  }
-}
-
 function storeInput(room, key, val) {
   if (!inputState[room]) inputState[room] = initSt(room);
   inputState[room][key] = val;
-  if (key === 'o') inputState[room].oEdited = true;
 }
 
 function initSt(room) {
   const fac = getFac();
   const p   = fac?.patients.find(p => p.room === room);
-  return { s:'', o:'', oEdited:false, points: p?.defaultPoints||'342点', output:'', noChange:false, hasShinsatsu:false };
+  return { s:'', o:'', points: p?.defaultPoints||'342点', output:'', noChange:false, hasShinsatsu:false };
 }
 
 function getDeliveryRange() {
@@ -472,21 +466,6 @@ function getDeliveryRange() {
   const s = `${start.getMonth()+1}/${start.getDate()}`;
   const e = `${end.getMonth()+1}/${end.getDate()}`;
   return { range: `${s}ー${e}`, start: s };
-}
-
-function toggleExpand(room) {
-  if (expandedRoom === room) { expandedRoom = null; }
-  else {
-    expandedRoom = room;
-    if (!inputState[room]) inputState[room] = initSt(room);
-  }
-  renderApp();
-  if (expandedRoom) {
-    setTimeout(() => {
-      document.getElementById('panel-' + expandedRoom)
-        ?.scrollIntoView({ behavior:'smooth', block:'nearest' });
-    }, 80);
-  }
 }
 
 function toggleNoChange(room, checked) {
@@ -509,31 +488,17 @@ function toggleHospitalized(room, checked) {
   renderApp();
 }
 
-function setPoints(room, pts) {
-  if (!inputState[room]) inputState[room] = initSt(room);
-  inputState[room].points = pts;
-  renderApp();
-}
-
-function setPointsOther(room) {
-  if (!inputState[room]) inputState[room] = initSt(room);
-  inputState[room].points = '';
-  renderApp();
-  setTimeout(() => document.getElementById('pts-' + room)?.focus(), 60);
-}
-
 // ─── Gemini ───────────────────────────────────────────────────────────────────
 async function generateRecord(room) {
   const fac = getFac();
   const p   = fac.patients.find(p => p.room === room);
   const st  = inputState[room] || initSt(room);
 
-  const sEl   = document.getElementById('s-'    + room);
-  const oEl   = document.getElementById('o-'    + room);
-  const prevEl= document.getElementById('prev-' + room);
-  const sVal  = (sEl   ? sEl.value   : st.s)   .trim();
-  const oVal  = (oEl   ? oEl.value   : st.o)   .trim();
-  const prev  = (prevEl? prevEl.value: p.lastRecord||'').trim();
+  const sEl   = document.getElementById('s-' + room);
+  const oEl   = document.getElementById('o-' + room);
+  const sVal  = (sEl ? sEl.value : st.s).trim();
+  const oVal  = (oEl ? oEl.value : st.o).trim();
+  const prev  = (p.lastRecord || '').trim();
   const pts   = st.points || p.defaultPoints;
 
   if (sEl)   { st.s = sEl.value;   inputState[room] = st; }
@@ -572,7 +537,7 @@ async function generateRecord(room) {
   } catch(e) {
     errEl.innerHTML = `<div class="err">⚠️ ${esc(e.message)}</div>`;
     const b = document.getElementById('gen-' + room);
-    if (b) { b.disabled = false; b.innerHTML = '▶ 薬歴を生成'; }
+    if (b) { b.disabled = false; b.innerHTML = '作成'; }
   }
 }
 
@@ -580,8 +545,8 @@ function buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange=
   const hasA = fac.hasA;
   const noChangeNote = noChange ? `
 【重要】今回は「変更なし」フラグが立っています。
-・##S##：（施設スタッフ）特に変わったことはなく過ごされています。落ち着いた療養が継続されています。
-・処方変更なしとして扱うこと。
+・##S##：「${fac.noChangeS || '特に変わったことはなく過ごされています。落ち着いた療養が出来ています。'}」を ##S## の内容とし、冒頭に（施設スタッフ）を付ける。
+・##O##：診察時サマリ部分を「${fac.noChangeO || '内科的に特に問題はない。現行治療で継続。\n※処方変更なし。'}」とする。処方変更なしとして扱う。
 ・##A##（Aあり施設のみ）：##OP##から2剤をピックアップし、効果が得られているか副作用（具体的症状）が出ていないかをアセスメントする。
 ・##EP##：##OP##から2剤を抽出し副作用（具体的な症状）への注意を促す指導内容を作成する。「このままお薬を続けましょう」は不可。必ず薬の効果・副作用に言及すること。
 ` : '';
@@ -823,12 +788,13 @@ async function generateAll() {
     const sVal     = st.s || '';
     const oVal     = st.o || '';
     const prev     = p.lastRecord || '';
+    const noChange     = inputState[p.room]?.noChange || false;
+    const hasShinsatsu = inputState[p.room]?.hasShinsatsu || false;
 
     showToast(`${p.room}号室 作成中… (${count+1}/${pending.length})`, 60000);
 
     try {
-      const noChange = inputState[p.room]?.noChange || false;
-      const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange);
+      const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
       const data   = await callGemini(apiKey, prompt);
       const text   = normalize((data.candidates?.[0]?.content?.parts?.[0]?.text||'').trim());
 
@@ -847,7 +813,7 @@ async function generateAll() {
         await new Promise(r => setTimeout(r, 30000));
         // リトライ
         try {
-          const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr);
+          const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
           const data   = await callGemini(apiKey, prompt);
           const text   = normalize((data.candidates?.[0]?.content?.parts?.[0]?.text||'').trim());
           const rec = { room: p.room, name: p.name, points: pts, content: text };
@@ -898,7 +864,6 @@ function saveRecord(room) {
   p.lastUpdated = fmtDate(new Date());
 
   save();
-  expandedRoom = null;
   delete inputState[room];
   showToast(`${room}号室 ${p.name} を保存しました`);
   renderApp();
@@ -1171,10 +1136,14 @@ function showFacilityPicker() {
 }
 
 function selectFacility(id) {
+  if (id === currentFacId) { closeModal(); return; }
+  if (todayVisits.length &&
+      !confirm('施設を切り替えると本日完了分の一覧が消えます。よろしいですか？')) {
+    return;
+  }
   currentFacId = id;
   todayVisits  = [];
   Object.keys(inputState).forEach(k => delete inputState[k]);
-  expandedRoom = null;
   save();
   closeModal();
   updateSettingsStatus();
