@@ -372,7 +372,7 @@ function buildRow(p, fac) {
   const hasShinsatsu = st.hasShinsatsu || false;
   const pts          = st.points !== undefined ? st.points : p.defaultPoints;
   const sVal         = st.s || '';
-  const oVal         = st.oEdited ? (st.o || '') : (fac.hasA ? getOTemplate() : '');
+  const oVal         = st.o || '';
   const out      = st.output || '';
 
   const rowDim  = isDone ? 'opacity:.4;pointer-events:none;' : isHosp ? 'opacity:.4;' : '';
@@ -387,6 +387,7 @@ function buildRow(p, fac) {
         oninput="storeInput('${esc(p.room)}','s',this.value);autoResize(this)">${esc(sVal)}</textarea>
       <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
         <textarea class="compact-ta" id="o-${esc(p.room)}" rows="1" ${dis}
+          placeholder="${fac.hasA ? '特記なし（例：5/22まで配薬）' : ''}"
           oninput="storeInput('${esc(p.room)}','o',this.value);autoResize(this)">${esc(oVal)}</textarea>
         ${fac.hasA ? `<label style="font-size:10px;color:var(--p2);display:flex;align-items:center;gap:3px;cursor:pointer;padding-left:2px;">
           <input type="checkbox" ${hasShinsatsu?'checked':''} ${dis}
@@ -463,15 +464,15 @@ function initSt(room) {
   return { s:'', o:'', oEdited:false, points: p?.defaultPoints||'342点', output:'', noChange:false, hasShinsatsu:false };
 }
 
-function getOTemplate() {
+function getDeliveryRange() {
   const now   = new Date();
-  const day   = now.getDay(); // 0=日, 1=月, ..., 6=土
+  const day   = now.getDay();
   const daysToNextMonday = ((8 - day) % 7) || 7;
   const start = new Date(now.getTime() + daysToNextMonday * 864e5);
   const end   = new Date(start.getTime() + 6 * 864e5);
   const s = `${start.getMonth()+1}/${start.getDate()}`;
   const e = `${end.getMonth()+1}/${end.getDate()}`;
-  return `定期訪問、定期配薬：\n・定時薬　${s}ー${e}　※処方変更なし`;
+  return { range: `${s}ー${e}`, start: s };
 }
 
 function toggleExpand(room) {
@@ -587,6 +588,7 @@ function buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange=
 ` : '';
 
   if (hasA) {
+    const { range: deliveryRange, start: deliveryStart } = getDeliveryRange();
     // ナーシングホーム用（A あり：S・O・A・EP・OP）
     return `あなたは在宅医療に特化した薬局に勤めるベテラン薬剤師として、施設訪問薬歴の作成を支援するAIです。薬学的管理に精通しており、特に緩和ケア・褥瘡領域に秀でた立場で記録を作成してください。
 ${noChangeNote}
@@ -619,11 +621,18 @@ ${prev || '（なし）'}
 入力内容の文脈から（施設スタッフ）または（本人）かを推定し、冒頭に付けて改行してから内容を記載する。入力に「本人」「家族」「娘さん」などの話者を示す語がある場合はそれを（　）で括った形式にする。
 
 ②##O##
-O入力の内容をそのまま記載する。
-${hasShinsatsu ? `医師診察同行あり。O入力の定期配薬情報の下に続けて以下の形式で診察サマリを記載する：
+配薬週：${deliveryRange}。以下のルールで配薬記録を組み立てる。
+・O入力が空欄の場合：
+　定期訪問、定期配薬：
+　・定時薬　${deliveryRange}　※処方変更なし
+・O入力がある場合：内容を解釈して配薬情報を構成する。
+　例）「5/22まで配薬」→ ・定時薬　${deliveryStart}ー5/22
+　例）「エンシュアH　5/22まで」→ ・定時薬　${deliveryRange}の下に・エンシュアH　5/22まで を追記
+　冒頭は必ず「定期訪問、定期配薬：」から始める。
+${hasShinsatsu ? `医師診察同行あり。配薬記録の下に続けて以下の形式で診察サマリを記載する：
 【${dateStr}診察時サマリ】
-（O入力に含まれる診察内容）
-処方変更があれば「${reiwaStr}/${dateStr.split('/')[1]}　薬剤名　変更内容」の形式で追記する。` : `医師診察同行なし。定期配薬の記録のみ記載する。処方変更があれば変更内容を追記する。`}
+（O入力に含まれる診察情報を記載）
+処方変更があれば「${reiwaStr}/${dateStr.split('/')[1]}　薬剤名　変更内容」の形式で追記する。` : `医師診察同行なし。`}
 
 ③##A##
 【大前提】AはOPの既存プロブレム（＃●●）を起点とする。##S##や##O##の内容はOPの既存プロブレムに照らし合わせて評価に反映するだけであり、SやOから直接新たなプロブレムを作ってはならない。
@@ -813,7 +822,7 @@ async function generateAll() {
     const dateStr  = `${now.getMonth()+1}/${now.getDate()}`;
     const pts      = st.points || p.defaultPoints;
     const sVal     = st.s || '';
-    const oVal     = st.oEdited ? (st.o || '') : (fac.hasA ? getOTemplate() : '');
+    const oVal     = st.o || '';
     const prev     = p.lastRecord || '';
 
     showToast(`${p.room}号室 作成中… (${count+1}/${pending.length})`, 60000);
