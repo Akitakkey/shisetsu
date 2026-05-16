@@ -387,7 +387,6 @@ function buildRow(p, fac) {
         oninput="storeInput('${esc(p.room)}','s',this.value);autoResize(this)">${esc(sVal)}</textarea>
       <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
         <textarea class="compact-ta" id="o-${esc(p.room)}" rows="1" ${dis}
-          placeholder="${fac.hasA ? '特記なし（例：5/22まで配薬）' : ''}"
           oninput="storeInput('${esc(p.room)}','o',this.value);autoResize(this)">${esc(oVal)}</textarea>
         ${fac.hasA ? `<label style="font-size:10px;color:var(--p2);display:flex;align-items:center;gap:3px;cursor:pointer;padding-left:2px;">
           <input type="checkbox" ${hasShinsatsu?'checked':''} ${dis}
