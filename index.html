@@ -320,7 +320,7 @@ function renderApp() {
       <div class="h-header">
         <span>室</span><span>氏名</span>
         <span>S（訴え）</span><span>O（診察サマリ）</span>
-        <span style="text-align:center">変更なし</span>
+        <span style="text-align:center">${fac.hasA ? '診察あり' : '変更なし'}</span>
         <span style="text-align:center">入院中</span>
         <span></span>
       </div>`;
@@ -388,13 +388,13 @@ function buildRow(p, fac) {
       <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
         <textarea class="compact-ta" id="o-${esc(p.room)}" rows="1" ${dis}
           oninput="storeInput('${esc(p.room)}','o',this.value);autoResize(this)">${esc(oVal)}</textarea>
-        ${fac.hasA ? `<label style="font-size:10px;color:var(--p2);display:flex;align-items:center;gap:3px;cursor:pointer;padding-left:2px;">
-          <input type="checkbox" ${hasShinsatsu?'checked':''} ${dis}
-            onchange="toggleShinsatsu('${esc(p.room)}',this.checked)">診察あり</label>` : ''}
       </div>
       <div class="col-nc" style="pointer-events:${isDone?'none':'auto'}">
-        <input type="checkbox" class="cb-nc" ${noChange?'checked':''} ${dis}
-          onchange="toggleNoChange('${esc(p.room)}',this.checked)">
+        ${fac.hasA
+          ? `<input type="checkbox" class="cb-nc" ${hasShinsatsu?'checked':''} ${dis}
+               onchange="toggleShinsatsu('${esc(p.room)}',this.checked)">`
+          : `<input type="checkbox" class="cb-nc" ${noChange?'checked':''} ${dis}
+               onchange="toggleNoChange('${esc(p.room)}',this.checked)">`}
       </div>
       <div class="col-nc" style="pointer-events:auto;opacity:1;">
         <label class="sw sw-danger" style="cursor:pointer">
