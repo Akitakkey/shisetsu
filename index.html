@@ -230,6 +230,7 @@ const LS_TODAY      = 'shisetsu_today';
 const LS_CLAUDE_API = 'shisetsu_claude_api';
 const LS_PROXY      = 'shisetsu_proxy_url';
 const LS_TDATE      = 'shisetsu_today_date';
+const LS_NAME       = 'shisetsu_pharmacist_name';
 
 // GASプロキシ経由でSlackに送る共通関数（CORS回避）
 async function callProxy(payload) {
@@ -962,11 +963,13 @@ function updateSlackPreview() {
   if (!dateEl || !previewEl) return;
 
   const [y, m, d] = dateEl.value.split('-');
-  const tmpl = fac.slackMessage || '{施設名}　{月}月{日}日に転記お願いします。';
+  const tmpl  = fac.slackMessage || '{施設名}　{月}月{日}日に転記お願いします。';
+  const pname = localStorage.getItem(LS_NAME) || '';
   previewEl.value = tmpl
     .replace(/{施設名}/g, fac.name)
     .replace(/{月}/g, String(Number(m)))
-    .replace(/{日}/g, String(Number(d)));
+    .replace(/{日}/g, String(Number(d)))
+    .replace(/{薬剤師名}/g, pname);
 }
 
 async function execSlackSend() {
@@ -1216,6 +1219,7 @@ function showSettings() {
   const fac    = getFac();
   const apiKey = localStorage.getItem(LS_CLAUDE_API) || '';
   const proxy  = localStorage.getItem(LS_PROXY) || '';
+  const pname  = localStorage.getItem(LS_NAME) || '';
   _sHasA = fac?.hasA || false;
 
   showModal(`
@@ -1226,6 +1230,10 @@ function showSettings() {
     <div class="form-group">
       <div class="form-label">GAS Proxy URL <span style="font-weight:400;color:var(--p3)">Slack送信の中継（全施設共通）</span></div>
       <input type="text" id="s-proxy" value="${esc(proxy)}" placeholder="https://script.google.com/macros/s/.../exec" style="font-family:monospace;font-size:12px;">
+    </div>
+    <div class="form-group">
+      <div class="form-label">薬剤師名 <span style="font-weight:400;color:var(--p3)">Slackメッセージの {薬剤師名} に使用</span></div>
+      <input type="text" id="s-name" value="${esc(pname)}" placeholder="例：山田 太郎">
     </div>
     ${fac ? `
     <hr>
@@ -1258,7 +1266,7 @@ function showSettings() {
     </div>
     <div class="form-group">
       <div class="form-label">送信メッセージ
-        <span style="font-weight:400;color:var(--p3)">{施設名} {月} {日} が使えます</span>
+        <span style="font-weight:400;color:var(--p3)">{施設名} {月} {日} {薬剤師名} が使えます</span>
       </div>
       <input type="text" id="s-msg" value="${esc(fac.slackMessage||'{施設名}　{月}月{日}日に転記お願いします。')}">
     </div>
@@ -1297,6 +1305,10 @@ function saveSettings() {
   const proxy = document.getElementById('s-proxy')?.value.trim();
   if (proxy) localStorage.setItem(LS_PROXY, proxy);
   else localStorage.removeItem(LS_PROXY);
+
+  const pname = document.getElementById('s-name')?.value.trim();
+  if (pname) localStorage.setItem(LS_NAME, pname);
+  else localStorage.removeItem(LS_NAME);
 
   const fac = getFac();
   if (fac) {
