@@ -710,7 +710,12 @@ async function callClaude(apiKey, prompt) {
 
   if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
   const data = await res.json();
-  if (data.error) throw new Error(data.error.message || `Claude APIエラー: ${data.error.type}`);
+  if (data.ok === false) throw new Error(typeof data.error === 'string' ? data.error : 'プロキシエラー');
+  if (data.error) {
+    const msg = typeof data.error === 'string' ? data.error
+      : (data.error.message || data.error.type || 'Claude APIエラー');
+    throw new Error(msg);
+  }
   const text = data.content?.[0]?.text;
   if (!text) throw new Error('レスポンスが空です');
   return text;
