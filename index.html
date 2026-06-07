@@ -259,6 +259,18 @@ window.addEventListener('DOMContentLoaded', () => {
   updateSettingsStatus();
 });
 
+// タッチキーボードを閉じて再度開いた際、フォーカス復元によるクリップボード自動ペーストを防ぐ
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && document.activeElement && document.activeElement.tagName !== 'BODY') {
+    document.activeElement.blur();
+  }
+});
+window.addEventListener('pageshow', e => {
+  if (e.persisted && document.activeElement && document.activeElement.tagName !== 'BODY') {
+    document.activeElement.blur();
+  }
+});
+
 function load() {
   try { facilities  = JSON.parse(localStorage.getItem(LS_FAC)   || '[]'); } catch { facilities = []; }
   try { todayVisits = JSON.parse(localStorage.getItem(LS_TODAY)  || '[]'); } catch { todayVisits = []; }
@@ -389,6 +401,7 @@ function buildRow(p, fac) {
     <div class="h-row">
       <span class="col-room">${esc(p.room)}</span>
       <input class="name-input" type="text" value="${esc(p.name)}" ${dis}
+        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
         onchange="updatePatientName('${esc(p.room)}',this.value)">
       <textarea class="compact-ta" id="s-${esc(p.room)}" rows="1" ${dis}
         oninput="storeInput('${esc(p.room)}','s',this.value);autoResize(this)">${esc(sVal)}</textarea>
