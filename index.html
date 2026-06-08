@@ -555,10 +555,33 @@ async function generateRecord(room) {
   try {
     const text = normalize(await callClaude(apiKey, prompt));
     inputState[room].output = text;
-    renderApp();
-    setTimeout(() => {
-      document.getElementById('out-' + room)?.scrollIntoView({ behavior:'smooth', block:'center' });
-    }, 120);
+
+    const errEl2 = document.getElementById('err-' + room);
+    const container = errEl2?.parentElement;
+    if (container) {
+      const existing = container.querySelector('.out-panel');
+      if (existing) existing.remove();
+      const panelDiv = document.createElement('div');
+      panelDiv.className = 'out-panel';
+      panelDiv.innerHTML = `
+        <div class="form-label" style="margin-bottom:6px">生成結果（編集可）</div>
+        <div id="out-${room}" contenteditable="true"
+          style="font-size:13px;line-height:1.8;white-space:pre-wrap;padding:9px 12px;
+                 border:1px solid var(--sep);border-radius:var(--rsm);background:var(--card);
+                 min-height:160px;outline:none;transition:border-color .15s,box-shadow .15s;
+                 word-break:break-all;"
+          onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(0,122,255,.12)'"
+          onblur="this.style.borderColor='';this.style.boxShadow=''"
+          oninput="inputState['${room}'].output=this.innerText"
+        >${renderBold(text)}</div>
+        <button class="btn btn-primary btn-full" style="margin-top:8px"
+          onclick="saveRecord('${room}')">✚ 一覧に追加して次の患者へ</button>
+      `;
+      container.appendChild(panelDiv);
+    }
+    const genBtn = document.getElementById('gen-' + room);
+    if (genBtn) { genBtn.disabled = false; genBtn.innerHTML = '作成'; }
+    showToast(`${p.name} の記録が完成しました ✓`, 3000);
   } catch(e) {
     errEl.innerHTML = `<div class="err">⚠️ ${esc(e.message)}</div>`;
     const b = document.getElementById('gen-' + room);
@@ -613,25 +636,33 @@ ${sVal.trim()
   : `S入力が空欄のため「${noChangeS}」を ##S## の内容とする。冒頭に（施設スタッフ）を付けて改行してから記載する。`}
 
 ②##O##
-配薬週：${deliveryRange}。以下のルールで配薬記録を組み立てる。
-・O入力が空欄の場合：
-　定期訪問、定期配薬：
-　・定時薬　${deliveryRange}　※処方変更なし
-・O入力がある場合：内容を解釈して配薬情報を構成する。
-　例）「5/22まで配薬」→ ・定時薬　${deliveryStart}ー5/22
-　例）「エンシュアH　5/22まで」→ ・定時薬　${deliveryRange}の下に・エンシュアH　5/22まで を追記
-　冒頭は必ず「定期訪問、定期配薬：」から始める。
+冒頭は必ず「定期訪問、定期配薬：」から始める。
+
+【定時薬の配薬期間】
+・O入力に期間指定（例：「定時薬 6/2-5」「6/2まで」「6/2ー6/5」「M/DーM/D」等）がある場合 → その期間をそのまま使う。自動計算値（${deliveryRange}）は絶対に使わない。
+・O入力に期間指定がない場合のみ → 自動計算値 ${deliveryRange} を使う。
+
+【追加薬剤】
+・O入力に「・薬剤名　数量」等の追加薬剤行がある場合 → 定時薬行の直下にそのまま全て追記する。内容は一切変えない。
+・O入力が空欄の場合 → ・定時薬　${deliveryRange}　※処方変更なし
+
+出力例（O入力「定時薬 6/2-5　・ヘパリン類似Cr 4本　・生食注 6本」の場合）：
+定期訪問、定期配薬：
+・定時薬　6/2ー5
+・ヘパリン類似Cr　4本
+・生食注　6本
+
 ${hasShinsatsu ? `医師診察同行あり。配薬記録の下に続けて以下の形式で診察サマリを記載する：
 【${dateStr}診察時サマリ】
 （O入力に含まれる診察情報を記載）
 処方変更があれば「M/D　薬剤名　変更内容」の形式で追記する（元号・西暦不要）。日付はO入力に「M/D～」等の指定があればその日付を使い（例：「5/29～」→ 5/29、「～」は除く）、指定がなければ「${dateStr}」を使う。` : `医師診察同行なし。`}
 
 ③##A##
-【大前提】AはOPの既存プロブレム（＃●●）を起点とする。##S##や##O##の内容はOPの既存プロブレムに照らし合わせて評価に反映するだけであり、SやOから直接新たなプロブレムを作ってはならない。
-・##O##で処方変更があった場合 → まず##OP##全体の＃プロブレム一覧を見渡し、変更薬に最も関連する既存プロブレムを起点に薬学的アセスメントを2〜3文で記載。なぜその薬が追加・変更になったか、作用機序・期待される効果・注意点を含める。
-・##O##に変更がない場合 → ##OP##内の現服用薬から2剤をピックアップし、効果が得られているか、副作用（具体的な症状名）が出ていないかをアセスメントする。
-・【バリエーション必須】前回の記録の ##A## セクションで取り上げたプロブレム・薬剤と重複しないよう、前回Aを参照して今回は異なるプロブレム・薬剤を選ぶこと。前回と同じ評価内容を繰り返すことは禁止。
-いずれも長くしすぎないこと。
+【大前提】AはOPの既存プロブレム（＃●●）を起点とする。SやOから直接新たなプロブレムを作ってはならない。
+・処方変更あり → ##OP##全体の＃プロブレム一覧を見渡し、変更薬に最も関連する既存プロブレムを起点に薬学的アセスメントを2〜3文で記載（短く）。また診察同行がある場合は、O入力（診察サマリ）に関連する薬剤のアセスメントも2〜3文追記（短く）。
+・処方変更なし → ##OP##内の現在も内服中の薬剤から2剤をピックアップし、効果が得られているか、副作用（具体的な症状名）が出ていないかをアセスメントする。※中止・終了・頓服・外用等で実際に内服していない薬剤は絶対に選ばないこと。
+・【バリエーション必須】前回の記録の ##A## セクションで取り上げた薬剤・プロブレムと重複しないよう、前回Aを参照して今回は必ず異なる薬剤・プロブレムを選ぶこと。
+いずれも短く簡潔に記載すること。
 
 ④##EP##
 以下の優先順位で薬学的指導内容を1〜2文で作成する。感情的表現・共感表現・お気持ち系の言葉は一切使わない。
