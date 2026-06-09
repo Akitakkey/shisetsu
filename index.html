@@ -171,7 +171,7 @@ hr{border:none;border-top:.5px solid var(--sep);margin:14px 0;}
 /* Horizontal patient row */
 .h-header,.h-row{
   display:grid;
-  grid-template-columns:36px minmax(68px,100px) 1fr 2fr 44px 44px 60px;
+  grid-template-columns:36px minmax(68px,100px) 1fr 2fr 44px 44px auto;
   gap:8px;padding:8px 12px;align-items:start;
 }
 .h-header{
@@ -428,7 +428,7 @@ function buildRow(p, fac) {
         ? `<span class="badge badge-done" style="margin-top:5px">完了</span>`
         : isHosp
           ? `<span class="badge" style="background:#fff0f0;color:var(--red);margin-top:5px">入院中</span>`
-          : `<button class="btn btn-primary btn-sm" style="margin-top:2px"
+          : `<button class="btn btn-primary btn-sm" style="margin-top:2px;white-space:nowrap"
                id="gen-${esc(p.room)}" onclick="generateRecord('${esc(p.room)}')">作成</button>`}
     </div>
     <div id="err-${esc(p.room)}"></div>`;
@@ -644,7 +644,9 @@ ${sVal.trim()
 
 【追加薬剤】
 ・O入力に「・薬剤名　数量」等の追加薬剤行がある場合 → 定時薬行の直下にそのまま全て追記する。内容は一切変えない。
-・O入力が空欄の場合 → ・定時薬　${deliveryRange}　※処方変更なし
+・O入力が空欄の場合：##O##に以下をそのまま一字一句出力すること（日付を自分で計算してはならない）：
+定期訪問、定期配薬：
+・定時薬　${deliveryRange}　※処方変更なし
 
 出力例（O入力「定時薬 6/2-5　・ヘパリン類似Cr 4本　・生食注 6本」の場合）：
 定期訪問、定期配薬：
