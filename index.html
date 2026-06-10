@@ -171,7 +171,7 @@ hr{border:none;border-top:.5px solid var(--sep);margin:14px 0;}
 /* Horizontal patient row */
 .h-header,.h-row{
   display:grid;
-  grid-template-columns:36px minmax(68px,100px) 1fr 2fr 44px 44px auto;
+  grid-template-columns:36px minmax(68px,100px) 1fr 2fr 44px 44px auto auto;
   gap:8px;padding:8px 12px;align-items:start;
 }
 .h-header{
@@ -365,7 +365,7 @@ function renderApp() {
         <span>S（訴え）</span><span>O（診察サマリ）</span>
         <span style="text-align:center">${fac.hasA ? '診察あり' : '変更なし'}</span>
         <span style="text-align:center">入院中</span>
-        <span></span>
+        <span></span><span></span>
       </div>`;
     fac.patients.forEach(p => { html += buildRow(p, fac); });
     html += `</div>
@@ -449,15 +449,15 @@ function buildRow(p, fac) {
         </label>
       </div>
       ${isDone
-        ? `<span class="badge badge-done" style="margin-top:5px">完了</span>`
+        ? `<span class="badge badge-done" style="margin-top:5px">完了</span><span></span>`
         : isHosp
-          ? `<span class="badge" style="background:#fff0f0;color:var(--red);margin-top:5px">入院中</span>`
-          : `<div style="display:flex;flex-direction:row;gap:4px;margin-top:2px;">
-               <button class="btn btn-primary btn-sm" style="white-space:nowrap"
-                 id="gen-${esc(p.room)}" onclick="generateRecord('${esc(p.room)}')">作成</button>
-               ${p.lastRecord ? `<button class="btn btn-secondary btn-sm" style="white-space:nowrap"
-                 onclick="showLastRecord('${esc(p.room)}')">前回</button>` : ''}
-             </div>`}
+          ? `<span class="badge" style="background:#fff0f0;color:var(--red);margin-top:5px">入院中</span><span></span>`
+          : `<button class="btn btn-primary btn-sm" style="margin-top:2px;white-space:nowrap"
+               id="gen-${esc(p.room)}" onclick="generateRecord('${esc(p.room)}')">作成</button>
+             ${p.lastRecord
+               ? `<button class="btn btn-secondary btn-sm" style="margin-top:2px;white-space:nowrap"
+                    onclick="showLastRecord('${esc(p.room)}')">前回</button>`
+               : '<span></span>'}`}
     </div>
     <div id="err-${esc(p.room)}"></div>`;
 
