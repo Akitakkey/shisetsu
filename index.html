@@ -276,7 +276,7 @@ function updateNavDate() {
     el.style.fontWeight = isToday ? 'normal' : '600';
   }
   const inp = document.getElementById('visit-date-input');
-  if (inp) inp.value = visitDate.toISOString().slice(0, 10);
+  if (inp) inp.value = fmtISO(visitDate);
 }
 
 function applyVisitDate(val) {
@@ -287,7 +287,7 @@ function applyVisitDate(val) {
 }
 
 function showVisitDateModal() {
-  const iso = visitDate.toISOString().slice(0, 10);
+  const iso = fmtISO(visitDate);
   showModal(`
     <div class="form-group">
       <div class="form-label">訪問日を選択</div>
@@ -420,6 +420,15 @@ function renderApp() {
   document.getElementById('app').innerHTML = html;
   document.getElementById('action-bar').style.display = done > 0 ? 'flex' : 'none';
 
+  // 入力済みS/Oテキストエリアの高さを内容に合わせる（overflow:hiddenのため必須）
+  if (fac) {
+    fac.patients.forEach(p => {
+      ['s-', 'o-'].forEach(pre => {
+        const el = document.getElementById(pre + p.room);
+        if (el && el.value) autoResize(el);
+      });
+    });
+  }
 }
 
 function buildRow(p, fac) {
@@ -522,7 +531,7 @@ function initSt(room) {
 }
 
 function getDeliveryRange() {
-  const now   = new Date();
+  const now   = visitDate;
   const day   = now.getDay();
   const daysToNextMonday = ((8 - day) % 7) || 7;
   const start = new Date(now.getTime() + daysToNextMonday * 864e5);
@@ -638,13 +647,13 @@ function showLastRecord(room) {
   if (!p?.lastRecord) return;
 
   if (!inputState[room]) inputState[room] = initSt(room);
-  inputState[room].output = p.lastRecord;
 
   const errEl    = document.getElementById('err-' + room);
   const container = errEl?.parentElement;
   if (!container) return;
   const existing = container.querySelector('.out-panel');
-  if (existing) { existing.remove(); return; }
+  if (existing) { existing.remove(); inputState[room].output = ''; return; }
+  inputState[room].output = p.lastRecord;
 
   const panelDiv = document.createElement('div');
   panelDiv.className = 'out-panel';
@@ -1036,7 +1045,7 @@ function saveRecord(room) {
 
   // Update patient last record
   p.lastRecord  = content;
-  p.lastUpdated = fmtDate(new Date());
+  p.lastUpdated = fmtDate(visitDate);
 
   save();
   delete inputState[room];
@@ -1064,7 +1073,7 @@ function removeToday(i) {
 function downloadTxt() {
   if (!todayVisits.length) { showToast('ダウンロードする記録がありません'); return; }
   const fac = getFac();
-  const today = new Date();
+  const today = visitDate;
   const ds = `${today.getFullYear()}${pad(today.getMonth()+1)}${pad(today.getDate())}`;
   const fname = `${fac?.name||'施設'}_${ds}.txt`;
 
@@ -1092,8 +1101,7 @@ function sendSlack() {
   }
   if (!todayVisits.length) { showToast('送信する記録がありません'); return; }
 
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+  const todayStr = fmtISO(visitDate);
   const tmpl = fac.slackMessage || '{施設名}　{月}月{日}日に転記お願いします。';
 
   showModal(`
@@ -1671,6 +1679,10 @@ function normalize(t) {
 
 function fmtDate(d) {
   return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}`;
+}
+
+function fmtISO(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
 
 function pad(n) { return String(n).padStart(2,'0'); }
