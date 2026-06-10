@@ -204,8 +204,10 @@ hr{border:none;border-top:.5px solid var(--sep);margin:14px 0;}
 <nav class="nav">
   <button class="btn btn-ghost" style="padding:4px 8px;font-size:16px;font-weight:600;"
     onclick="showFacilityPicker()" id="nav-fac">施設を選択 ▾</button>
-  <button class="btn btn-ghost" id="nav-date" onclick="showVisitDatePicker()"
+  <button class="btn btn-ghost" id="nav-date" onclick="document.getElementById('visit-date-input').click()"
     style="font-size:12px;color:var(--p2);padding:4px 8px;"></button>
+  <input type="date" id="visit-date-input" style="display:none"
+    onchange="applyVisitDate(this.value)">
   <div class="flex-c gap-8">
     <span id="settings-status" style="font-size:11px;color:var(--p2);white-space:nowrap;"></span>
     <button class="icon-btn" onclick="showPatientMgr()" title="患者管理" style="width:40px;height:40px;font-size:20px;">👥</button>
@@ -265,40 +267,19 @@ function updateNavDate() {
   const today = new Date();
   const isToday = fmtDate(visitDate) === fmtDate(today);
   const el = document.getElementById('nav-date');
-  if (!el) return;
-  el.textContent = isToday ? fmtDate(visitDate) : `📅 ${fmtDate(visitDate)}`;
-  el.style.color  = isToday ? 'var(--p2)' : 'var(--blue)';
-  el.style.fontWeight = isToday ? 'normal' : '600';
+  if (el) {
+    el.textContent = isToday ? fmtDate(visitDate) : `📅 ${fmtDate(visitDate)}`;
+    el.style.color      = isToday ? 'var(--p2)' : 'var(--blue)';
+    el.style.fontWeight = isToday ? 'normal' : '600';
+  }
+  const inp = document.getElementById('visit-date-input');
+  if (inp) inp.value = visitDate.toISOString().slice(0, 10);
 }
 
-function showVisitDatePicker() {
-  const iso = visitDate.toISOString().slice(0, 10);
-  showModal(`
-    <div class="form-group">
-      <div class="form-label">訪問日を選択</div>
-      <input type="date" id="visit-date-input" value="${iso}" style="width:auto;">
-    </div>
-    <div class="text-xs text-p2" style="margin-top:4px">
-      記録を書くのが翌日以降になった場合に変更してください。
-    </div>
-  `, '訪問日',
-  `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-   <button class="btn btn-ghost" onclick="resetVisitDate()">今日に戻す</button>
-   <button class="btn btn-primary" onclick="applyVisitDate()">確定</button>`);
-}
-
-function applyVisitDate() {
-  const val = document.getElementById('visit-date-input')?.value;
+function applyVisitDate(val) {
   if (!val) return;
   const [y, m, d] = val.split('-').map(Number);
   visitDate = new Date(y, m - 1, d);
-  closeModal();
-  updateNavDate();
-}
-
-function resetVisitDate() {
-  visitDate = new Date();
-  closeModal();
   updateNavDate();
 }
 
