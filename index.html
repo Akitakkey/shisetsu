@@ -204,11 +204,12 @@ hr{border:none;border-top:.5px solid var(--sep);margin:14px 0;}
 <nav class="nav">
   <button class="btn btn-ghost" style="padding:4px 8px;font-size:16px;font-weight:600;"
     onclick="showFacilityPicker()" id="nav-fac">施設を選択 ▾</button>
-  <span class="nav-date" id="nav-date"></span>
+  <button class="btn btn-ghost" id="nav-date" onclick="showVisitDatePicker()"
+    style="font-size:12px;color:var(--p2);padding:4px 8px;"></button>
   <div class="flex-c gap-8">
     <span id="settings-status" style="font-size:11px;color:var(--p2);white-space:nowrap;"></span>
-    <button class="icon-btn" onclick="showPatientMgr()" title="患者管理">👥</button>
-    <button class="icon-btn" onclick="showSettings()" title="設定">⚙️</button>
+    <button class="icon-btn" onclick="showPatientMgr()" title="患者管理" style="width:40px;height:40px;font-size:20px;">👥</button>
+    <button class="icon-btn" onclick="showSettings()" title="設定" style="width:40px;height:40px;font-size:20px;">⚙️</button>
   </div>
 </nav>
 
@@ -250,14 +251,56 @@ let facilities   = [];
 let currentFacId = null;
 let todayVisits  = [];
 const inputState = {}; // room -> {s, o, points, output, noChange}
+let visitDate    = new Date();
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   load();
-  document.getElementById('nav-date').textContent = fmtDate(new Date());
+  updateNavDate();
   renderApp();
   updateSettingsStatus();
 });
+
+function updateNavDate() {
+  const today = new Date();
+  const isToday = fmtDate(visitDate) === fmtDate(today);
+  const el = document.getElementById('nav-date');
+  if (!el) return;
+  el.textContent = isToday ? fmtDate(visitDate) : `📅 ${fmtDate(visitDate)}`;
+  el.style.color  = isToday ? 'var(--p2)' : 'var(--blue)';
+  el.style.fontWeight = isToday ? 'normal' : '600';
+}
+
+function showVisitDatePicker() {
+  const iso = visitDate.toISOString().slice(0, 10);
+  showModal(`
+    <div class="form-group">
+      <div class="form-label">訪問日を選択</div>
+      <input type="date" id="visit-date-input" value="${iso}" style="width:auto;">
+    </div>
+    <div class="text-xs text-p2" style="margin-top:4px">
+      記録を書くのが翌日以降になった場合に変更してください。
+    </div>
+  `, '訪問日',
+  `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+   <button class="btn btn-ghost" onclick="resetVisitDate()">今日に戻す</button>
+   <button class="btn btn-primary" onclick="applyVisitDate()">確定</button>`);
+}
+
+function applyVisitDate() {
+  const val = document.getElementById('visit-date-input')?.value;
+  if (!val) return;
+  const [y, m, d] = val.split('-').map(Number);
+  visitDate = new Date(y, m - 1, d);
+  closeModal();
+  updateNavDate();
+}
+
+function resetVisitDate() {
+  visitDate = new Date();
+  closeModal();
+  updateNavDate();
+}
 
 // タッチキーボードを閉じて再度開いた際、フォーカス復元によるクリップボード自動ペーストを防ぐ
 document.addEventListener('visibilitychange', () => {
@@ -428,8 +471,12 @@ function buildRow(p, fac) {
         ? `<span class="badge badge-done" style="margin-top:5px">完了</span>`
         : isHosp
           ? `<span class="badge" style="background:#fff0f0;color:var(--red);margin-top:5px">入院中</span>`
-          : `<button class="btn btn-primary btn-sm" style="margin-top:2px;white-space:nowrap"
-               id="gen-${esc(p.room)}" onclick="generateRecord('${esc(p.room)}')">作成</button>`}
+          : `<div style="display:flex;flex-direction:row;gap:4px;margin-top:2px;">
+               <button class="btn btn-primary btn-sm" style="white-space:nowrap"
+                 id="gen-${esc(p.room)}" onclick="generateRecord('${esc(p.room)}')">作成</button>
+               ${p.lastRecord ? `<button class="btn btn-secondary btn-sm" style="white-space:nowrap"
+                 onclick="showLastRecord('${esc(p.room)}')">前回</button>` : ''}
+             </div>`}
     </div>
     <div id="err-${esc(p.room)}"></div>`;
 
@@ -543,7 +590,7 @@ async function generateRecord(room) {
   btn.disabled = true;
   btn.innerHTML = '<span class="spin"></span> 生成中...';
 
-  const now      = new Date();
+  const now      = visitDate;
   const reiwa    = now.getFullYear() - 2018;
   const reiwaStr = `R${reiwa}.${now.getMonth()+1}`;
   const dateStr  = `${now.getMonth()+1}/${now.getDate()}`;
@@ -587,6 +634,39 @@ async function generateRecord(room) {
     const b = document.getElementById('gen-' + room);
     if (b) { b.disabled = false; b.innerHTML = '作成'; }
   }
+}
+
+function showLastRecord(room) {
+  const fac = getFac();
+  const p   = fac?.patients.find(p => p.room === room);
+  if (!p?.lastRecord) return;
+
+  if (!inputState[room]) inputState[room] = initSt(room);
+  inputState[room].output = p.lastRecord;
+
+  const errEl    = document.getElementById('err-' + room);
+  const container = errEl?.parentElement;
+  if (!container) return;
+  const existing = container.querySelector('.out-panel');
+  if (existing) existing.remove();
+
+  const panelDiv = document.createElement('div');
+  panelDiv.className = 'out-panel';
+  panelDiv.innerHTML = `
+    <div class="form-label" style="margin-bottom:6px">前回の記録（編集可）</div>
+    <div id="out-${room}" contenteditable="true"
+      style="font-size:13px;line-height:1.8;white-space:pre-wrap;padding:9px 12px;
+             border:1px solid var(--sep);border-radius:var(--rsm);background:var(--card);
+             min-height:160px;outline:none;transition:border-color .15s,box-shadow .15s;
+             word-break:break-all;"
+      onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(0,122,255,.12)'"
+      onblur="this.style.borderColor='';this.style.boxShadow=''"
+      oninput="inputState['${room}'].output=this.innerText"
+    >${renderBold(p.lastRecord)}</div>
+    <button class="btn btn-primary btn-full" style="margin-top:8px"
+      onclick="saveRecord('${room}')">✚ 一覧に追加して次の患者へ</button>
+  `;
+  container.appendChild(panelDiv);
 }
 
 function buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange=false, hasShinsatsu=false) {
@@ -888,7 +968,7 @@ async function generateAll() {
     if (!inputState[p.room]) inputState[p.room] = initSt(p.room);
     const st = inputState[p.room];
 
-    const now      = new Date();
+    const now      = visitDate;
     const reiwa    = now.getFullYear() - 2018;
     const reiwaStr = `R${reiwa}.${now.getMonth()+1}`;
     const dateStr  = `${now.getMonth()+1}/${now.getDate()}`;
@@ -1437,7 +1517,7 @@ function showPatientMgr() {
   }
 
   showModal(
-    listHtml + `<button class="btn btn-ghost w100" onclick="showAddPatient()">＋ 患者を追加</button>`,
+    `<button class="btn btn-ghost w100" style="margin-bottom:12px" onclick="showAddPatient()">＋ 患者を追加</button>` + listHtml,
     `患者管理（${esc(fac.name)}）`
   );
 }
