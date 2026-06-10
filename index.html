@@ -209,7 +209,7 @@ hr{border:none;border-top:.5px solid var(--sep);margin:14px 0;}
     onclick="const inp=document.getElementById('visit-date-input');try{inp.showPicker();}catch(e){showVisitDateModal();}">
   </button>
   <input type="date" id="visit-date-input"
-    style="position:fixed;opacity:0;pointer-events:none;width:0;height:0;"
+    style="position:fixed;left:50%;top:52px;transform:translateX(-50%);opacity:0;pointer-events:none;width:1px;height:1px;"
     onchange="applyVisitDate(this.value)">
   <div class="flex-c gap-8">
     <span id="settings-status" style="font-size:11px;color:var(--p2);white-space:nowrap;"></span>
