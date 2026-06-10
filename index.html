@@ -648,7 +648,7 @@ function showLastRecord(room) {
   const container = errEl?.parentElement;
   if (!container) return;
   const existing = container.querySelector('.out-panel');
-  if (existing) existing.remove();
+  if (existing) { existing.remove(); return; }
 
   const panelDiv = document.createElement('div');
   panelDiv.className = 'out-panel';
