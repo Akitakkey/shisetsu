@@ -204,13 +204,10 @@ hr{border:none;border-top:.5px solid var(--sep);margin:14px 0;}
 <nav class="nav">
   <button class="btn btn-ghost" style="padding:4px 8px;font-size:16px;font-weight:600;"
     onclick="showFacilityPicker()" id="nav-fac">施設を選択 ▾</button>
-  <div style="position:relative;display:inline-block;">
-    <button class="btn btn-ghost" id="nav-date"
-      style="font-size:12px;color:var(--p2);padding:4px 8px;pointer-events:none;"></button>
-    <input type="date" id="visit-date-input"
-      style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:10;"
-      onchange="applyVisitDate(this.value)">
-  </div>
+  <label for="visit-date-input" id="nav-date"
+    style="font-size:12px;color:var(--p2);padding:4px 8px;cursor:pointer;border-radius:var(--rsm);"></label>
+  <input type="date" id="visit-date-input" style="display:none;"
+    onchange="applyVisitDate(this.value)">
   <div class="flex-c gap-8">
     <span id="settings-status" style="font-size:11px;color:var(--p2);white-space:nowrap;"></span>
     <button class="icon-btn" onclick="showPatientMgr()" title="患者管理" style="width:40px;height:40px;font-size:20px;">👥</button>
