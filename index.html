@@ -205,7 +205,7 @@ hr{border:none;border-top:1px solid var(--sep);margin:16px 0;}
 /* Horizontal patient row */
 .h-header,.h-row{
   display:grid;
-  grid-template-columns:36px minmax(68px,100px) 1fr 2fr 44px 44px 54px 54px;
+  grid-template-columns:60px minmax(58px,82px) 2fr 3fr 44px 44px 76px 76px;
   gap:8px;padding:9px 14px;align-items:start;
 }
 .h-header{
@@ -389,7 +389,7 @@ function renderApp() {
         <span>本日の進捗　<span style="font-weight:600">${done} / ${total}名</span></span>
         <div class="flex-c gap-8">
           <button class="btn btn-secondary btn-sm" onclick="showBulkSOInput()">📋 S/O一括入力</button>
-          <button class="btn btn-primary btn-sm" id="bulk-btn" onclick="generateAll()">⚡ 一括作成</button>
+          <button class="btn btn-primary btn-sm" id="bulk-btn" onclick="generateAll()">一括作成</button>
         </div>
       </div>
       <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
@@ -412,8 +412,8 @@ function renderApp() {
   if (total > 0) {
     html += `<span class="sec-label">患者リスト</span><div class="card" id="plist">
       <div class="h-header">
-        <span>室</span><span>氏名</span>
-        <span>S（訴え）</span><span>O（診察サマリ）</span>
+        <span>部屋番号</span><span>患者名</span>
+        <span>S</span><span>O</span>
         <span style="text-align:center">${fac.hasA ? '診察あり' : '変更なし'}</span>
         <span style="text-align:center">入院中</span>
         <span></span><span></span>
@@ -516,7 +516,7 @@ function buildRow(p, fac) {
                id="gen-${esc(p.room)}" onclick="generateRecord('${esc(p.room)}')">作成</button>
              ${p.lastRecord
                ? `<button class="btn btn-secondary btn-sm" style="margin-top:2px;white-space:nowrap"
-                    onclick="showLastRecord('${esc(p.room)}')">前回</button>`
+                    onclick="showLastRecord('${esc(p.room)}')">前回記録</button>`
                : '<span></span>'}`}
     </div>
     <div id="err-${esc(p.room)}"></div>`;
