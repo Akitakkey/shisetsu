@@ -36,7 +36,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic UI'
 .icon-btn:active{transform:scale(.94);}
 
 /* Content */
-.content{max-width:820px;margin:0 auto;padding:24px 20px 110px;}
+.content{max-width:860px;margin:0 auto;padding:20px 12px 110px;}
 
 /* Card */
 .card{background:var(--card);border-radius:var(--r);overflow:hidden;margin-bottom:16px;
@@ -205,8 +205,8 @@ hr{border:none;border-top:1px solid var(--sep);margin:16px 0;}
 /* Horizontal patient row */
 .h-header,.h-row{
   display:grid;
-  grid-template-columns:60px minmax(58px,82px) 2fr 3fr 44px 44px 76px 76px;
-  gap:8px;padding:9px 14px;align-items:start;
+  grid-template-columns:46px minmax(46px,64px) 3fr 4fr 40px 40px 72px 72px;
+  gap:8px;padding:9px 12px;align-items:start;
 }
 .h-header{
   font-size:10px;font-weight:600;color:var(--p2);text-transform:uppercase;
@@ -233,6 +233,49 @@ hr{border:none;border-top:1px solid var(--sep);margin:16px 0;}
 .name-input:focus{background:var(--card);border:1.5px solid var(--blue);
   box-shadow:0 0 0 3px rgba(0,122,255,.12);}
 .out-panel{background:rgba(0,0,0,.02);border-top:1px solid var(--sep);padding:14px;}
+
+/* Facility dropdown */
+@keyframes fadeDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.fac-dropdown{position:fixed;background:var(--card);border-radius:var(--r);
+  box-shadow:var(--shadow-md);z-index:300;min-width:210px;overflow:hidden;
+  border:1px solid var(--sep);
+  animation:fadeDown .16s cubic-bezier(.4,0,.2,1);}
+.fac-dd-item{display:flex;align-items:center;gap:8px;padding:12px 16px;cursor:pointer;
+  border-bottom:1px solid var(--sep);transition:background .15s;}
+.fac-dd-item:last-of-type{border-bottom:none;}
+.fac-dd-item:hover{background:var(--fill);}
+.fac-dd-item.active .fac-dd-name{font-weight:600;}
+.fac-dd-name{flex:1;font-size:15px;}
+.fac-dd-tag{font-size:11px;color:var(--p2);}
+.fac-dd-check{color:var(--blue);font-weight:700;font-size:15px;}
+.fac-dd-add{padding:11px 16px;text-align:center;color:var(--blue);font-size:14px;
+  font-weight:500;cursor:pointer;border-top:1px solid var(--sep);transition:background .15s;}
+.fac-dd-add:hover{background:var(--fill);}
+
+/* Calendar popover */
+.cal-popover{position:fixed;background:var(--card);border-radius:20px;
+  box-shadow:var(--shadow-lg);z-index:300;width:310px;padding:20px 18px 18px;
+  border:1px solid var(--sep);
+  animation:fadeDown .16s cubic-bezier(.4,0,.2,1);}
+.cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+.cal-title{font-size:17px;font-weight:700;letter-spacing:-.3px;}
+.cal-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.cal-month-title{font-size:15px;font-weight:600;letter-spacing:-.2px;}
+.cal-nav-btn{background:rgba(118,118,128,.12);border:none;border-radius:50%;
+  width:32px;height:32px;font-size:19px;cursor:pointer;color:var(--blue);
+  display:flex;align-items:center;justify-content:center;transition:background .15s;
+  line-height:1;}
+.cal-nav-btn:hover{background:rgba(118,118,128,.22);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-day-hd{text-align:center;font-size:12px;font-weight:600;color:var(--p2);
+  padding:4px 0 10px;}
+.cal-day{text-align:center;font-size:14px;cursor:pointer;border-radius:50%;
+  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  transition:background .15s;}
+.cal-day:hover:not(.other-month):not(.cal-today):not(.cal-selected){background:var(--fill);}
+.cal-day.cal-today{background:var(--blue);color:#fff;font-weight:700;}
+.cal-day.cal-selected{background:var(--blue);color:#fff;font-weight:700;}
+.cal-day.other-month{color:var(--p3);cursor:default;}
 </style>
 </head>
 <body>
@@ -242,7 +285,7 @@ hr{border:none;border-top:1px solid var(--sep);margin:16px 0;}
     onclick="showFacilityPicker()" id="nav-fac">施設を選択 ▾</button>
   <button class="btn btn-ghost" id="nav-date"
     style="font-size:12px;color:var(--p2);padding:4px 8px;"
-    onclick="const inp=document.getElementById('visit-date-input');try{inp.showPicker();}catch(e){showVisitDateModal();}">
+    onclick="showCalendarPicker()">
   </button>
   <input type="date" id="visit-date-input"
     style="position:fixed;left:50%;top:52px;transform:translateX(-50%);opacity:0;pointer-events:none;width:1px;height:1px;"
@@ -332,6 +375,104 @@ function showVisitDateModal() {
   `, '訪問日',
   `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
    <button class="btn btn-primary" onclick="applyVisitDate(document.getElementById('visit-date-modal-input').value);closeModal()">確定</button>`);
+}
+
+// ── カスタムカレンダー ────────────────────────────────────────
+let _calY = null, _calM = null;
+
+function showCalendarPicker() {
+  document.getElementById('cal-popover')?.remove();
+  const btn  = document.getElementById('nav-date');
+  const rect = btn.getBoundingClientRect();
+
+  _calY = visitDate.getFullYear();
+  _calM = visitDate.getMonth();
+
+  const el = document.createElement('div');
+  el.id = 'cal-popover';
+  el.className = 'cal-popover';
+
+  const popW = 310;
+  let left = rect.left + rect.width / 2 - popW / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - popW - 8));
+  el.style.left = left + 'px';
+  el.style.top  = (rect.bottom + 8) + 'px';
+
+  document.body.appendChild(el);
+  _renderCal();
+  setTimeout(() => document.addEventListener('click', _closeCalOutside), 10);
+}
+
+function _renderCal() {
+  const el = document.getElementById('cal-popover');
+  if (!el) return;
+
+  const y = _calY, m = _calM;
+  const today    = new Date();
+  const selected = visitDate;
+  const months   = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const days     = ['日','月','火','水','木','金','土'];
+
+  const firstDow     = new Date(y, m, 1).getDay();
+  const daysInMonth  = new Date(y, m + 1, 0).getDate();
+  const daysInPrev   = new Date(y, m, 0).getDate();
+  const totalCells   = Math.ceil((firstDow + daysInMonth) / 7) * 7;
+
+  let html = `
+    <div class="cal-header">
+      <span class="cal-title">日付を選択</span>
+      <button class="icon-btn" style="width:28px;height:28px;font-size:13px" onclick="closeCalendarPicker()">✕</button>
+    </div>
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="_calPrev()">‹</button>
+      <span class="cal-month-title">${y}年 ${months[m]}</span>
+      <button class="cal-nav-btn" onclick="_calNext()">›</button>
+    </div>
+    <div class="cal-grid">`;
+
+  days.forEach((d, i) => {
+    const c = i===0 ? 'color:var(--red)' : i===6 ? 'color:var(--blue)' : '';
+    html += `<div class="cal-day-hd" style="${c}">${d}</div>`;
+  });
+
+  for (let i = firstDow - 1; i >= 0; i--)
+    html += `<div class="cal-day other-month">${daysInPrev - i}</div>`;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date  = new Date(y, m, d);
+    const isSel = fmtDate(date) === fmtDate(selected);
+    const isTod = fmtDate(date) === fmtDate(today);
+    const dow   = date.getDay();
+    const col   = (!isSel && !isTod) ? (dow===0 ? 'color:var(--red)' : dow===6 ? 'color:var(--blue)' : '') : '';
+    const cls   = 'cal-day' + (isSel ? ' cal-selected' : isTod ? ' cal-today' : '');
+    html += `<div class="${cls}" style="${col}" onclick="_calSelect(${y},${m+1},${d})">${d}</div>`;
+  }
+
+  const nextDays = totalCells - firstDow - daysInMonth;
+  for (let d = 1; d <= nextDays; d++)
+    html += `<div class="cal-day other-month">${d}</div>`;
+
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function _calPrev() { _calM--; if (_calM < 0) { _calM = 11; _calY--; } _renderCal(); }
+function _calNext() { _calM++; if (_calM > 11) { _calM = 0; _calY++; } _renderCal(); }
+
+function _calSelect(y, m, d) {
+  applyVisitDate(`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+  closeCalendarPicker();
+}
+
+function closeCalendarPicker() {
+  document.getElementById('cal-popover')?.remove();
+  document.removeEventListener('click', _closeCalOutside);
+}
+
+function _closeCalOutside(e) {
+  const cal = document.getElementById('cal-popover');
+  const btn = document.getElementById('nav-date');
+  if (cal && !cal.contains(e.target) && !btn.contains(e.target)) closeCalendarPicker();
 }
 
 // タッチキーボードを閉じて再度開いた際、フォーカス復元によるクリップボード自動ペーストを防ぐ
@@ -1337,27 +1478,47 @@ function closeModal() { document.getElementById('modal-root').innerHTML = ''; }
 
 // ── Facility picker ──
 function showFacilityPicker() {
-  let html = '';
+  document.getElementById('fac-dropdown')?.remove();
+  const btn  = document.getElementById('nav-fac');
+  const rect = btn.getBoundingClientRect();
+
+  const el = document.createElement('div');
+  el.id = 'fac-dropdown';
+  el.className = 'fac-dropdown';
+  el.style.left = rect.left + 'px';
+  el.style.top  = (rect.bottom + 6) + 'px';
+
+  let inner = '';
   if (facilities.length === 0) {
-    html = '<div class="empty"><div class="empty-icon">🏥</div><p>施設が登録されていません</p></div>';
+    inner = '<div class="empty" style="padding:20px 16px"><div class="empty-icon">🏥</div><p>施設が登録されていません</p></div>';
   } else {
-    html = `<div class="card" style="margin:0">` +
-      facilities.map(f => `
-        <div class="p-row" style="cursor:pointer" onclick="selectFacility('${f.id}')">
-          <span style="flex:1;font-size:15px;font-weight:${f.id===currentFacId?'600':'400'}">${esc(f.name)}</span>
-          <span class="text-xs text-p2">${f.hasA?'A欄あり':'A欄なし'}</span>
-          ${f.id===currentFacId?'<span style="color:var(--blue)">✓</span>':''}
-        </div>`).join('') + `</div>`;
+    inner = facilities.map(f => `
+      <div class="fac-dd-item ${f.id===currentFacId?'active':''}" onclick="selectFacility('${esc(f.id)}')">
+        <span class="fac-dd-name">${esc(f.name)}</span>
+        <span class="fac-dd-tag">${f.hasA?'A欄あり':'A欄なし'}</span>
+        ${f.id===currentFacId?'<span class="fac-dd-check">✓</span>':''}
+      </div>`).join('');
   }
-  showModal(
-    html + `<button class="btn btn-ghost w100" style="margin-top:12px"
-      onclick="closeModal();showAddFacility()">＋ 施設を追加</button>`,
-    '施設を選択'
-  );
+  inner += `<div class="fac-dd-add" onclick="closeFacDropdown();showAddFacility()">＋ 施設を追加</div>`;
+  el.innerHTML = inner;
+  document.body.appendChild(el);
+
+  setTimeout(() => document.addEventListener('click', _closeFacOutside), 10);
+}
+
+function closeFacDropdown() {
+  document.getElementById('fac-dropdown')?.remove();
+  document.removeEventListener('click', _closeFacOutside);
+}
+
+function _closeFacOutside(e) {
+  const dd  = document.getElementById('fac-dropdown');
+  const btn = document.getElementById('nav-fac');
+  if (dd && !dd.contains(e.target) && !btn.contains(e.target)) closeFacDropdown();
 }
 
 function selectFacility(id) {
-  if (id === currentFacId) { closeModal(); return; }
+  if (id === currentFacId) { closeFacDropdown(); return; }
   if (todayVisits.length &&
       !confirm('施設を切り替えると本日完了分の一覧が消えます。よろしいですか？')) {
     return;
@@ -1366,7 +1527,7 @@ function selectFacility(id) {
   todayVisits  = [];
   Object.keys(inputState).forEach(k => delete inputState[k]);
   save();
-  closeModal();
+  closeFacDropdown();
   updateSettingsStatus();
   renderApp();
 }
