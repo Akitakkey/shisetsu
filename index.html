@@ -1299,7 +1299,7 @@ function sendSlack() {
   if (!todayVisits.length) { showToast('送信する記録がありません'); return; }
 
   const todayStr = fmtISO(visitDate);
-  const tmpl = fac.slackMessage || '{施設名}　{月}月{日}日に転記お願いします。';
+  const tmpl = fac.slackMessage || '{施設名}　{月}月{日}日　{薬剤師名}の名前で転記お願いします。';
 
   showModal(`
     <div class="form-group">
@@ -1327,7 +1327,7 @@ function updateSlackPreview() {
   if (!dateEl || !previewEl) return;
 
   const [y, m, d] = dateEl.value.split('-');
-  const tmpl  = fac.slackMessage || '{施設名}　{月}月{日}日に転記お願いします。';
+  const tmpl  = fac.slackMessage || '{施設名}　{月}月{日}日　{薬剤師名}の名前で転記お願いします。';
   const pname = localStorage.getItem(LS_NAME) || '';
   previewEl.value = tmpl
     .replace(/{施設名}/g, fac.name)
@@ -1587,7 +1587,7 @@ function addFacility() {
     noChangeS: '特に変わったことはなく過ごされています。落ち着いた療養が出来ています。',
     noChangeO: '内科的に特に問題はない。現行治療で継続。\n※処方変更なし。',
     slackToken: '', slackChannel: '',
-    slackMessage: '{施設名}　{月}月{日}日に転記お願いします。',
+    slackMessage: '{施設名}　{月}月{日}日　{薬剤師名}の名前で転記お願いします。',
     patients: []
   };
   facilities.push(fac);
@@ -1652,7 +1652,7 @@ function showSettings() {
       <div class="form-label">送信メッセージ
         <span style="font-weight:400;color:var(--p3)">{施設名} {月} {日} {薬剤師名} が使えます</span>
       </div>
-      <input type="text" id="s-msg" value="${esc(fac.slackMessage||'{施設名}　{月}月{日}日に転記お願いします。')}">
+      <input type="text" id="s-msg" value="${esc(fac.slackMessage||'{施設名}　{月}月{日}日　{薬剤師名}の名前で転記お願いします。')}">
     </div>
     <hr>
     <button class="btn btn-danger w100"
