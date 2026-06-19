@@ -1,1262 +1,1259 @@
-<system-reminder>[Truncated: PARTIAL view — showing lines 1-1260 of 1904 total (32095 tokens, cap 25000). Call Read with offset=1261 limit=1260 for the next page, or Grep to find a specific section. Do NOT answer from this page alone if the answer may be further in the file.]</system-reminder>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>施設訪問記録</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#f2f2f7;--card:#ffffff;--blue:#007aff;--blue-bg:rgba(0,122,255,.07);
+  --green:#34c759;--red:#ff3b30;--orange:#ff9500;
+  --p1:#1c1c1e;--p2:#636366;--p3:#c7c7cc;
+  --sep:rgba(60,60,67,.12);--fill:#f2f2f7;--inset:#e5e5ea;
+  --r:14px;--rsm:10px;
+  --shadow-xs:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+  --shadow-sm:0 2px 8px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.05);
+  --shadow-md:0 8px 24px rgba(0,0,0,.10),0 2px 6px rgba(0,0,0,.06);
+  --shadow-lg:0 16px 48px rgba(0,0,0,.14),0 4px 12px rgba(0,0,0,.08);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic UI',sans-serif;
+  background:var(--bg);color:var(--p1);font-size:14px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;}
 
-1	<!DOCTYPE html>
-2	<html lang="ja">
-3	<head>
-4	<meta charset="UTF-8">
-5	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-6	<title>施設訪問記録</title>
-7	<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>">
-8	<style>
-9	*{box-sizing:border-box;margin:0;padding:0;}
-10	:root{
-11	  --bg:#f2f2f7;--card:#ffffff;--blue:#007aff;--blue-bg:rgba(0,122,255,.07);
-12	  --green:#34c759;--red:#ff3b30;--orange:#ff9500;
-13	  --p1:#1c1c1e;--p2:#636366;--p3:#c7c7cc;
-14	  --sep:rgba(60,60,67,.12);--fill:#f2f2f7;--inset:#e5e5ea;
-15	  --r:14px;--rsm:10px;
-16	  --shadow-xs:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
-17	  --shadow-sm:0 2px 8px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.05);
-18	  --shadow-md:0 8px 24px rgba(0,0,0,.10),0 2px 6px rgba(0,0,0,.06);
-19	  --shadow-lg:0 16px 48px rgba(0,0,0,.14),0 4px 12px rgba(0,0,0,.08);
-20	}
-21	body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic UI',sans-serif;
-22	  background:var(--bg);color:var(--p1);font-size:14px;line-height:1.5;
-23	  -webkit-font-smoothing:antialiased;}
-24	
-25	/* Navbar */
-26	.nav{background:rgba(248,248,252,.88);backdrop-filter:saturate(180%) blur(20px);
-27	  -webkit-backdrop-filter:saturate(180%) blur(20px);
-28	  border-bottom:1px solid rgba(60,60,67,.08);height:56px;display:flex;align-items:center;
-29	  justify-content:space-between;padding:0 20px;position:sticky;top:0;z-index:50;}
-30	.nav-title{font-size:17px;font-weight:600;letter-spacing:-.3px;}
-31	.nav-date{font-size:12px;color:var(--p2);}
-32	.icon-btn{width:36px;height:36px;border-radius:50%;border:none;background:rgba(118,118,128,.12);
-33	  color:var(--p1);font-size:16px;cursor:pointer;display:flex;align-items:center;
-34	  justify-content:center;transition:background .2s,transform .15s;}
-35	.icon-btn:hover{background:rgba(118,118,128,.2);}
-36	.icon-btn:active{transform:scale(.94);}
-37	
-38	/* Content */
-39	.content{max-width:980px;margin:0 auto;padding:20px 12px 110px;}
-40	
-41	/* Card */
-42	.card{background:var(--card);border-radius:var(--r);overflow:hidden;margin-bottom:16px;
-43	  box-shadow:var(--shadow-xs);}
-44	.sec-label{font-size:11px;font-weight:600;color:var(--p2);text-transform:uppercase;
-45	  letter-spacing:.6px;padding:0 4px 10px;display:block;}
-46	
-47	/* Patient row */
-48	.p-row{padding:14px 16px;border-bottom:1px solid var(--sep);
-49	  display:flex;align-items:center;gap:10px;}
-50	.p-row:last-of-type{border-bottom:none;}
-51	.p-room{font-size:15px;font-weight:600;min-width:36px;color:var(--p1);}
-52	.p-name{flex:1;font-size:15px;}
-53	.p-pts{font-size:12px;color:var(--p2);white-space:nowrap;}
-54	
-55	/* Toggle switch */
-56	.sw{position:relative;width:44px;height:26px;flex-shrink:0;}
-57	.sw input{display:none;}
-58	.sw-track{position:absolute;inset:0;background:var(--inset);border-radius:13px;
-59	  cursor:pointer;transition:background .22s cubic-bezier(.4,0,.2,1);}
-60	.sw input:checked+.sw-track{background:var(--green);}
-61	.sw-thumb{position:absolute;top:3px;left:3px;width:20px;height:20px;
-62	  background:#fff;border-radius:50%;
-63	  box-shadow:0 2px 6px rgba(0,0,0,.18),0 1px 2px rgba(0,0,0,.12);
-64	  transition:transform .22s cubic-bezier(.4,0,.2,1);pointer-events:none;}
-65	.sw input:checked~.sw-thumb{transform:translateX(18px);}
-66	
-67	/* Badges */
-68	.badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;white-space:nowrap;
-69	  letter-spacing:.1px;}
-70	.badge-done{background:rgba(52,199,89,.15);color:#248a3d;}
-71	
-72	/* Buttons */
-73	.btn{padding:8px 16px;border-radius:var(--rsm);border:none;font-size:14px;font-weight:500;
-74	  cursor:pointer;transition:all .18s cubic-bezier(.4,0,.2,1);font-family:inherit;letter-spacing:-.1px;}
-75	.btn:active{transform:scale(.97);}
-76	.btn-primary{background:var(--blue);color:#fff;
-77	  box-shadow:0 1px 4px rgba(0,122,255,.3),0 1px 2px rgba(0,122,255,.2);}
-78	.btn-primary:hover{background:#0070eb;box-shadow:0 2px 8px rgba(0,122,255,.35),0 1px 3px rgba(0,122,255,.25);}
-79	.btn-primary:active{background:#0064d3;box-shadow:none;}
-80	.btn-primary:disabled{background:var(--p3);box-shadow:none;cursor:not-allowed;transform:none;}
-81	.btn-secondary{background:rgba(118,118,128,.12);color:var(--p1);}
-82	.btn-secondary:hover{background:rgba(118,118,128,.18);}
-83	.btn-ghost{background:transparent;color:var(--blue);padding:6px 10px;font-weight:500;}
-84	.btn-ghost:hover{background:var(--blue-bg);}
-85	.btn-danger{background:transparent;color:var(--red);padding:6px 10px;}
-86	.btn-danger:hover{background:rgba(255,59,48,.08);}
-87	.btn-sm{padding:5px 12px;font-size:13px;}
-88	.btn-full{width:100%;padding:14px;font-size:15px;font-weight:600;border-radius:var(--r);
-89	  letter-spacing:-.1px;}
-90	
-91	/* Form */
-92	.form-group{margin-bottom:14px;}
-93	.form-label{font-size:12px;font-weight:500;color:var(--p2);margin-bottom:6px;
-94	  display:flex;justify-content:space-between;align-items:center;letter-spacing:.1px;}
-95	textarea,input[type=text],input[type=password],select{
-96	  width:100%;padding:10px 13px;border:1px solid var(--sep);border-radius:var(--rsm);
-97	  font-size:14px;font-family:inherit;color:var(--p1);background:var(--card);
-98	  resize:vertical;line-height:1.6;outline:none;
-99	  transition:border-color .18s,box-shadow .18s;
-100	  box-shadow:var(--shadow-xs);}
-101	textarea:focus,input:focus,select:focus{
-102	  border-color:var(--blue);box-shadow:0 0 0 3.5px rgba(0,122,255,.14),var(--shadow-xs);}
-103	
-104	/* Points chips */
-105	.chips{display:flex;gap:6px;flex-wrap:wrap;}
-106	.chip{padding:6px 15px;border-radius:20px;border:1.5px solid var(--sep);background:var(--card);
-107	  color:var(--p1);font-size:13px;cursor:pointer;transition:all .18s;font-family:inherit;
-108	  font-weight:500;}
-109	.chip:hover{border-color:var(--blue);color:var(--blue);}
-110	.chip.sel{background:var(--blue);color:#fff;border-color:var(--blue);
-111	  box-shadow:0 1px 4px rgba(0,122,255,.3);}
-112	
-113	/* Input panel (expanded) */
-114	.p-input{background:var(--fill);border-top:1px solid var(--sep);padding:16px;}
-115	
-116	/* Dropzone */
-117	.dropzone{border:2px dashed var(--inset);border-radius:var(--r);padding:36px 20px;
-118	  text-align:center;color:var(--p2);cursor:pointer;transition:all .22s;margin-bottom:16px;}
-119	.dropzone:hover,.dropzone.over{border-color:var(--blue);background:var(--blue-bg);color:var(--blue);}
-120	.dz-icon{font-size:32px;margin-bottom:8px;}
-121	.dz-title{font-size:15px;font-weight:600;margin-bottom:4px;letter-spacing:-.2px;}
-122	.dz-sub{font-size:12px;color:var(--p3);}
-123	
-124	/* Progress */
-125	.prog-wrap{background:var(--card);border-radius:var(--r);padding:16px 18px;
-126	  margin-bottom:16px;box-shadow:var(--shadow-xs);}
-127	.prog-text{display:flex;justify-content:space-between;align-items:center;
-128	  font-size:13px;color:var(--p2);margin-bottom:12px;}
-129	.prog-text strong{color:var(--p1);font-weight:600;}
-130	.prog-bar{height:5px;background:var(--inset);border-radius:3px;overflow:hidden;}
-131	.prog-fill{height:100%;background:linear-gradient(90deg,var(--blue),#34aadc);
-132	  border-radius:3px;transition:width .4s cubic-bezier(.4,0,.2,1);}
-133	
-134	/* Action bar */
-135	.action-bar{position:fixed;bottom:0;left:0;right:0;
-136	  background:rgba(248,248,252,.92);backdrop-filter:saturate(180%) blur(20px);
-137	  -webkit-backdrop-filter:saturate(180%) blur(20px);
-138	  border-top:1px solid rgba(60,60,67,.08);
-139	  padding:12px 20px calc(12px + env(safe-area-inset-bottom));
-140	  display:flex;gap:10px;justify-content:center;}
-141	
-142	/* Modal */
-143	.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;
-144	  align-items:center;justify-content:center;z-index:100;padding:20px;
-145	  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
-146	.modal{background:var(--card);border-radius:20px;width:100%;max-width:480px;
-147	  max-height:88vh;overflow-y:auto;box-shadow:var(--shadow-lg);}
-148	.modal-hd{padding:20px 20px 15px;border-bottom:1px solid var(--sep);
-149	  display:flex;justify-content:space-between;align-items:center;}
-150	.modal-title{font-size:17px;font-weight:700;letter-spacing:-.3px;}
-151	.modal-body{padding:20px;}
-152	.modal-ft{padding:15px 20px;border-top:1px solid var(--sep);
-153	  display:flex;gap:8px;justify-content:flex-end;}
-154	
-155	/* Toast */
-156	.toast{position:fixed;bottom:84px;left:50%;transform:translateX(-50%) translateY(4px);
-157	  background:rgba(28,28,30,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-158	  color:#fff;padding:10px 20px;border-radius:22px;font-size:13px;font-weight:500;
-159	  z-index:200;opacity:0;pointer-events:none;
-160	  transition:opacity .22s,transform .22s cubic-bezier(.4,0,.2,1);white-space:nowrap;
-161	  box-shadow:var(--shadow-md);}
-162	.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-163	
-164	/* Today list */
-165	.today-card{background:var(--card);border-radius:var(--r);overflow:hidden;margin-bottom:10px;
-166	  box-shadow:var(--shadow-xs);}
-167	.today-hd{padding:14px 16px;display:flex;justify-content:space-between;align-items:center;
-168	  cursor:pointer;transition:background .15s;}
-169	.today-hd:hover{background:rgba(0,0,0,.02);}
-170	.today-body{display:none;padding:0 16px 16px;}
-171	.today-body.open{display:block;}
-172	
-173	/* Setup */
-174	.setup{display:flex;flex-direction:column;align-items:center;justify-content:center;
-175	  min-height:70vh;text-align:center;}
-176	.setup-icon{font-size:56px;margin-bottom:20px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.1));}
-177	.setup-title{font-size:24px;font-weight:700;margin-bottom:10px;letter-spacing:-.4px;}
-178	.setup-desc{font-size:15px;color:var(--p2);margin-bottom:32px;max-width:280px;line-height:1.65;}
-179	
-180	@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
-181	
-182	/* Spinner */
-183	.spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.35);
-184	  border-top-color:#fff;border-radius:50%;animation:spin .55s linear infinite;}
-185	@keyframes spin{to{transform:rotate(360deg)}}
-186	
-187	/* Error */
-188	.err{background:rgba(255,59,48,.07);border:1px solid rgba(255,59,48,.2);color:#c0392b;
-189	  padding:11px 14px;border-radius:var(--rsm);font-size:13px;margin-bottom:12px;
-190	  line-height:1.5;}
-191	
-192	/* Utils */
-193	hr{border:none;border-top:1px solid var(--sep);margin:16px 0;}
-194	.flex-bc{display:flex;justify-content:space-between;align-items:center;}
-195	.flex-c{display:flex;align-items:center;}
-196	.gap-8{gap:8px;}
-197	.mt-12{margin-top:12px;}
-198	.text-sm{font-size:13px;}
-199	.text-xs{font-size:12px;}
-200	.text-p2{color:var(--p2);}
-201	.w100{width:100%;}
-202	.empty{text-align:center;padding:36px 20px;color:var(--p2);}
-203	.empty-icon{font-size:36px;margin-bottom:12px;}
-204	
-205	/* Horizontal patient row */
-206	.h-header,.h-row{
-207	  display:grid;
-208	  grid-template-columns:46px minmax(88px,100px) 3fr 4fr 40px 40px 72px 72px;
-209	  gap:8px;padding:9px 12px;align-items:start;
-210	}
-211	.h-header{
-212	  font-size:10px;font-weight:600;color:var(--p2);text-transform:uppercase;
-213	  letter-spacing:.5px;border-bottom:1px solid var(--sep);
-214	  padding:8px 14px;align-items:center;background:rgba(0,0,0,.01);
-215	}
-216	.h-row{border-bottom:1px solid rgba(60,60,67,.06);}
-217	.h-row:last-of-type{border-bottom:none;}
-218	.col-room{font-size:15px;font-weight:700;line-height:34px;color:var(--p1);}
-219	.col-nc{display:flex;flex-direction:column;align-items:center;gap:3px;padding-top:4px;}
-220	.nc-lbl{font-size:10px;color:var(--p2);}
-221	.cb-nc{width:18px;height:18px;cursor:pointer;accent-color:var(--green);margin-top:2px;}
-222	.sw-danger input:checked+.sw-track{background:var(--red);}
-223	.compact-ta{
-224	  padding:7px 9px;resize:none;overflow:hidden;
-225	  min-height:34px;line-height:1.5;font-size:13px;border-radius:7px;
-226	}
-227	.name-input{
-228	  width:100%;border:none;background:transparent;font-size:14px;color:var(--p1);
-229	  font-family:inherit;padding:0 7px;border-radius:7px;height:34px;outline:none;
-230	  transition:background .15s,box-shadow .15s;
-231	}
-232	.name-input:hover{background:rgba(0,0,0,.04);}
-233	.name-input:focus{background:var(--card);border:1.5px solid var(--blue);
-234	  box-shadow:0 0 0 3px rgba(0,122,255,.12);}
-235	.out-panel{background:rgba(0,0,0,.02);border-top:1px solid var(--sep);padding:14px;}
-236	
-237	/* Facility dropdown */
-238	@keyframes fadeDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-239	.fac-dropdown{position:fixed;background:var(--card);border-radius:var(--r);
-240	  box-shadow:var(--shadow-md);z-index:300;min-width:210px;overflow:hidden;
-241	  border:1px solid var(--sep);
-242	  animation:fadeDown .16s cubic-bezier(.4,0,.2,1);}
-243	.fac-dd-item{display:flex;align-items:center;gap:8px;padding:12px 16px;cursor:pointer;
-244	  border-bottom:1px solid var(--sep);transition:background .15s;}
-245	.fac-dd-item:last-of-type{border-bottom:none;}
-246	.fac-dd-item:hover{background:var(--fill);}
-247	.fac-dd-item.active .fac-dd-name{font-weight:600;}
-248	.fac-dd-name{flex:1;font-size:15px;}
-249	.fac-dd-tag{font-size:11px;color:var(--p2);}
-250	.fac-dd-check{color:var(--blue);font-weight:700;font-size:15px;}
-251	.fac-dd-add{padding:11px 16px;text-align:center;color:var(--blue);font-size:14px;
-252	  font-weight:500;cursor:pointer;border-top:1px solid var(--sep);transition:background .15s;}
-253	.fac-dd-add:hover{background:var(--fill);}
-254	
-255	/* Calendar popover */
-256	.cal-popover{position:fixed;background:var(--card);border-radius:20px;
-257	  box-shadow:var(--shadow-lg);z-index:300;width:310px;padding:20px 18px 18px;
-258	  border:1px solid var(--sep);
-259	  animation:fadeDown .16s cubic-bezier(.4,0,.2,1);}
-260	.cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
-261	.cal-title{font-size:17px;font-weight:700;letter-spacing:-.3px;}
-262	.cal-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
-263	.cal-month-title{font-size:15px;font-weight:600;letter-spacing:-.2px;}
-264	.cal-nav-btn{background:rgba(118,118,128,.12);border:none;border-radius:50%;
-265	  width:32px;height:32px;font-size:19px;cursor:pointer;color:var(--blue);
-266	  display:flex;align-items:center;justify-content:center;transition:background .15s;
-267	  line-height:1;}
-268	.cal-nav-btn:hover{background:rgba(118,118,128,.22);}
-269	.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
-270	.cal-day-hd{text-align:center;font-size:12px;font-weight:600;color:var(--p2);
-271	  padding:4px 0 10px;}
-272	.cal-day{text-align:center;font-size:14px;cursor:pointer;border-radius:50%;
-273	  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
-274	  transition:background .15s;}
-275	.cal-day:hover:not(.other-month):not(.cal-today):not(.cal-selected){background:var(--fill);}
-276	.cal-day.cal-today{background:var(--blue);color:#fff;font-weight:700;}
-277	.cal-day.cal-selected{background:var(--blue);color:#fff;font-weight:700;}
-278	.cal-day.other-month{color:var(--p3);cursor:default;}
-279	</style>
-280	</head>
-281	<body>
-282	
-283	<nav class="nav">
-284	  <button class="btn btn-ghost" style="padding:4px 8px;font-size:16px;font-weight:600;"
-285	    onclick="showFacilityPicker()" id="nav-fac">施設を選択 ▾</button>
-286	  <button class="btn btn-ghost" id="nav-date"
-287	    style="font-size:12px;color:var(--p2);padding:4px 8px;"
-288	    onclick="showCalendarPicker()">
-289	  </button>
-290	  <input type="date" id="visit-date-input"
-291	    style="position:fixed;left:50%;top:52px;transform:translateX(-50%);opacity:0;pointer-events:none;width:1px;height:1px;"
-292	    onchange="applyVisitDate(this.value)">
-293	  <div class="flex-c gap-8">
-294	    <span id="settings-status" style="font-size:11px;color:var(--p2);white-space:nowrap;"></span>
-295	    <button class="icon-btn" onclick="showPatientMgr()" title="患者管理" style="width:40px;height:40px;font-size:20px;">👥</button>
-296	    <button class="icon-btn" onclick="showSettings()" title="設定" style="width:40px;height:40px;font-size:20px;">⚙️</button>
-297	  </div>
-298	</nav>
-299	
-300	<div class="content" id="app"></div>
-301	
-302	<div class="action-bar" id="action-bar" style="display:none">
-303	  <button class="btn btn-secondary" onclick="downloadTxt()">⬇ ダウンロード</button>
-304	  <button class="btn btn-primary" onclick="sendSlack()">✈ Slackに送信</button>
-305	</div>
-306	
-307	<div class="toast" id="toast"></div>
-308	<div id="modal-root"></div>
-309	
-310	<script>
-311	// ─── Constants & State ────────────────────────────────────────────────────────
-312	const LS_FAC        = 'shisetsu_fac';
-313	const LS_CUR        = 'shisetsu_cur';
-314	const LS_TODAY      = 'shisetsu_today';
-315	const LS_CLAUDE_API = 'shisetsu_claude_api';
-316	const LS_PROXY      = 'shisetsu_proxy_url';
-317	const LS_TDATE      = 'shisetsu_today_date';
-318	const LS_NAME       = 'shisetsu_pharmacist_name';
-319	
-320	// GASプロキシ経由でSlackに送る共通関数（CORS回避）
-321	async function callProxy(payload) {
-322	  const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
-323	  if (!proxyUrl) throw new Error('GAS Proxy URLが未設定です');
-324	  const res = await fetch(proxyUrl, {
-325	    method: 'POST',
-326	    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-327	    body: JSON.stringify(payload),
-328	    redirect: 'follow'
-329	  });
-330	  if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
-331	  return res.json();
-332	}
-333	
-334	let facilities   = [];
-335	let currentFacId = null;
-336	let todayVisits  = [];
-337	const inputState = {}; // room -> {s, o, points, output, noChange}
-338	let visitDate    = new Date();
-339	
-340	// ─── Boot ─────────────────────────────────────────────────────────────────────
-341	window.addEventListener('DOMContentLoaded', () => {
-342	  load();
-343	  updateNavDate();
-344	  renderApp();
-345	  updateSettingsStatus();
-346	});
-347	
-348	function updateNavDate() {
-349	  const today = new Date();
-350	  const isToday = fmtDate(visitDate) === fmtDate(today);
-351	  const el = document.getElementById('nav-date');
-352	  if (el) {
-353	    el.textContent = isToday ? fmtDate(visitDate) : `📅 ${fmtDate(visitDate)}`;
-354	    el.style.color      = isToday ? 'var(--p2)' : 'var(--blue)';
-355	    el.style.fontWeight = isToday ? 'normal' : '600';
-356	  }
-357	  const inp = document.getElementById('visit-date-input');
-358	  if (inp) inp.value = fmtISO(visitDate);
-359	}
-360	
-361	function applyVisitDate(val) {
-362	  if (!val) return;
-363	  const [y, m, d] = val.split('-').map(Number);
-364	  visitDate = new Date(y, m - 1, d);
-365	  updateNavDate();
-366	}
-367	
-368	function showVisitDateModal() {
-369	  const iso = fmtISO(visitDate);
-370	  showModal(`
-371	    <div class="form-group">
-372	      <div class="form-label">訪問日を選択</div>
-373	      <input type="date" id="visit-date-modal-input" value="${iso}" style="width:auto;">
-374	    </div>
-375	  `, '訪問日',
-376	  `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-377	   <button class="btn btn-primary" onclick="applyVisitDate(document.getElementById('visit-date-modal-input').value);closeModal()">確定</button>`);
-378	}
-379	
-380	// ── カスタムカレンダー ────────────────────────────────────────
-381	let _calY = null, _calM = null;
-382	
-383	function showCalendarPicker() {
-384	  document.getElementById('cal-popover')?.remove();
-385	  const btn  = document.getElementById('nav-date');
-386	  const rect = btn.getBoundingClientRect();
-387	
-388	  _calY = visitDate.getFullYear();
-389	  _calM = visitDate.getMonth();
-390	
-391	  const el = document.createElement('div');
-392	  el.id = 'cal-popover';
-393	  el.className = 'cal-popover';
-394	
-395	  const popW = 310;
-396	  let left = rect.left + rect.width / 2 - popW / 2;
-397	  left = Math.max(8, Math.min(left, window.innerWidth - popW - 8));
-398	  el.style.left = left + 'px';
-399	  el.style.top  = (rect.bottom + 8) + 'px';
-400	
-401	  document.body.appendChild(el);
-402	  _renderCal();
-403	  setTimeout(() => document.addEventListener('click', _closeCalOutside), 10);
-404	}
-405	
-406	function _renderCal() {
-407	  const el = document.getElementById('cal-popover');
-408	  if (!el) return;
-409	
-410	  const y = _calY, m = _calM;
-411	  const today    = new Date();
-412	  const selected = visitDate;
-413	  const months   = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-414	  const days     = ['日','月','火','水','木','金','土'];
-415	
-416	  const firstDow     = new Date(y, m, 1).getDay();
-417	  const daysInMonth  = new Date(y, m + 1, 0).getDate();
-418	  const daysInPrev   = new Date(y, m, 0).getDate();
-419	  const totalCells   = Math.ceil((firstDow + daysInMonth) / 7) * 7;
-420	
-421	  let html = `
-422	    <div class="cal-header">
-423	      <span class="cal-title">日付を選択</span>
-424	      <button class="icon-btn" style="width:28px;height:28px;font-size:13px" onclick="closeCalendarPicker()">✕</button>
-425	    </div>
-426	    <div class="cal-nav">
-427	      <button class="cal-nav-btn" onclick="_calPrev()">‹</button>
-428	      <span class="cal-month-title">${y}年 ${months[m]}</span>
-429	      <button class="cal-nav-btn" onclick="_calNext()">›</button>
-430	    </div>
-431	    <div class="cal-grid">`;
-432	
-433	  days.forEach((d, i) => {
-434	    const c = i===0 ? 'color:var(--red)' : i===6 ? 'color:var(--blue)' : '';
-435	    html += `<div class="cal-day-hd" style="${c}">${d}</div>`;
-436	  });
-437	
-438	  for (let i = firstDow - 1; i >= 0; i--)
-439	    html += `<div class="cal-day other-month">${daysInPrev - i}</div>`;
-440	
-441	  for (let d = 1; d <= daysInMonth; d++) {
-442	    const date  = new Date(y, m, d);
-443	    const isSel = fmtDate(date) === fmtDate(selected);
-444	    const isTod = fmtDate(date) === fmtDate(today);
-445	    const dow   = date.getDay();
-446	    const col   = (!isSel && !isTod) ? (dow===0 ? 'color:var(--red)' : dow===6 ? 'color:var(--blue)' : '') : '';
-447	    const cls   = 'cal-day' + (isSel ? ' cal-selected' : isTod ? ' cal-today' : '');
-448	    html += `<div class="${cls}" style="${col}" onclick="_calSelect(${y},${m+1},${d})">${d}</div>`;
-449	  }
-450	
-451	  const nextDays = totalCells - firstDow - daysInMonth;
-452	  for (let d = 1; d <= nextDays; d++)
-453	    html += `<div class="cal-day other-month">${d}</div>`;
-454	
-455	  html += `</div>`;
-456	  el.innerHTML = html;
-457	}
-458	
-459	function _calPrev() { _calM--; if (_calM < 0) { _calM = 11; _calY--; } _renderCal(); }
-460	function _calNext() { _calM++; if (_calM > 11) { _calM = 0; _calY++; } _renderCal(); }
-461	
-462	function _calSelect(y, m, d) {
-463	  applyVisitDate(`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
-464	  closeCalendarPicker();
-465	}
-466	
-467	function closeCalendarPicker() {
-468	  document.getElementById('cal-popover')?.remove();
-469	  document.removeEventListener('click', _closeCalOutside);
-470	}
-471	
-472	function _closeCalOutside(e) {
-473	  const cal = document.getElementById('cal-popover');
-474	  const btn = document.getElementById('nav-date');
-475	  if (cal && !cal.contains(e.target) && !btn.contains(e.target)) closeCalendarPicker();
-476	}
-477	
-478	// タッチキーボードを閉じて再度開いた際、フォーカス復元によるクリップボード自動ペーストを防ぐ
-479	document.addEventListener('visibilitychange', () => {
-480	  if (document.visibilityState === 'visible' && document.activeElement && document.activeElement.tagName !== 'BODY') {
-481	    document.activeElement.blur();
-482	  }
-483	});
-484	window.addEventListener('pageshow', e => {
-485	  if (e.persisted && document.activeElement && document.activeElement.tagName !== 'BODY') {
-486	    document.activeElement.blur();
-487	  }
-488	});
-489	
-490	function load() {
-491	  try { facilities  = JSON.parse(localStorage.getItem(LS_FAC)   || '[]'); } catch { facilities = []; }
-492	  try { todayVisits = JSON.parse(localStorage.getItem(LS_TODAY)  || '[]'); } catch { todayVisits = []; }
-493	  currentFacId = localStorage.getItem(LS_CUR) || null;
-494	  if (currentFacId && !facilities.find(f => f.id === currentFacId)) currentFacId = null;
-495	  // 日付が変わっていたら本日完了分をリセット
-496	  if (localStorage.getItem(LS_TDATE) !== fmtDate(new Date())) {
-497	    todayVisits = [];
-498	    localStorage.removeItem(LS_TODAY);
-499	  }
-500	}
-501	
-502	function save() {
-503	  localStorage.setItem(LS_FAC,   JSON.stringify(facilities));
-504	  localStorage.setItem(LS_TODAY, JSON.stringify(todayVisits));
-505	  localStorage.setItem(LS_TDATE, fmtDate(new Date()));
-506	  if (currentFacId) localStorage.setItem(LS_CUR, currentFacId);
-507	}
-508	
-509	function getFac() {
-510	  return facilities.find(f => f.id === currentFacId) || null;
-511	}
-512	
-513	// ─── Main render ──────────────────────────────────────────────────────────────
-514	function renderApp() {
-515	  const fac = getFac();
-516	  document.getElementById('nav-fac').textContent =
-517	    (fac ? fac.name : '施設を選択') + ' ▾';
-518	
-519	  if (!fac) { renderSetup(); return; }
-520	
-521	  const total = fac.patients.length;
-522	  const done  = todayVisits.length;
-523	  let html = '';
-524	
-525	  // Progress
-526	  if (total > 0) {
-527	    const pct = Math.round(done / total * 100);
-528	    html += `<div class="prog-wrap">
-529	      <div class="prog-text">
-530	        <span>本日の進捗　<span style="font-weight:600">${done} / ${total}名</span></span>
-531	        <div class="flex-c gap-8">
-532	          <button class="btn btn-secondary btn-sm" onclick="showBulkSOInput()">📋 S/O一括入力</button>
-533	          <button class="btn btn-primary btn-sm" id="bulk-btn" onclick="generateAll()">一括作成</button>
-534	        </div>
-535	      </div>
-536	      <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
-537	    </div>`;
-538	  }
-539	
-540	  // Dropzone (when no patients)
-541	  if (total === 0) {
-542	    html += `<div class="dropzone" id="dz"
-543	      onclick="document.getElementById('fi').click()"
-544	      ondrop="onDrop(event)" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
-545	      <div class="dz-icon">📂</div>
-546	      <div class="dz-title">前回記録ファイルをドロップ</div>
-547	      <div class="dz-sub">.txt ファイルをドロップするか、クリックして選択</div>
-548	    </div>
-549	    <input type="file" id="fi" accept=".txt" style="display:none" onchange="onFileInput(event)">`;
-550	  }
-551	
-552	  // Patient list
-553	  if (total > 0) {
-554	    html += `<span class="sec-label">患者リスト</span><div class="card" id="plist">
-555	      <div class="h-header">
-556	        <span>部屋番号</span><span>患者名</span>
-557	        <span>S</span><span>O</span>
-558	        <span style="text-align:center">${fac.hasA ? '診察あり' : '変更なし'}</span>
-559	        <span style="text-align:center">入院中</span>
-560	        <span></span><span></span>
-561	      </div>`;
-562	    fac.patients.forEach(p => { html += buildRow(p, fac); });
-563	    html += `</div>
-564	    <div style="text-align:center;margin-bottom:16px;display:flex;gap:8px;justify-content:center;">
-565	      <button class="btn btn-ghost btn-sm text-xs" onclick="document.getElementById('fi2').click()">
-566	        📂 ファイルを追加インポート</button>
-567	      <input type="file" id="fi2" accept=".txt" style="display:none" onchange="onFileInput(event)">
-568	      <button class="btn btn-ghost btn-sm text-xs" onclick="showPasteImport()">
-569	        📋 テキストを貼り付けて追加</button>
-570	    </div>`;
-571	  }
-572	
-573	  // Today completed
-574	  if (done > 0) {
-575	    html += `<span class="sec-label" style="margin-top:4px">本日完了分</span>`;
-576	    todayVisits.forEach((v, i) => {
-577	      html += `<div class="today-card">
-578	        <div class="today-hd" onclick="toggleToday(${i})">
-579	          <div>
-580	            <span style="font-weight:600">${esc(v.room)}　${esc(v.name)}</span>
-581	            <span class="text-xs text-p2" style="margin-left:8px">${esc(v.points)}</span>
-582	          </div>
-583	          <div class="flex-c gap-8">
-584	            <button class="btn btn-danger btn-sm"
-585	              onclick="event.stopPropagation();removeToday(${i})">削除</button>
-586	            <span class="text-p2 text-xs" id="tc-${i}">▸</span>
-587	          </div>
-588	        </div>
-589	        <div class="today-body" id="tb-${i}">
-590	          <textarea rows="14" style="font-size:13px;line-height:1.8;"
-591	            onchange="todayVisits[${i}].content=this.value;save()">${esc(v.content)}</textarea>
-592	        </div>
-593	      </div>`;
-594	    });
-595	  }
-596	
-597	  document.getElementById('app').innerHTML = html;
-598	  document.getElementById('action-bar').style.display = done > 0 ? 'flex' : 'none';
-599	
-600	  // 入力済みS/Oテキストエリアの高さを内容に合わせる（overflow:hiddenのため必須）
-601	  if (fac) {
-602	    fac.patients.forEach(p => {
-603	      ['s-', 'o-'].forEach(pre => {
-604	        const el = document.getElementById(pre + p.room);
-605	        if (el && el.value) autoResize(el);
-606	      });
-607	    });
-608	  }
-609	}
-610	
-611	function buildRow(p, fac) {
-612	  const isDone   = todayVisits.some(v => v.room === p.room);
-613	  const isHosp   = p.hospitalized || false;
-614	  const st       = inputState[p.room] || {};
-615	  const noChange     = st.noChange || false;
-616	  const hasShinsatsu = st.hasShinsatsu || false;
-617	  const pts          = st.points !== undefined ? st.points : p.defaultPoints;
-618	  const sVal         = st.s || '';
-619	  const oVal         = st.o || '';
-620	  const out      = st.output || '';
-621	
-622	  const rowDim  = isDone ? 'opacity:.4;pointer-events:none;' : isHosp ? 'opacity:.4;' : '';
-623	  const dis     = isDone || isHosp ? 'disabled' : '';
-624	
-625	  let html = `<div style="${rowDim}">
-626	    <div class="h-row">
-627	      <span class="col-room">${esc(p.room)}</span>
-628	      <input class="name-input" type="text" value="${esc(p.name)}" ${dis}
-629	        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-630	        onchange="updatePatientName('${esc(p.room)}',this.value)">
-631	      <textarea class="compact-ta" id="s-${esc(p.room)}" rows="1" ${dis}
-632	        oninput="storeInput('${esc(p.room)}','s',this.value);autoResize(this)">${esc(sVal)}</textarea>
-633	      <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
-634	        <textarea class="compact-ta" id="o-${esc(p.room)}" rows="1" ${dis}
-635	          oninput="storeInput('${esc(p.room)}','o',this.value);autoResize(this)">${esc(oVal)}</textarea>
-636	      </div>
-637	      <div class="col-nc" style="pointer-events:${isDone?'none':'auto'}">
-638	        ${fac.hasA
-639	          ? `<input type="checkbox" class="cb-nc" ${hasShinsatsu?'checked':''} ${dis}
-640	               onchange="toggleShinsatsu('${esc(p.room)}',this.checked)">`
-641	          : `<input type="checkbox" class="cb-nc" ${noChange?'checked':''} ${dis}
-642	               onchange="toggleNoChange('${esc(p.room)}',this.checked)">`}
-643	      </div>
-644	      <div class="col-nc" style="pointer-events:auto;opacity:1;">
-645	        <label class="sw sw-danger" style="cursor:pointer">
-646	          <input type="checkbox" ${isHosp?'checked':''}
-647	            onchange="toggleHospitalized('${esc(p.room)}',this.checked)">
-648	          <div class="sw-track"></div>
-649	          <div class="sw-thumb"></div>
-650	        </label>
-651	      </div>
-652	      ${isDone
-653	        ? `<span class="badge badge-done" style="margin-top:5px">完了</span><span></span>`
-654	        : isHosp
-655	          ? `<span class="badge" style="background:#fff0f0;color:var(--red);margin-top:5px">入院中</span><span></span>`
-656	          : `<button class="btn btn-primary btn-sm" style="margin-top:2px;white-space:nowrap"
-657	               id="gen-${esc(p.room)}" onclick="generateRecord('${esc(p.room)}')">作成</button>
-658	             ${p.lastRecord
-659	               ? `<button class="btn btn-secondary btn-sm" style="margin-top:2px;white-space:nowrap"
-660	                    onclick="showLastRecord('${esc(p.room)}')">前回記録</button>`
-661	               : '<span></span>'}`}
-662	    </div>
-663	    <div id="err-${esc(p.room)}"></div>`;
-664	
-665	  // Output panel — shown only after generation
-666	  if (out && !isDone) {
-667	    html += `<div class="out-panel">
-668	      <div class="form-label" style="margin-bottom:6px">生成結果（編集可）</div>
-669	      <div id="out-${esc(p.room)}" contenteditable="true"
-670	        style="font-size:13px;line-height:1.8;white-space:pre-wrap;padding:9px 12px;
-671	               border:1px solid var(--sep);border-radius:var(--rsm);background:var(--card);
-672	               min-height:160px;outline:none;transition:border-color .15s,box-shadow .15s;
-673	               word-break:break-all;"
-674	        onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(0,122,255,.12)'"
-675	        onblur="this.style.borderColor='';this.style.boxShadow=''"
-676	        oninput="inputState['${esc(p.room)}'].output=this.innerText"
-677	      >${renderBold(out)}</div>
-678	      <button class="btn btn-primary btn-full" style="margin-top:8px"
-679	        onclick="saveRecord('${esc(p.room)}')">✚ 一覧に追加して次の患者へ</button>
-680	    </div>`;
-681	  }
-682	
-683	  html += `</div>`;
-684	  return html;
-685	}
-686	
-687	// ─── Patient interactions ─────────────────────────────────────────────────────
-688	function updatePatientName(room, name) {
-689	  const fac = getFac();
-690	  const p = fac?.patients.find(p => p.room === room);
-691	  if (p && name.trim()) { p.name = name.trim(); save(); }
-692	}
-693	
-694	function autoResize(el) {
-695	  el.style.height = 'auto';
-696	  el.style.height = el.scrollHeight + 'px';
-697	}
-698	
-699	function storeInput(room, key, val) {
-700	  if (!inputState[room]) inputState[room] = initSt(room);
-701	  inputState[room][key] = val;
-702	}
-703	
-704	function initSt(room) {
-705	  const fac = getFac();
-706	  const p   = fac?.patients.find(p => p.room === room);
-707	  return { s:'', o:'', points: p?.defaultPoints||'342点', output:'', noChange:false, hasShinsatsu:false };
-708	}
-709	
-710	function getDeliveryRange() {
-711	  const now   = visitDate;
-712	  const day   = now.getDay();
-713	  const daysToNextMonday = ((8 - day) % 7) || 7;
-714	  const start = new Date(now.getTime() + daysToNextMonday * 864e5);
-715	  const end   = new Date(start.getTime() + 6 * 864e5);
-716	  const s = `${start.getMonth()+1}/${start.getDate()}`;
-717	  const e = `${end.getMonth()+1}/${end.getDate()}`;
-718	  return { range: `${s}ー${e}`, start: s };
-719	}
-720	
-721	function toggleNoChange(room, checked) {
-722	  if (!inputState[room]) inputState[room] = initSt(room);
-723	  inputState[room].noChange = checked;
-724	  renderApp();
-725	}
-726	
-727	function toggleShinsatsu(room, checked) {
-728	  if (!inputState[room]) inputState[room] = initSt(room);
-729	  inputState[room].hasShinsatsu = checked;
-730	}
-731	
-732	function toggleHospitalized(room, checked) {
-733	  const fac = getFac();
-734	  const p = fac?.patients.find(p => p.room === room);
-735	  if (!p) return;
-736	  p.hospitalized = checked;
-737	  save();
-738	  renderApp();
-739	}
-740	
-741	// ─── Claude ───────────────────────────────────────────────────────────────────
-742	async function generateRecord(room) {
-743	  const fac = getFac();
-744	  const p   = fac.patients.find(p => p.room === room);
-745	  const st  = inputState[room] || initSt(room);
-746	
-747	  const sEl   = document.getElementById('s-' + room);
-748	  const oEl   = document.getElementById('o-' + room);
-749	  const sVal  = (sEl ? sEl.value : st.s).trim();
-750	  const oVal  = (oEl ? oEl.value : st.o).trim();
-751	  const prev  = (p.lastRecord || '').trim();
-752	  const pts   = st.points || p.defaultPoints;
-753	
-754	  if (sEl)   { st.s = sEl.value;   inputState[room] = st; }
-755	  if (oEl)   { st.o = oEl.value;   inputState[room] = st; }
-756	
-757	  const apiKey  = localStorage.getItem(LS_CLAUDE_API) || '';
-758	  const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
-759	  const errEl   = document.getElementById('err-' + room);
-760	  errEl.innerHTML = '';
-761	
-762	  if (!apiKey) {
-763	    errEl.innerHTML = '<div class="err">⚠️ Claude APIキーが未設定です。右上 ⚙️ から入力してください。</div>';
-764	    return;
-765	  }
-766	  if (!proxyUrl) {
-767	    errEl.innerHTML = '<div class="err">⚠️ GAS Proxy URLが未設定です。右上 ⚙️ から入力してください。</div>';
-768	    return;
-769	  }
-770	
-771	  const btn = document.getElementById('gen-' + room);
-772	  btn.disabled = true;
-773	  btn.innerHTML = '<span class="spin"></span> 生成中...';
-774	
-775	  const now      = visitDate;
-776	  const reiwa    = now.getFullYear() - 2018;
-777	  const reiwaStr = `R${reiwa}.${now.getMonth()+1}`;
-778	  const dateStr  = `${now.getMonth()+1}/${now.getDate()}`;
-779	
-780	  const noChange     = inputState[room]?.noChange || false;
-781	  const hasShinsatsu = inputState[room]?.hasShinsatsu || false;
-782	  const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
-783	
-784	  try {
-785	    const text = normalize(await callClaude(apiKey, prompt));
-786	    inputState[room].output = text;
-787	
-788	    const errEl2 = document.getElementById('err-' + room);
-789	    const container = errEl2?.parentElement;
-790	    if (container) {
-791	      const existing = container.querySelector('.out-panel');
-792	      if (existing) existing.remove();
-793	      const panelDiv = document.createElement('div');
-794	      panelDiv.className = 'out-panel';
-795	      panelDiv.innerHTML = `
-796	        <div class="form-label" style="margin-bottom:6px">生成結果（編集可）</div>
-797	        <div id="out-${room}" contenteditable="true"
-798	          style="font-size:13px;line-height:1.8;white-space:pre-wrap;padding:9px 12px;
-799	                 border:1px solid var(--sep);border-radius:var(--rsm);background:var(--card);
-800	                 min-height:160px;outline:none;transition:border-color .15s,box-shadow .15s;
-801	                 word-break:break-all;"
-802	          onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(0,122,255,.12)'"
-803	          onblur="this.style.borderColor='';this.style.boxShadow=''"
-804	          oninput="inputState['${room}'].output=this.innerText"
-805	        >${renderBold(text)}</div>
-806	        <button class="btn btn-primary btn-full" style="margin-top:8px"
-807	          onclick="saveRecord('${room}')">✚ 一覧に追加して次の患者へ</button>
-808	      `;
-809	      container.appendChild(panelDiv);
-810	    }
-811	    const genBtn = document.getElementById('gen-' + room);
-812	    if (genBtn) { genBtn.disabled = false; genBtn.innerHTML = '作成'; }
-813	    showToast(`${p.name} の記録が完成しました ✓`, 3000);
-814	  } catch(e) {
-815	    errEl.innerHTML = `<div class="err">⚠️ ${esc(e.message)}</div>`;
-816	    const b = document.getElementById('gen-' + room);
-817	    if (b) { b.disabled = false; b.innerHTML = '作成'; }
-818	  }
-819	}
-820	
-821	function showLastRecord(room) {
-822	  const fac = getFac();
-823	  const p   = fac?.patients.find(p => p.room === room);
-824	  if (!p?.lastRecord) return;
-825	
-826	  if (!inputState[room]) inputState[room] = initSt(room);
-827	
-828	  const errEl    = document.getElementById('err-' + room);
-829	  const container = errEl?.parentElement;
-830	  if (!container) return;
-831	  const existing = container.querySelector('.out-panel');
-832	  if (existing) { existing.remove(); inputState[room].output = ''; return; }
-833	  inputState[room].output = p.lastRecord;
-834	
-835	  const panelDiv = document.createElement('div');
-836	  panelDiv.className = 'out-panel';
-837	  panelDiv.innerHTML = `
-838	    <div class="form-label" style="margin-bottom:6px">前回の記録（編集可）</div>
-839	    <div id="out-${room}" contenteditable="true"
-840	      style="font-size:13px;line-height:1.8;white-space:pre-wrap;padding:9px 12px;
-841	             border:1px solid var(--sep);border-radius:var(--rsm);background:var(--card);
-842	             min-height:160px;outline:none;transition:border-color .15s,box-shadow .15s;
-843	             word-break:break-all;"
-844	      onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(0,122,255,.12)'"
-845	      onblur="this.style.borderColor='';this.style.boxShadow=''"
-846	      oninput="inputState['${room}'].output=this.innerText"
-847	    >${renderBold(p.lastRecord)}</div>
-848	    <button class="btn btn-primary btn-full" style="margin-top:8px"
-849	      onclick="saveRecord('${room}')">✚ 一覧に追加して次の患者へ</button>
-850	  `;
-851	  container.appendChild(panelDiv);
-852	}
-853	
-854	function buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange=false, hasShinsatsu=false) {
-855	  const hasA = fac.hasA;
-856	  const noChangeNote = noChange ? `
-857	【重要】今回は「変更なし」フラグが立っています。
-858	・##S##：「${fac.noChangeS || '特に変わったことはなく過ごされています。落ち着いた療養が出来ています。'}」を ##S## の内容とし、冒頭に（施設スタッフ）を付ける。
-859	・##O##：診察時サマリ部分を「${fac.noChangeO || '内科的に特に問題はない。現行治療で継続。\n※処方変更なし。'}」とする。処方変更なしとして扱う。
-860	・##A##（Aあり施設のみ）：##OP##から2剤をピックアップし、効果が得られているか副作用（具体的症状）が出ていないかをアセスメントする。【バリエーション必須】前回Aと異なる薬剤を選ぶこと。
-861	・##EP##：##OP##から2剤を抽出し副作用（具体的な症状）への注意を促す指導内容を作成する。「このままお薬を続けましょう」は不可。必ず薬の効果・副作用に言及すること。【バリエーション必須】前回EPと異なる薬剤・内容を取り上げること。
-862	` : '';
-863	
-864	  if (hasA) {
-865	    const { range: deliveryRange, start: deliveryStart } = getDeliveryRange();
-866	    const noChangeS = fac.noChangeS || '特に変わったことはなく過ごされています。落ち着いた療養が出来ています。';
-867	    // ナーシングホーム用（A あり：S・O・A・EP・OP）
-868	    return `あなたは在宅医療に特化した薬局に勤めるベテラン薬剤師として、施設訪問薬歴の作成を支援するAIです。薬学的管理に精通しており、特に緩和ケア・褥瘡領域に秀でた立場で記録を作成してください。
-869	${noChangeNote}
-870	【本日の日付】${reiwaStr}（${dateStr}）
-871	【算定点数】${pts}
-872	
-873	【今回のS入力】
-874	${sVal || '（入力なし）'}
-875	
-876	【今回のO入力（配薬日付・診察サマリなど）】
-877	${oVal || '（入力なし）'}
-878	
-879	【前回の記録】
-880	${prev || '（なし）'}
-881	
-882	━━━━━━━━━━━━━━━━━━━━━━━━━━━
-883	【出力形式】余計な前置き・説明は一切加えず以下の形式のみで出力すること。
-884	
-885	##S##
-886	##O##
-887	##A##
-888	##EP##
-889	##OP##
-890	
-891	━━━━━━━━━━━━━━━━━━━━━━━━━━━
-892	【各項目のルール】
-893	
-894	①##S##
-895	${sVal.trim()
-896	  ? `今回のS入力を要約・言い換えせずそのまま記載する。
-897	入力内容の文脈から（施設スタッフ）または（本人）かを推定し、冒頭に付けて改行してから内容を記載する。入力に「本人」「家族」「娘さん」などの話者を示す語がある場合はそれを（　）で括った形式にする。`
-898	  : `S入力が空欄のため「${noChangeS}」を ##S## の内容とする。冒頭に（施設スタッフ）を付けて改行してから記載する。`}
-899	
-900	②##O##
-901	冒頭は必ず「定期訪問、定期配薬：」から始める。出力に空白行を入れないこと。
-902	【重要】今回の配薬期間は「${deliveryRange}」である。前回記録のOに書かれた配薬日程は絶対に引き継がず、必ず今回の配薬期間を使うこと。
-903	
-904	【定時薬の配薬期間】
-905	・O入力に期間指定（例：「定時薬 6/2-5」「6/2まで」「6/2ー6/5」「M/DーM/D」等）がある場合 → その期間をそのまま使う。自動計算値（${deliveryRange}）は絶対に使わない。
-906	・O入力に期間指定がない場合のみ → 自動計算値 ${deliveryRange} を使う。
-907	
-908	【追加薬剤】
-909	・O入力に「・薬剤名　数量」等の追加薬剤行がある場合 → 定時薬行の直下にそのまま全て追記する。内容は一切変えない。
-910	・O入力が空欄の場合：##O##に以下をそのまま一字一句出力すること（日付を自分で計算してはならない）：
-911	定期訪問、定期配薬：
-912	・定時薬　${deliveryRange}　※処方変更なし
-913	
-914	出力例（O入力「定時薬 6/2-5　・ヘパリン類似Cr 4本　・生食注 6本」の場合）：
-915	定期訪問、定期配薬：
-916	・定時薬　6/2ー5
-917	・ヘパリン類似Cr　4本
-918	・生食注　6本
-919	
-920	${hasShinsatsu ? `医師診察同行あり。配薬記録の下に続けて以下の形式で診察サマリを記載する：
-921	【${dateStr}診察時サマリ】
-922	（O入力に含まれる診察情報を記載）
-923	処方変更があれば「M/D　薬剤名　変更内容」の形式で追記する（元号・西暦不要）。日付はO入力に「M/D～」等の指定があればその日付を使い（例：「5/29～」→ 5/29、「～」は除く）、指定がなければ「${dateStr}」を使う。` : ``}
-924	
-925	③##A##
-926	【大前提】OPの既存薬剤・プロブレムを踏まえて薬学的アセスメントを書く。SやOから新たなプロブレムを作ってはならない。
-927	【方針】プロブレムを列挙する形式ではなく、今回の薬物療法全体の状況を総合的に2文の文章でまとめる。各文は必ず薬剤（薬名・薬効）に紐づけて書くこと。
-928	【記載の優先順位】
-929	①前回訪問時に追加・変更された薬剤（OPの直近の**追記**や最新日付の変更）がある場合 → その薬の効果・副作用・症状の変化を最優先でフォロー
-930	②今回のS・OとOPの★フォロー事項に関連する薬の効果・副作用・症状の変化
-931	③上記以外で現在内服中の薬（中止・終了・外用・頓服を除く）から気になる点があれば1点追記
-932	★フォロー事項は文章の中に自然に溶け込ませる。★記号は出力しない。中止・終了・外用・頓服は取り上げない。
-933	【禁止表現】「〜の妥当性が認められる」「〜のバランスは良好に維持されている」「臨床的に問題なく」「〜する必要がある」などの冗長・医師口調表現は禁止。
-934	【文体】「〜改善傾向」「〜安定」「〜様子見」「〜良好」「〜自制内」など薬剤師として端的な評価語を使う。
-935	バリエーション必須：前回Aと同じ薬剤・視点の繰り返し禁止（★フォロー確認は毎回書いてよい）
-936	
-937	④##EP##
-938	1文のみで記載する。感情的表現・共感表現・お気持ち系の言葉は一切使わない。
-939	【優先①】処方変更あり → その薬の薬効または服薬上の注意を1文
-940	【優先②】変更なし → ##A##で取り上げた薬剤・テーマと関連する薬の薬効または副作用（具体的症状）への注意を1文
-941	【副作用疑い】S・Oに副作用疑いがある場合 → 「●●（症状）は▲▲（薬剤名）の副作用の可能性がありますので、続く場合・悪化する場合には遠慮なく教えてください。」の形式
-942	【禁止表現】「〜が不可欠である」「〜が常態化している」「〜が確認されている」などの冗長・医師口調表現は禁止。
-943	・バリエーション必須：前回EPと同じ薬剤・内容の繰り返し禁止
-944	
-945	⑤##OP##
-946	【絶対禁止】要約・省略・言い換え・整理・短縮は一切禁止。どれほど長くても全文そのまま出力すること。途中で「…」や「（以下略）」などで省略することは厳禁。省略した場合は出力失格となる。
-947	以下の2ステップのみで処理する。
-948	【ステップ1：完全コピー】前回の##OP##を一字一句変えずにそのまま転記する。要約・省略・言い換え・並び替えは一切禁止。文字・記号・改行・スペースを含め完全に同一のテキストを出力すること。プロブレム数・行数が多くても全て出力すること。
-949	【ステップ2：追記のみ】##O##で薬剤変更があった場合：
-950	①##OP##全体の＃プロブレム（＃●●）を上から全て確認し、プロブレム名の一覧を把握する。
-951	②変更薬の薬効・適応症に照らして、最も病態的に関連するプロブレムを一つ特定する（関連が薄くても既存にあれば必ずそこに追記）。
-952	③特定したプロブレムの詳細ブロック最終行の直後に改行し、全角スペース1つ＋「**M/D　変更内容**」を追記する（** は太字マーカー。必ず付けること）。
-953	　日付は「${reiwaStr.split('.')[0]}.M/D」形式とする（例：${reiwaStr.split('.')[0]}.5/29）。O入力に変更日の指定があればそのM/Dを使い、指定がなければ${dateStr}。
-954	新規プロブレムは既存のどのプロブレムとも全く関連がない場合のみ許可。
-955	【追記フォーマット厳守】追記は必ず前の行の末尾で改行すること。前の行と同じ行に続けて書くことは絶対に禁止。インデントは直前の詳細行（全角スペース始まりの行）と完全に同じにすること。前後の行を見て合わせること。
-956	　例（O入力「5/29～アムロジピン5mg　追加」の場合）：
-957	　　（転記内容）
-958	　 **${reiwaStr.split('.')[0]}.5/29　アムロジピン5mg　追加**　←このように**で囲んで書く
-959	・新規プロブレムを追加する場合：プロブレム名は必ず疾患名・病態名とする（薬剤名をそのままプロブレム名にしてはならない）。例：✗＃エンシュアH　→　✓＃栄養状態低下（または関連する既存プロブレムに追記）
-960	・★の部分 → 処方変更があればフォローアップ内容に上書き。★が2段になることは絶対に避ける。変更がなければ一字一句変えずに残す。
-961	フォーマット：＃プロブレムは行頭から（インデントなし）。＃以外の詳細行は必ず行頭に全角スペース（　）を1つ入れてから書き始めること。半角スペースでの行頭インデントは禁止。
-962	
-963	━━━━━━━━━━━━━━━━━━━━━━━━━━━
-964	【出力前の確認事項】
-965	1. 文字化け・記号の乱れ・全角半角の不自然な混在がないか
-966	2. ①〜⑤のルールに完全に適合しているか。特に##OP##の一字一句転記、★の2段化がないか、##EP##に薬の効果・副作用への言及があるか
-967	3. 前回記録にない情報を勝手に追加・創作していないか
-968	4. ##OP##が前回記録のOP全文と完全に一致しているか。プロブレムの省略・行の欠落がないか`;
-969	  }
-970	
-971	  // みつば用（A なし：S・O・EP・OP）
-972	  return `あなたは在宅医療に特化した薬局に勤めるベテラン薬剤師として、施設訪問薬歴の作成を支援するAIです。薬学的管理に精通しており、特に緩和ケア・褥瘡領域に秀でた立場で記録を作成してください。
-973	${noChangeNote}
-974	【本日の日付】${reiwaStr}（${dateStr}）
-975	【算定点数】${pts}
-976	
-977	【今回のS入力】
-978	${sVal || '（入力なし）'}
-979	
-980	【今回のO入力（診察時サマリ）】
-981	${oVal || '（入力なし）'}
-982	
-983	【前回の記録】
-984	${prev || '（なし）'}
-985	
-986	━━━━━━━━━━━━━━━━━━━━━━━━━━━
-987	【出力形式】余計な前置き・説明は一切加えず以下の形式のみで出力すること。
-988	
-989	##S##
-990	##O##
-991	##EP##
-992	##OP##
-993	
-994	━━━━━━━━━━━━━━━━━━━━━━━━━━━
-995	【各項目のルール】
-996	
-997	①##S##
-998	今回のS入力を要約・言い換えせずそのまま記載する。
-999	入力内容の文脈から（施設スタッフ）または（本人）かを推定し、冒頭に付けて改行してから内容を記載する。入力に「本人」「家族」「娘さん」などの話者を示す語がある場合はそれを（　）で括った形式にする。
-1000	
-1001	②##O##
-1002	前回の##O##の内容を基本的にそのまま引き継ぐ。
-1003	【診察時サマリ】の日付を【${dateStr}診察時サマリ】に書き換え、今回のO入力内容に差し替える。
-1004	処方変更があれば「M/D　薬剤名　変更内容」の形式で追記する（元号・西暦不要）。
-1005	・日付はO入力に「M/D～」「M/Dより」等の指定があればその日付を使う（例：「5/29～」→ 5/29、「～」は除く）。
-1006	・日付指定がなければ今日「${dateStr}」を使う。
-1007	前回##O##内に採血データがある場合はそのまま残す。薬剤情報は変更があれば上書き、なければそのまま残す。
-1008	
-1009	③##EP##
-1010	1文のみで記載する。感情的表現・共感表現・お気持ち系の言葉は一切使わない。
-1011	【優先①】処方変更あり → その薬の薬効または服薬上の注意を1文
-1012	【優先②】変更なし → 今回のS・OおよびOPの★フォロー事項に関連する薬の薬効または副作用（具体的症状）への注意を1文
-1013	【副作用疑い】S・Oに副作用疑いがある場合 → 「●●（症状）は▲▲（薬剤名）の副作用の可能性がありますので、続く場合・悪化する場合には遠慮なく教えてください。」の形式
-1014	【禁止表現】「〜が不可欠である」「〜が常態化している」「〜が確認されている」などの冗長・医師口調表現は禁止。
-1015	・バリエーション必須：前回EPと同じ薬剤・内容の繰り返し禁止
-1016	
-1017	④##OP##
-1018	【絶対禁止】要約・省略・言い換え・整理・短縮は一切禁止。どれほど長くても全文そのまま出力すること。途中で「…」や「（以下略）」などで省略することは厳禁。省略した場合は出力失格となる。
-1019	以下の2ステップのみで処理する。
-1020	【ステップ1：完全コピー】前回の##OP##を一字一句変えずにそのまま転記する。要約・省略・言い換え・並び替えは一切禁止。文字・記号・改行・スペースを含め完全に同一のテキストを出力すること。プロブレム数・行数が多くても全て出力すること。
-1021	【ステップ2：追記のみ】##O##で薬剤変更があった場合：
-1022	①##OP##全体の＃プロブレム（＃●●）を上から全て確認し、プロブレム名の一覧を把握する。
-1023	②変更薬の薬効・適応症に照らして、最も病態的に関連するプロブレムを一つ特定する（関連が薄くても既存にあれば必ずそこに追記）。
-1024	③特定したプロブレムの詳細ブロック最終行の直後に改行し、全角スペース1つ＋「**M/D　変更内容**」を追記する（** は太字マーカー。必ず付けること）。
-1025	　日付は「${reiwaStr.split('.')[0]}.M/D」形式とする（例：${reiwaStr.split('.')[0]}.5/29）。O入力に変更日の指定があればそのM/Dを使い、指定がなければ${dateStr}。
-1026	新規プロブレムは既存のどのプロブレムとも全く関連がない場合のみ許可。
-1027	【追記フォーマット厳守】追記は必ず前の行の末尾で改行すること。前の行と同じ行に続けて書くことは絶対に禁止。インデントは直前の詳細行（全角スペース始まりの行）と完全に同じにすること。前後の行を見て合わせること。
-1028	　例（O入力「5/29～アムロジピン5mg　追加」の場合）：
-1029	　　（転記内容）
-1030	　 **${reiwaStr.split('.')[0]}.5/29　アムロジピン5mg　追加**　←このように**で囲んで書く
-1031	・新規プロブレムを追加する場合：プロブレム名は必ず疾患名・病態名とする（薬剤名をそのままプロブレム名にしてはならない）。例：✗＃エンシュアH　→　✓＃栄養状態低下（または関連する既存プロブレムに追記）
-1032	・★の部分 → 処方変更があればフォローアップ内容に上書き。★が2段になることは絶対に避ける。変更がなければ一字一句変えずに残す。
-1033	フォーマット：＃プロブレムは行頭から（インデントなし）。＃以外の詳細行は必ず行頭に全角スペース（　）を1つ入れてから書き始めること。半角スペースでの行頭インデントは禁止。
-1034	
-1035	━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1036	【出力前の確認事項】
-1037	1. 文字化け・記号の乱れ・全角半角の不自然な混在がないか
-1038	2. ①〜④のルールに完全に適合しているか。特に##OP##の一字一句転記、★の2段化がないか、##EP##に薬の効果・副作用への言及があるか
-1039	3. 前回記録にない情報を勝手に追加・創作していないか
-1040	4. ##OP##が前回記録のOP全文と完全に一致しているか。プロブレムの省略・行の欠落がないか`;
-1041	}
-1042	
-1043	async function callClaude(apiKey, prompt) {
-1044	  const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
-1045	  if (!proxyUrl) throw new Error('GAS Proxy URLが未設定です');
-1046	
-1047	  const res = await fetch(proxyUrl, {
-1048	    method: 'POST',
-1049	    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-1050	    body: JSON.stringify({
-1051	      type: 'claude',
-1052	      apiKey,
-1053	      model: 'claude-haiku-4-5-20251001',
-1054	      maxTokens: 8192,
-1055	      system: 'あなたは訪問薬剤師の施設訪問記録作成を支援する専門アシスタントです。以下の方針で記載してください。\n・簡潔・正確な医療日本語で記載する\n・感情的表現・共感表現・励まし・お気持ち系の言葉は一切使わない\n・薬剤師としての専門的視点（薬効・副作用・相互作用）から客観的に記録する\n・患者の「気持ち」ではなく「状態」を記録する',
-1056	      messages: [{ role: 'user', content: prompt }]
-1057	    }),
-1058	    redirect: 'follow'
-1059	  });
-1060	
-1061	  if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
-1062	  const data = await res.json();
-1063	  if (data.ok === false) throw new Error(typeof data.error === 'string' ? data.error : 'プロキシエラー');
-1064	  if (data.error) {
-1065	    const msg = typeof data.error === 'string' ? data.error
-1066	      : (data.error.message || data.error.type || 'Claude APIエラー');
-1067	    throw new Error(msg);
-1068	  }
-1069	  const text = data.content?.[0]?.text;
-1070	  if (!text) throw new Error('レスポンスが空です');
-1071	  return text;
-1072	}
-1073	
-1074	// ─── Bulk S/O input ──────────────────────────────────────────────────────────
-1075	function showBulkSOInput() {
-1076	  showModal(`
-1077	    <div class="form-group">
-1078	      <div class="form-label">S/O一括入力</div>
-1079	      <div class="text-xs text-p2" style="margin-bottom:8px">
-1080	        形式：部屋番号　S内容　O内容（全角スペース区切り）<br>
-1081	        例）201　落ち着いています。<br>
-1082	        　　202　掻痒感が続いています。　レボセチリジン追加しています。
-1083	      </div>
-1084	      <textarea id="bulk-so-input" rows="12" style="font-size:13px;line-height:1.8;"
-1085	        placeholder="201　落ち着いています。&#10;202　掻痒感が続いています。　レボセチリジン追加。"></textarea>
-1086	    </div>
-1087	  `, 'S/O一括入力',
-1088	  `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-1089	   <button class="btn btn-primary" onclick="applyBulkSO()">反映</button>`);
-1090	}
-1091	
-1092	function applyBulkSO() {
-1093	  const raw = document.getElementById('bulk-so-input')?.value || '';
-1094	  const fac = getFac();
-1095	  if (!fac) return;
-1096	
-1097	  let count = 0;
-1098	  for (const line of raw.split('\n')) {
-1099	    const trimmed = line.trim();
-1100	    if (!trimmed) continue;
-1101	    const parts = trimmed.split('　');
-1102	    const room = parts[0]?.trim();
-1103	    if (!room || !fac.patients.find(p => p.room === room)) continue;
-1104	    if (!inputState[room]) inputState[room] = initSt(room);
-1105	    inputState[room].s = parts[1]?.trim() || '';
-1106	    inputState[room].o = parts.slice(2).join('　').trim();
-1107	    count++;
-1108	  }
-1109	
-1110	  closeModal();
-1111	  showToast(`${count}名分のS/Oを反映しました`);
-1112	  renderApp();
-1113	  // テキストエリアのサイズ調整
-1114	  setTimeout(() => {
-1115	    fac.patients.forEach(p => {
-1116	      ['s-','o-'].forEach(pre => {
-1117	        const el = document.getElementById(pre + p.room);
-1118	        if (el) autoResize(el);
-1119	      });
-1120	    });
-1121	  }, 50);
-1122	}
-1123	
-1124	// ─── Bulk generate ───────────────────────────────────────────────────────────
-1125	async function generateAll() {
-1126	  const fac = getFac();
-1127	  if (!fac) return;
-1128	
-1129	  const apiKey   = localStorage.getItem(LS_CLAUDE_API) || '';
-1130	  const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
-1131	  if (!apiKey) {
-1132	    showToast('⚠️ Claude APIキーを設定してください');
-1133	    return;
-1134	  }
-1135	  if (!proxyUrl) {
-1136	    showToast('⚠️ GAS Proxy URLを設定してください');
-1137	    return;
-1138	  }
-1139	
-1140	  const pending = fac.patients.filter(p =>
-1141	    !todayVisits.some(v => v.room === p.room) && !p.hospitalized
-1142	  );
-1143	  if (!pending.length) { showToast('全員完了済みです（入院中を除く）'); return; }
-1144	
-1145	  const btn = document.getElementById('bulk-btn');
-1146	  if (btn) { btn.disabled = true; btn.textContent = '生成中...'; }
-1147	
-1148	  let count = 0;
-1149	  for (const p of pending) {
-1150	    if (!inputState[p.room]) inputState[p.room] = initSt(p.room);
-1151	    const st = inputState[p.room];
-1152	
-1153	    const now      = visitDate;
-1154	    const reiwa    = now.getFullYear() - 2018;
-1155	    const reiwaStr = `R${reiwa}.${now.getMonth()+1}`;
-1156	    const dateStr  = `${now.getMonth()+1}/${now.getDate()}`;
-1157	    const pts      = st.points || p.defaultPoints;
-1158	    const sVal     = st.s || '';
-1159	    const oVal     = st.o || '';
-1160	    const prev     = p.lastRecord || '';
-1161	    const noChange     = st.noChange || false;
-1162	    const hasShinsatsu = st.hasShinsatsu || false;
-1163	
-1164	    showToast(`${p.room}号室 作成中… (${count+1}/${pending.length})`, 60000);
-1165	
-1166	    try {
-1167	      const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
-1168	      const text   = normalize(await callClaude(apiKey, prompt));
-1169	
-1170	      const rec = { room: p.room, name: p.name, points: pts, content: text };
-1171	      const idx = todayVisits.findIndex(v => v.room === p.room);
-1172	      if (idx >= 0) todayVisits[idx] = rec; else todayVisits.push(rec);
-1173	      todayVisits.sort((a, b) => Number(a.room) - Number(b.room));
-1174	      p.lastRecord  = text;
-1175	      p.lastUpdated = fmtDate(now);
-1176	      count++;
-1177	      save();
-1178	    } catch(e) {
-1179	      if (e.message.includes('429') || e.message.includes('rate_limit') || e.message.includes('overloaded')) {
-1180	        showToast(`レート制限に達しました。10秒待機中…`, 10000);
-1181	        await new Promise(r => setTimeout(r, 10000));
-1182	        try {
-1183	          const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
-1184	          const text   = normalize(await callClaude(apiKey, prompt));
-1185	          const rec = { room: p.room, name: p.name, points: pts, content: text };
-1186	          const idx = todayVisits.findIndex(v => v.room === p.room);
-1187	          if (idx >= 0) todayVisits[idx] = rec; else todayVisits.push(rec);
-1188	          p.lastRecord  = text;
-1189	          p.lastUpdated = fmtDate(now);
-1190	          count++;
-1191	          save();
-1192	        } catch(e2) {
-1193	          showToast(`${p.room}号室 エラー: ${e2.message}`, 4000);
-1194	        }
-1195	      } else {
-1196	        showToast(`${p.room}号室 エラー: ${e.message}`, 4000);
-1197	        await new Promise(r => setTimeout(r, 1000));
-1198	      }
-1199	    }
-1200	  }
-1201	
-1202	  save();
-1203	  showToast(`一括作成完了：${count}名`);
-1204	  renderApp();
-1205	}
-1206	
-1207	// ─── Save record ──────────────────────────────────────────────────────────────
-1208	function saveRecord(room) {
-1209	  const outEl   = document.getElementById('out-' + room);
-1210	  const content = (outEl ? outEl.innerText : (inputState[room]?.output || '')).replace(/\*\*/g, '').trim();
-1211	  if (!content) { showToast('生成結果がありません'); return; }
-1212	
-1213	  const fac = getFac();
-1214	  const p   = fac.patients.find(p => p.room === room);
-1215	  const pts = inputState[room]?.points || p.defaultPoints;
-1216	
-1217	  const rec = { room, name: p.name, points: pts, content };
-1218	  const idx = todayVisits.findIndex(v => v.room === room);
-1219	  if (idx >= 0) todayVisits[idx] = rec;
-1220	  else todayVisits.push(rec);
-1221	  todayVisits.sort((a, b) => Number(a.room) - Number(b.room));
-1222	
-1223	  // Update patient last record
-1224	  p.lastRecord  = content;
-1225	  p.lastUpdated = fmtDate(visitDate);
-1226	
-1227	  save();
-1228	  delete inputState[room];
-1229	  showToast(`${room}号室 ${p.name} を保存しました`);
-1230	  renderApp();
-1231	}
-1232	
-1233	// ─── Today list ───────────────────────────────────────────────────────────────
-1234	function toggleToday(i) {
-1235	  const body = document.getElementById('tb-' + i);
-1236	  const chev = document.getElementById('tc-' + i);
-1237	  if (!body) return;
-1238	  const open = body.classList.toggle('open');
-1239	  if (chev) chev.textContent = open ? '▾' : '▸';
-1240	}
-1241	
-1242	function removeToday(i) {
-1243	  if (!confirm('この記録を削除しますか？')) return;
-1244	  todayVisits.splice(i, 1);
-1245	  save();
-1246	  renderApp();
-1247	}
-1248	
-1249	// ─── Download ─────────────────────────────────────────────────────────────────
-1250	function downloadTxt() {
-1251	  if (!todayVisits.length) { showToast('ダウンロードする記録がありません'); return; }
-1252	  const fac = getFac();
-1253	  const today = visitDate;
-1254	  const ds = `${today.getFullYear()}${pad(today.getMonth()+1)}${pad(today.getDate())}`;
-1255	  const fname = `${fac?.name||'施設'}_${ds}.txt`;
-1256	
-1257	  const text = todayVisits.map(v =>
-1258	    `${v.room}　${v.name}　${v.points}\n\n${v.content}`
-1259	  ).join('\n\n\n');
-1260	
+/* Navbar */
+.nav{background:rgba(248,248,252,.88);backdrop-filter:saturate(180%) blur(20px);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:1px solid rgba(60,60,67,.08);height:56px;display:flex;align-items:center;
+  justify-content:space-between;padding:0 20px;position:sticky;top:0;z-index:50;}
+.nav-title{font-size:17px;font-weight:600;letter-spacing:-.3px;}
+.nav-date{font-size:12px;color:var(--p2);}
+.icon-btn{width:36px;height:36px;border-radius:50%;border:none;background:rgba(118,118,128,.12);
+  color:var(--p1);font-size:16px;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;transition:background .2s,transform .15s;}
+.icon-btn:hover{background:rgba(118,118,128,.2);}
+.icon-btn:active{transform:scale(.94);}
+
+/* Content */
+.content{max-width:980px;margin:0 auto;padding:20px 12px 110px;}
+
+/* Card */
+.card{background:var(--card);border-radius:var(--r);overflow:hidden;margin-bottom:16px;
+  box-shadow:var(--shadow-xs);}
+.sec-label{font-size:11px;font-weight:600;color:var(--p2);text-transform:uppercase;
+  letter-spacing:.6px;padding:0 4px 10px;display:block;}
+
+/* Patient row */
+.p-row{padding:14px 16px;border-bottom:1px solid var(--sep);
+  display:flex;align-items:center;gap:10px;}
+.p-row:last-of-type{border-bottom:none;}
+.p-room{font-size:15px;font-weight:600;min-width:36px;color:var(--p1);}
+.p-name{flex:1;font-size:15px;}
+.p-pts{font-size:12px;color:var(--p2);white-space:nowrap;}
+
+/* Toggle switch */
+.sw{position:relative;width:44px;height:26px;flex-shrink:0;}
+.sw input{display:none;}
+.sw-track{position:absolute;inset:0;background:var(--inset);border-radius:13px;
+  cursor:pointer;transition:background .22s cubic-bezier(.4,0,.2,1);}
+.sw input:checked+.sw-track{background:var(--green);}
+.sw-thumb{position:absolute;top:3px;left:3px;width:20px;height:20px;
+  background:#fff;border-radius:50%;
+  box-shadow:0 2px 6px rgba(0,0,0,.18),0 1px 2px rgba(0,0,0,.12);
+  transition:transform .22s cubic-bezier(.4,0,.2,1);pointer-events:none;}
+.sw input:checked~.sw-thumb{transform:translateX(18px);}
+
+/* Badges */
+.badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;white-space:nowrap;
+  letter-spacing:.1px;}
+.badge-done{background:rgba(52,199,89,.15);color:#248a3d;}
+
+/* Buttons */
+.btn{padding:8px 16px;border-radius:var(--rsm);border:none;font-size:14px;font-weight:500;
+  cursor:pointer;transition:all .18s cubic-bezier(.4,0,.2,1);font-family:inherit;letter-spacing:-.1px;}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--blue);color:#fff;
+  box-shadow:0 1px 4px rgba(0,122,255,.3),0 1px 2px rgba(0,122,255,.2);}
+.btn-primary:hover{background:#0070eb;box-shadow:0 2px 8px rgba(0,122,255,.35),0 1px 3px rgba(0,122,255,.25);}
+.btn-primary:active{background:#0064d3;box-shadow:none;}
+.btn-primary:disabled{background:var(--p3);box-shadow:none;cursor:not-allowed;transform:none;}
+.btn-secondary{background:rgba(118,118,128,.12);color:var(--p1);}
+.btn-secondary:hover{background:rgba(118,118,128,.18);}
+.btn-ghost{background:transparent;color:var(--blue);padding:6px 10px;font-weight:500;}
+.btn-ghost:hover{background:var(--blue-bg);}
+.btn-danger{background:transparent;color:var(--red);padding:6px 10px;}
+.btn-danger:hover{background:rgba(255,59,48,.08);}
+.btn-sm{padding:5px 12px;font-size:13px;}
+.btn-full{width:100%;padding:14px;font-size:15px;font-weight:600;border-radius:var(--r);
+  letter-spacing:-.1px;}
+
+/* Form */
+.form-group{margin-bottom:14px;}
+.form-label{font-size:12px;font-weight:500;color:var(--p2);margin-bottom:6px;
+  display:flex;justify-content:space-between;align-items:center;letter-spacing:.1px;}
+textarea,input[type=text],input[type=password],select{
+  width:100%;padding:10px 13px;border:1px solid var(--sep);border-radius:var(--rsm);
+  font-size:14px;font-family:inherit;color:var(--p1);background:var(--card);
+  resize:vertical;line-height:1.6;outline:none;
+  transition:border-color .18s,box-shadow .18s;
+  box-shadow:var(--shadow-xs);}
+textarea:focus,input:focus,select:focus{
+  border-color:var(--blue);box-shadow:0 0 0 3.5px rgba(0,122,255,.14),var(--shadow-xs);}
+
+/* Points chips */
+.chips{display:flex;gap:6px;flex-wrap:wrap;}
+.chip{padding:6px 15px;border-radius:20px;border:1.5px solid var(--sep);background:var(--card);
+  color:var(--p1);font-size:13px;cursor:pointer;transition:all .18s;font-family:inherit;
+  font-weight:500;}
+.chip:hover{border-color:var(--blue);color:var(--blue);}
+.chip.sel{background:var(--blue);color:#fff;border-color:var(--blue);
+  box-shadow:0 1px 4px rgba(0,122,255,.3);}
+
+/* Input panel (expanded) */
+.p-input{background:var(--fill);border-top:1px solid var(--sep);padding:16px;}
+
+/* Dropzone */
+.dropzone{border:2px dashed var(--inset);border-radius:var(--r);padding:36px 20px;
+  text-align:center;color:var(--p2);cursor:pointer;transition:all .22s;margin-bottom:16px;}
+.dropzone:hover,.dropzone.over{border-color:var(--blue);background:var(--blue-bg);color:var(--blue);}
+.dz-icon{font-size:32px;margin-bottom:8px;}
+.dz-title{font-size:15px;font-weight:600;margin-bottom:4px;letter-spacing:-.2px;}
+.dz-sub{font-size:12px;color:var(--p3);}
+
+/* Progress */
+.prog-wrap{background:var(--card);border-radius:var(--r);padding:16px 18px;
+  margin-bottom:16px;box-shadow:var(--shadow-xs);}
+.prog-text{display:flex;justify-content:space-between;align-items:center;
+  font-size:13px;color:var(--p2);margin-bottom:12px;}
+.prog-text strong{color:var(--p1);font-weight:600;}
+.prog-bar{height:5px;background:var(--inset);border-radius:3px;overflow:hidden;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--blue),#34aadc);
+  border-radius:3px;transition:width .4s cubic-bezier(.4,0,.2,1);}
+
+/* Action bar */
+.action-bar{position:fixed;bottom:0;left:0;right:0;
+  background:rgba(248,248,252,.92);backdrop-filter:saturate(180%) blur(20px);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);
+  border-top:1px solid rgba(60,60,67,.08);
+  padding:12px 20px calc(12px + env(safe-area-inset-bottom));
+  display:flex;gap:10px;justify-content:center;}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;
+  align-items:center;justify-content:center;z-index:100;padding:20px;
+  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
+.modal{background:var(--card);border-radius:20px;width:100%;max-width:480px;
+  max-height:88vh;overflow-y:auto;box-shadow:var(--shadow-lg);}
+.modal-hd{padding:20px 20px 15px;border-bottom:1px solid var(--sep);
+  display:flex;justify-content:space-between;align-items:center;}
+.modal-title{font-size:17px;font-weight:700;letter-spacing:-.3px;}
+.modal-body{padding:20px;}
+.modal-ft{padding:15px 20px;border-top:1px solid var(--sep);
+  display:flex;gap:8px;justify-content:flex-end;}
+
+/* Toast */
+.toast{position:fixed;bottom:84px;left:50%;transform:translateX(-50%) translateY(4px);
+  background:rgba(28,28,30,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  color:#fff;padding:10px 20px;border-radius:22px;font-size:13px;font-weight:500;
+  z-index:200;opacity:0;pointer-events:none;
+  transition:opacity .22s,transform .22s cubic-bezier(.4,0,.2,1);white-space:nowrap;
+  box-shadow:var(--shadow-md);}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* Today list */
+.today-card{background:var(--card);border-radius:var(--r);overflow:hidden;margin-bottom:10px;
+  box-shadow:var(--shadow-xs);}
+.today-hd{padding:14px 16px;display:flex;justify-content:space-between;align-items:center;
+  cursor:pointer;transition:background .15s;}
+.today-hd:hover{background:rgba(0,0,0,.02);}
+.today-body{display:none;padding:0 16px 16px;}
+.today-body.open{display:block;}
+
+/* Setup */
+.setup{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:70vh;text-align:center;}
+.setup-icon{font-size:56px;margin-bottom:20px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.1));}
+.setup-title{font-size:24px;font-weight:700;margin-bottom:10px;letter-spacing:-.4px;}
+.setup-desc{font-size:15px;color:var(--p2);margin-bottom:32px;max-width:280px;line-height:1.65;}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+
+/* Spinner */
+.spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.35);
+  border-top-color:#fff;border-radius:50%;animation:spin .55s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Error */
+.err{background:rgba(255,59,48,.07);border:1px solid rgba(255,59,48,.2);color:#c0392b;
+  padding:11px 14px;border-radius:var(--rsm);font-size:13px;margin-bottom:12px;
+  line-height:1.5;}
+
+/* Utils */
+hr{border:none;border-top:1px solid var(--sep);margin:16px 0;}
+.flex-bc{display:flex;justify-content:space-between;align-items:center;}
+.flex-c{display:flex;align-items:center;}
+.gap-8{gap:8px;}
+.mt-12{margin-top:12px;}
+.text-sm{font-size:13px;}
+.text-xs{font-size:12px;}
+.text-p2{color:var(--p2);}
+.w100{width:100%;}
+.empty{text-align:center;padding:36px 20px;color:var(--p2);}
+.empty-icon{font-size:36px;margin-bottom:12px;}
+
+/* Horizontal patient row */
+.h-header,.h-row{
+  display:grid;
+  grid-template-columns:46px minmax(88px,100px) 3fr 4fr 40px 40px 72px 72px;
+  gap:8px;padding:9px 12px;align-items:start;
+}
+.h-header{
+  font-size:10px;font-weight:600;color:var(--p2);text-transform:uppercase;
+  letter-spacing:.5px;border-bottom:1px solid var(--sep);
+  padding:8px 14px;align-items:center;background:rgba(0,0,0,.01);
+}
+.h-row{border-bottom:1px solid rgba(60,60,67,.06);}
+.h-row:last-of-type{border-bottom:none;}
+.col-room{font-size:15px;font-weight:700;line-height:34px;color:var(--p1);}
+.col-nc{display:flex;flex-direction:column;align-items:center;gap:3px;padding-top:4px;}
+.nc-lbl{font-size:10px;color:var(--p2);}
+.cb-nc{width:18px;height:18px;cursor:pointer;accent-color:var(--green);margin-top:2px;}
+.sw-danger input:checked+.sw-track{background:var(--red);}
+.compact-ta{
+  padding:7px 9px;resize:none;overflow:hidden;
+  min-height:34px;line-height:1.5;font-size:13px;border-radius:7px;
+}
+.name-input{
+  width:100%;border:none;background:transparent;font-size:14px;color:var(--p1);
+  font-family:inherit;padding:0 7px;border-radius:7px;height:34px;outline:none;
+  transition:background .15s,box-shadow .15s;
+}
+.name-input:hover{background:rgba(0,0,0,.04);}
+.name-input:focus{background:var(--card);border:1.5px solid var(--blue);
+  box-shadow:0 0 0 3px rgba(0,122,255,.12);}
+.out-panel{background:rgba(0,0,0,.02);border-top:1px solid var(--sep);padding:14px;}
+
+/* Facility dropdown */
+@keyframes fadeDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.fac-dropdown{position:fixed;background:var(--card);border-radius:var(--r);
+  box-shadow:var(--shadow-md);z-index:300;min-width:210px;overflow:hidden;
+  border:1px solid var(--sep);
+  animation:fadeDown .16s cubic-bezier(.4,0,.2,1);}
+.fac-dd-item{display:flex;align-items:center;gap:8px;padding:12px 16px;cursor:pointer;
+  border-bottom:1px solid var(--sep);transition:background .15s;}
+.fac-dd-item:last-of-type{border-bottom:none;}
+.fac-dd-item:hover{background:var(--fill);}
+.fac-dd-item.active .fac-dd-name{font-weight:600;}
+.fac-dd-name{flex:1;font-size:15px;}
+.fac-dd-tag{font-size:11px;color:var(--p2);}
+.fac-dd-check{color:var(--blue);font-weight:700;font-size:15px;}
+.fac-dd-add{padding:11px 16px;text-align:center;color:var(--blue);font-size:14px;
+  font-weight:500;cursor:pointer;border-top:1px solid var(--sep);transition:background .15s;}
+.fac-dd-add:hover{background:var(--fill);}
+
+/* Calendar popover */
+.cal-popover{position:fixed;background:var(--card);border-radius:20px;
+  box-shadow:var(--shadow-lg);z-index:300;width:310px;padding:20px 18px 18px;
+  border:1px solid var(--sep);
+  animation:fadeDown .16s cubic-bezier(.4,0,.2,1);}
+.cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+.cal-title{font-size:17px;font-weight:700;letter-spacing:-.3px;}
+.cal-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.cal-month-title{font-size:15px;font-weight:600;letter-spacing:-.2px;}
+.cal-nav-btn{background:rgba(118,118,128,.12);border:none;border-radius:50%;
+  width:32px;height:32px;font-size:19px;cursor:pointer;color:var(--blue);
+  display:flex;align-items:center;justify-content:center;transition:background .15s;
+  line-height:1;}
+.cal-nav-btn:hover{background:rgba(118,118,128,.22);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-day-hd{text-align:center;font-size:12px;font-weight:600;color:var(--p2);
+  padding:4px 0 10px;}
+.cal-day{text-align:center;font-size:14px;cursor:pointer;border-radius:50%;
+  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  transition:background .15s;}
+.cal-day:hover:not(.other-month):not(.cal-today):not(.cal-selected){background:var(--fill);}
+.cal-day.cal-today{background:var(--blue);color:#fff;font-weight:700;}
+.cal-day.cal-selected{background:var(--blue);color:#fff;font-weight:700;}
+.cal-day.other-month{color:var(--p3);cursor:default;}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <button class="btn btn-ghost" style="padding:4px 8px;font-size:16px;font-weight:600;"
+    onclick="showFacilityPicker()" id="nav-fac">施設を選択 ▾</button>
+  <button class="btn btn-ghost" id="nav-date"
+    style="font-size:12px;color:var(--p2);padding:4px 8px;"
+    onclick="showCalendarPicker()">
+  </button>
+  <input type="date" id="visit-date-input"
+    style="position:fixed;left:50%;top:52px;transform:translateX(-50%);opacity:0;pointer-events:none;width:1px;height:1px;"
+    onchange="applyVisitDate(this.value)">
+  <div class="flex-c gap-8">
+    <span id="settings-status" style="font-size:11px;color:var(--p2);white-space:nowrap;"></span>
+    <button class="icon-btn" onclick="showPatientMgr()" title="患者管理" style="width:40px;height:40px;font-size:20px;">👥</button>
+    <button class="icon-btn" onclick="showSettings()" title="設定" style="width:40px;height:40px;font-size:20px;">⚙️</button>
+  </div>
+</nav>
+
+<div class="content" id="app"></div>
+
+<div class="action-bar" id="action-bar" style="display:none">
+  <button class="btn btn-secondary" onclick="downloadTxt()">⬇ ダウンロード</button>
+  <button class="btn btn-primary" onclick="sendSlack()">✈ Slackに送信</button>
+</div>
+
+<div class="toast" id="toast"></div>
+<div id="modal-root"></div>
+
+<script>
+// ─── Constants & State ────────────────────────────────────────────────────────
+const LS_FAC        = 'shisetsu_fac';
+const LS_CUR        = 'shisetsu_cur';
+const LS_TODAY      = 'shisetsu_today';
+const LS_CLAUDE_API = 'shisetsu_claude_api';
+const LS_PROXY      = 'shisetsu_proxy_url';
+const LS_TDATE      = 'shisetsu_today_date';
+const LS_NAME       = 'shisetsu_pharmacist_name';
+
+// GASプロキシ経由でSlackに送る共通関数（CORS回避）
+async function callProxy(payload) {
+  const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
+  if (!proxyUrl) throw new Error('GAS Proxy URLが未設定です');
+  const res = await fetch(proxyUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: JSON.stringify(payload),
+    redirect: 'follow'
+  });
+  if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
+  return res.json();
+}
+
+let facilities   = [];
+let currentFacId = null;
+let todayVisits  = [];
+const inputState = {}; // room -> {s, o, points, output, noChange}
+let visitDate    = new Date();
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  load();
+  updateNavDate();
+  renderApp();
+  updateSettingsStatus();
+});
+
+function updateNavDate() {
+  const today = new Date();
+  const isToday = fmtDate(visitDate) === fmtDate(today);
+  const el = document.getElementById('nav-date');
+  if (el) {
+    el.textContent = isToday ? fmtDate(visitDate) : `📅 ${fmtDate(visitDate)}`;
+    el.style.color      = isToday ? 'var(--p2)' : 'var(--blue)';
+    el.style.fontWeight = isToday ? 'normal' : '600';
+  }
+  const inp = document.getElementById('visit-date-input');
+  if (inp) inp.value = fmtISO(visitDate);
+}
+
+function applyVisitDate(val) {
+  if (!val) return;
+  const [y, m, d] = val.split('-').map(Number);
+  visitDate = new Date(y, m - 1, d);
+  updateNavDate();
+}
+
+function showVisitDateModal() {
+  const iso = fmtISO(visitDate);
+  showModal(`
+    <div class="form-group">
+      <div class="form-label">訪問日を選択</div>
+      <input type="date" id="visit-date-modal-input" value="${iso}" style="width:auto;">
+    </div>
+  `, '訪問日',
+  `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+   <button class="btn btn-primary" onclick="applyVisitDate(document.getElementById('visit-date-modal-input').value);closeModal()">確定</button>`);
+}
+
+// ── カスタムカレンダー ────────────────────────────────────────
+let _calY = null, _calM = null;
+
+function showCalendarPicker() {
+  document.getElementById('cal-popover')?.remove();
+  const btn  = document.getElementById('nav-date');
+  const rect = btn.getBoundingClientRect();
+
+  _calY = visitDate.getFullYear();
+  _calM = visitDate.getMonth();
+
+  const el = document.createElement('div');
+  el.id = 'cal-popover';
+  el.className = 'cal-popover';
+
+  const popW = 310;
+  let left = rect.left + rect.width / 2 - popW / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - popW - 8));
+  el.style.left = left + 'px';
+  el.style.top  = (rect.bottom + 8) + 'px';
+
+  document.body.appendChild(el);
+  _renderCal();
+  setTimeout(() => document.addEventListener('click', _closeCalOutside), 10);
+}
+
+function _renderCal() {
+  const el = document.getElementById('cal-popover');
+  if (!el) return;
+
+  const y = _calY, m = _calM;
+  const today    = new Date();
+  const selected = visitDate;
+  const months   = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const days     = ['日','月','火','水','木','金','土'];
+
+  const firstDow     = new Date(y, m, 1).getDay();
+  const daysInMonth  = new Date(y, m + 1, 0).getDate();
+  const daysInPrev   = new Date(y, m, 0).getDate();
+  const totalCells   = Math.ceil((firstDow + daysInMonth) / 7) * 7;
+
+  let html = `
+    <div class="cal-header">
+      <span class="cal-title">日付を選択</span>
+      <button class="icon-btn" style="width:28px;height:28px;font-size:13px" onclick="closeCalendarPicker()">✕</button>
+    </div>
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="_calPrev()">‹</button>
+      <span class="cal-month-title">${y}年 ${months[m]}</span>
+      <button class="cal-nav-btn" onclick="_calNext()">›</button>
+    </div>
+    <div class="cal-grid">`;
+
+  days.forEach((d, i) => {
+    const c = i===0 ? 'color:var(--red)' : i===6 ? 'color:var(--blue)' : '';
+    html += `<div class="cal-day-hd" style="${c}">${d}</div>`;
+  });
+
+  for (let i = firstDow - 1; i >= 0; i--)
+    html += `<div class="cal-day other-month">${daysInPrev - i}</div>`;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date  = new Date(y, m, d);
+    const isSel = fmtDate(date) === fmtDate(selected);
+    const isTod = fmtDate(date) === fmtDate(today);
+    const dow   = date.getDay();
+    const col   = (!isSel && !isTod) ? (dow===0 ? 'color:var(--red)' : dow===6 ? 'color:var(--blue)' : '') : '';
+    const cls   = 'cal-day' + (isSel ? ' cal-selected' : isTod ? ' cal-today' : '');
+    html += `<div class="${cls}" style="${col}" onclick="_calSelect(${y},${m+1},${d})">${d}</div>`;
+  }
+
+  const nextDays = totalCells - firstDow - daysInMonth;
+  for (let d = 1; d <= nextDays; d++)
+    html += `<div class="cal-day other-month">${d}</div>`;
+
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function _calPrev() { _calM--; if (_calM < 0) { _calM = 11; _calY--; } _renderCal(); }
+function _calNext() { _calM++; if (_calM > 11) { _calM = 0; _calY++; } _renderCal(); }
+
+function _calSelect(y, m, d) {
+  applyVisitDate(`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+  closeCalendarPicker();
+}
+
+function closeCalendarPicker() {
+  document.getElementById('cal-popover')?.remove();
+  document.removeEventListener('click', _closeCalOutside);
+}
+
+function _closeCalOutside(e) {
+  const cal = document.getElementById('cal-popover');
+  const btn = document.getElementById('nav-date');
+  if (cal && !cal.contains(e.target) && !btn.contains(e.target)) closeCalendarPicker();
+}
+
+// タッチキーボードを閉じて再度開いた際、フォーカス復元によるクリップボード自動ペーストを防ぐ
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && document.activeElement && document.activeElement.tagName !== 'BODY') {
+    document.activeElement.blur();
+  }
+});
+window.addEventListener('pageshow', e => {
+  if (e.persisted && document.activeElement && document.activeElement.tagName !== 'BODY') {
+    document.activeElement.blur();
+  }
+});
+
+function load() {
+  try { facilities  = JSON.parse(localStorage.getItem(LS_FAC)   || '[]'); } catch { facilities = []; }
+  try { todayVisits = JSON.parse(localStorage.getItem(LS_TODAY)  || '[]'); } catch { todayVisits = []; }
+  currentFacId = localStorage.getItem(LS_CUR) || null;
+  if (currentFacId && !facilities.find(f => f.id === currentFacId)) currentFacId = null;
+  // 日付が変わっていたら本日完了分をリセット
+  if (localStorage.getItem(LS_TDATE) !== fmtDate(new Date())) {
+    todayVisits = [];
+    localStorage.removeItem(LS_TODAY);
+  }
+}
+
+function save() {
+  localStorage.setItem(LS_FAC,   JSON.stringify(facilities));
+  localStorage.setItem(LS_TODAY, JSON.stringify(todayVisits));
+  localStorage.setItem(LS_TDATE, fmtDate(new Date()));
+  if (currentFacId) localStorage.setItem(LS_CUR, currentFacId);
+}
+
+function getFac() {
+  return facilities.find(f => f.id === currentFacId) || null;
+}
+
+// ─── Main render ──────────────────────────────────────────────────────────────
+function renderApp() {
+  const fac = getFac();
+  document.getElementById('nav-fac').textContent =
+    (fac ? fac.name : '施設を選択') + ' ▾';
+
+  if (!fac) { renderSetup(); return; }
+
+  const total = fac.patients.length;
+  const done  = todayVisits.length;
+  let html = '';
+
+  // Progress
+  if (total > 0) {
+    const pct = Math.round(done / total * 100);
+    html += `<div class="prog-wrap">
+      <div class="prog-text">
+        <span>本日の進捗　<span style="font-weight:600">${done} / ${total}名</span></span>
+        <div class="flex-c gap-8">
+          <button class="btn btn-secondary btn-sm" onclick="showBulkSOInput()">📋 S/O一括入力</button>
+          <button class="btn btn-primary btn-sm" id="bulk-btn" onclick="generateAll()">一括作成</button>
+        </div>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }
+
+  // Dropzone (when no patients)
+  if (total === 0) {
+    html += `<div class="dropzone" id="dz"
+      onclick="document.getElementById('fi').click()"
+      ondrop="onDrop(event)" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
+      <div class="dz-icon">📂</div>
+      <div class="dz-title">前回記録ファイルをドロップ</div>
+      <div class="dz-sub">.txt ファイルをドロップするか、クリックして選択</div>
+    </div>
+    <input type="file" id="fi" accept=".txt" style="display:none" onchange="onFileInput(event)">`;
+  }
+
+  // Patient list
+  if (total > 0) {
+    html += `<span class="sec-label">患者リスト</span><div class="card" id="plist">
+      <div class="h-header">
+        <span>部屋番号</span><span>患者名</span>
+        <span>S</span><span>O</span>
+        <span style="text-align:center">${fac.hasA ? '診察あり' : '変更なし'}</span>
+        <span style="text-align:center">入院中</span>
+        <span></span><span></span>
+      </div>`;
+    fac.patients.forEach(p => { html += buildRow(p, fac); });
+    html += `</div>
+    <div style="text-align:center;margin-bottom:16px;display:flex;gap:8px;justify-content:center;">
+      <button class="btn btn-ghost btn-sm text-xs" onclick="document.getElementById('fi2').click()">
+        📂 ファイルを追加インポート</button>
+      <input type="file" id="fi2" accept=".txt" style="display:none" onchange="onFileInput(event)">
+      <button class="btn btn-ghost btn-sm text-xs" onclick="showPasteImport()">
+        📋 テキストを貼り付けて追加</button>
+    </div>`;
+  }
+
+  // Today completed
+  if (done > 0) {
+    html += `<span class="sec-label" style="margin-top:4px">本日完了分</span>`;
+    todayVisits.forEach((v, i) => {
+      html += `<div class="today-card">
+        <div class="today-hd" onclick="toggleToday(${i})">
+          <div>
+            <span style="font-weight:600">${esc(v.room)}　${esc(v.name)}</span>
+            <span class="text-xs text-p2" style="margin-left:8px">${esc(v.points)}</span>
+          </div>
+          <div class="flex-c gap-8">
+            <button class="btn btn-danger btn-sm"
+              onclick="event.stopPropagation();removeToday(${i})">削除</button>
+            <span class="text-p2 text-xs" id="tc-${i}">▸</span>
+          </div>
+        </div>
+        <div class="today-body" id="tb-${i}">
+          <textarea rows="14" style="font-size:13px;line-height:1.8;"
+            onchange="todayVisits[${i}].content=this.value;save()">${esc(v.content)}</textarea>
+        </div>
+      </div>`;
+    });
+  }
+
+  document.getElementById('app').innerHTML = html;
+  document.getElementById('action-bar').style.display = done > 0 ? 'flex' : 'none';
+
+  // 入力済みS/Oテキストエリアの高さを内容に合わせる（overflow:hiddenのため必須）
+  if (fac) {
+    fac.patients.forEach(p => {
+      ['s-', 'o-'].forEach(pre => {
+        const el = document.getElementById(pre + p.room);
+        if (el && el.value) autoResize(el);
+      });
+    });
+  }
+}
+
+function buildRow(p, fac) {
+  const isDone   = todayVisits.some(v => v.room === p.room);
+  const isHosp   = p.hospitalized || false;
+  const st       = inputState[p.room] || {};
+  const noChange     = st.noChange || false;
+  const hasShinsatsu = st.hasShinsatsu || false;
+  const pts          = st.points !== undefined ? st.points : p.defaultPoints;
+  const sVal         = st.s || '';
+  const oVal         = st.o || '';
+  const out      = st.output || '';
+
+  const rowDim  = isDone ? 'opacity:.4;pointer-events:none;' : isHosp ? 'opacity:.4;' : '';
+  const dis     = isDone || isHosp ? 'disabled' : '';
+
+  let html = `<div style="${rowDim}">
+    <div class="h-row">
+      <span class="col-room">${esc(p.room)}</span>
+      <input class="name-input" type="text" value="${esc(p.name)}" ${dis}
+        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+        onchange="updatePatientName('${esc(p.room)}',this.value)">
+      <textarea class="compact-ta" id="s-${esc(p.room)}" rows="1" ${dis}
+        oninput="storeInput('${esc(p.room)}','s',this.value);autoResize(this)">${esc(sVal)}</textarea>
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+        <textarea class="compact-ta" id="o-${esc(p.room)}" rows="1" ${dis}
+          oninput="storeInput('${esc(p.room)}','o',this.value);autoResize(this)">${esc(oVal)}</textarea>
+      </div>
+      <div class="col-nc" style="pointer-events:${isDone?'none':'auto'}">
+        ${fac.hasA
+          ? `<input type="checkbox" class="cb-nc" ${hasShinsatsu?'checked':''} ${dis}
+               onchange="toggleShinsatsu('${esc(p.room)}',this.checked)">`
+          : `<input type="checkbox" class="cb-nc" ${noChange?'checked':''} ${dis}
+               onchange="toggleNoChange('${esc(p.room)}',this.checked)">`}
+      </div>
+      <div class="col-nc" style="pointer-events:auto;opacity:1;">
+        <label class="sw sw-danger" style="cursor:pointer">
+          <input type="checkbox" ${isHosp?'checked':''}
+            onchange="toggleHospitalized('${esc(p.room)}',this.checked)">
+          <div class="sw-track"></div>
+          <div class="sw-thumb"></div>
+        </label>
+      </div>
+      ${isDone
+        ? `<span class="badge badge-done" style="margin-top:5px">完了</span><span></span>`
+        : isHosp
+          ? `<span class="badge" style="background:#fff0f0;color:var(--red);margin-top:5px">入院中</span><span></span>`
+          : `<button class="btn btn-primary btn-sm" style="margin-top:2px;white-space:nowrap"
+               id="gen-${esc(p.room)}" onclick="generateRecord('${esc(p.room)}')">作成</button>
+             ${p.lastRecord
+               ? `<button class="btn btn-secondary btn-sm" style="margin-top:2px;white-space:nowrap"
+                    onclick="showLastRecord('${esc(p.room)}')">前回記録</button>`
+               : '<span></span>'}`}
+    </div>
+    <div id="err-${esc(p.room)}"></div>`;
+
+  // Output panel — shown only after generation
+  if (out && !isDone) {
+    html += `<div class="out-panel">
+      <div class="form-label" style="margin-bottom:6px">生成結果（編集可）</div>
+      <div id="out-${esc(p.room)}" contenteditable="true"
+        style="font-size:13px;line-height:1.8;white-space:pre-wrap;padding:9px 12px;
+               border:1px solid var(--sep);border-radius:var(--rsm);background:var(--card);
+               min-height:160px;outline:none;transition:border-color .15s,box-shadow .15s;
+               word-break:break-all;"
+        onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(0,122,255,.12)'"
+        onblur="this.style.borderColor='';this.style.boxShadow=''"
+        oninput="inputState['${esc(p.room)}'].output=this.innerText"
+      >${renderBold(out)}</div>
+      <button class="btn btn-primary btn-full" style="margin-top:8px"
+        onclick="saveRecord('${esc(p.room)}')">✚ 一覧に追加して次の患者へ</button>
+    </div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+// ─── Patient interactions ─────────────────────────────────────────────────────
+function updatePatientName(room, name) {
+  const fac = getFac();
+  const p = fac?.patients.find(p => p.room === room);
+  if (p && name.trim()) { p.name = name.trim(); save(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+function storeInput(room, key, val) {
+  if (!inputState[room]) inputState[room] = initSt(room);
+  inputState[room][key] = val;
+}
+
+function initSt(room) {
+  const fac = getFac();
+  const p   = fac?.patients.find(p => p.room === room);
+  return { s:'', o:'', points: p?.defaultPoints||'342点', output:'', noChange:false, hasShinsatsu:false };
+}
+
+function getDeliveryRange() {
+  const now   = visitDate;
+  const day   = now.getDay();
+  const daysToNextMonday = ((8 - day) % 7) || 7;
+  const start = new Date(now.getTime() + daysToNextMonday * 864e5);
+  const end   = new Date(start.getTime() + 6 * 864e5);
+  const s = `${start.getMonth()+1}/${start.getDate()}`;
+  const e = `${end.getMonth()+1}/${end.getDate()}`;
+  return { range: `${s}ー${e}`, start: s };
+}
+
+function toggleNoChange(room, checked) {
+  if (!inputState[room]) inputState[room] = initSt(room);
+  inputState[room].noChange = checked;
+  renderApp();
+}
+
+function toggleShinsatsu(room, checked) {
+  if (!inputState[room]) inputState[room] = initSt(room);
+  inputState[room].hasShinsatsu = checked;
+}
+
+function toggleHospitalized(room, checked) {
+  const fac = getFac();
+  const p = fac?.patients.find(p => p.room === room);
+  if (!p) return;
+  p.hospitalized = checked;
+  save();
+  renderApp();
+}
+
+// ─── Claude ───────────────────────────────────────────────────────────────────
+async function generateRecord(room) {
+  const fac = getFac();
+  const p   = fac.patients.find(p => p.room === room);
+  const st  = inputState[room] || initSt(room);
+
+  const sEl   = document.getElementById('s-' + room);
+  const oEl   = document.getElementById('o-' + room);
+  const sVal  = (sEl ? sEl.value : st.s).trim();
+  const oVal  = (oEl ? oEl.value : st.o).trim();
+  const prev  = (p.lastRecord || '').trim();
+  const pts   = st.points || p.defaultPoints;
+
+  if (sEl)   { st.s = sEl.value;   inputState[room] = st; }
+  if (oEl)   { st.o = oEl.value;   inputState[room] = st; }
+
+  const apiKey  = localStorage.getItem(LS_CLAUDE_API) || '';
+  const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
+  const errEl   = document.getElementById('err-' + room);
+  errEl.innerHTML = '';
+
+  if (!apiKey) {
+    errEl.innerHTML = '<div class="err">⚠️ Claude APIキーが未設定です。右上 ⚙️ から入力してください。</div>';
+    return;
+  }
+  if (!proxyUrl) {
+    errEl.innerHTML = '<div class="err">⚠️ GAS Proxy URLが未設定です。右上 ⚙️ から入力してください。</div>';
+    return;
+  }
+
+  const btn = document.getElementById('gen-' + room);
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> 生成中...';
+
+  const now      = visitDate;
+  const reiwa    = now.getFullYear() - 2018;
+  const reiwaStr = `R${reiwa}.${now.getMonth()+1}`;
+  const dateStr  = `${now.getMonth()+1}/${now.getDate()}`;
+
+  const noChange     = inputState[room]?.noChange || false;
+  const hasShinsatsu = inputState[room]?.hasShinsatsu || false;
+  const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
+
+  try {
+    const text = normalize(await callClaude(apiKey, prompt));
+    inputState[room].output = text;
+
+    const errEl2 = document.getElementById('err-' + room);
+    const container = errEl2?.parentElement;
+    if (container) {
+      const existing = container.querySelector('.out-panel');
+      if (existing) existing.remove();
+      const panelDiv = document.createElement('div');
+      panelDiv.className = 'out-panel';
+      panelDiv.innerHTML = `
+        <div class="form-label" style="margin-bottom:6px">生成結果（編集可）</div>
+        <div id="out-${room}" contenteditable="true"
+          style="font-size:13px;line-height:1.8;white-space:pre-wrap;padding:9px 12px;
+                 border:1px solid var(--sep);border-radius:var(--rsm);background:var(--card);
+                 min-height:160px;outline:none;transition:border-color .15s,box-shadow .15s;
+                 word-break:break-all;"
+          onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(0,122,255,.12)'"
+          onblur="this.style.borderColor='';this.style.boxShadow=''"
+          oninput="inputState['${room}'].output=this.innerText"
+        >${renderBold(text)}</div>
+        <button class="btn btn-primary btn-full" style="margin-top:8px"
+          onclick="saveRecord('${room}')">✚ 一覧に追加して次の患者へ</button>
+      `;
+      container.appendChild(panelDiv);
+    }
+    const genBtn = document.getElementById('gen-' + room);
+    if (genBtn) { genBtn.disabled = false; genBtn.innerHTML = '作成'; }
+    showToast(`${p.name} の記録が完成しました ✓`, 3000);
+  } catch(e) {
+    errEl.innerHTML = `<div class="err">⚠️ ${esc(e.message)}</div>`;
+    const b = document.getElementById('gen-' + room);
+    if (b) { b.disabled = false; b.innerHTML = '作成'; }
+  }
+}
+
+function showLastRecord(room) {
+  const fac = getFac();
+  const p   = fac?.patients.find(p => p.room === room);
+  if (!p?.lastRecord) return;
+
+  if (!inputState[room]) inputState[room] = initSt(room);
+
+  const errEl    = document.getElementById('err-' + room);
+  const container = errEl?.parentElement;
+  if (!container) return;
+  const existing = container.querySelector('.out-panel');
+  if (existing) { existing.remove(); inputState[room].output = ''; return; }
+  inputState[room].output = p.lastRecord;
+
+  const panelDiv = document.createElement('div');
+  panelDiv.className = 'out-panel';
+  panelDiv.innerHTML = `
+    <div class="form-label" style="margin-bottom:6px">前回の記録（編集可）</div>
+    <div id="out-${room}" contenteditable="true"
+      style="font-size:13px;line-height:1.8;white-space:pre-wrap;padding:9px 12px;
+             border:1px solid var(--sep);border-radius:var(--rsm);background:var(--card);
+             min-height:160px;outline:none;transition:border-color .15s,box-shadow .15s;
+             word-break:break-all;"
+      onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(0,122,255,.12)'"
+      onblur="this.style.borderColor='';this.style.boxShadow=''"
+      oninput="inputState['${room}'].output=this.innerText"
+    >${renderBold(p.lastRecord)}</div>
+    <button class="btn btn-primary btn-full" style="margin-top:8px"
+      onclick="saveRecord('${room}')">✚ 一覧に追加して次の患者へ</button>
+  `;
+  container.appendChild(panelDiv);
+}
+
+function buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange=false, hasShinsatsu=false) {
+  const hasA = fac.hasA;
+  const noChangeNote = noChange ? `
+【重要】今回は「変更なし」フラグが立っています。
+・##S##：「${fac.noChangeS || '特に変わったことはなく過ごされています。落ち着いた療養が出来ています。'}」を ##S## の内容とし、冒頭に（施設スタッフ）を付ける。
+・##O##：診察時サマリ部分を「${fac.noChangeO || '内科的に特に問題はない。現行治療で継続。\n※処方変更なし。'}」とする。処方変更なしとして扱う。
+・##A##（Aあり施設のみ）：##OP##から2剤をピックアップし、効果が得られているか副作用（具体的症状）が出ていないかをアセスメントする。【バリエーション必須】前回Aと異なる薬剤を選ぶこと。
+・##EP##：##OP##から2剤を抽出し副作用（具体的な症状）への注意を促す指導内容を作成する。「このままお薬を続けましょう」は不可。必ず薬の効果・副作用に言及すること。【バリエーション必須】前回EPと異なる薬剤・内容を取り上げること。
+` : '';
+
+  if (hasA) {
+    const { range: deliveryRange, start: deliveryStart } = getDeliveryRange();
+    const noChangeS = fac.noChangeS || '特に変わったことはなく過ごされています。落ち着いた療養が出来ています。';
+    // ナーシングホーム用（A あり：S・O・A・EP・OP）
+    return `あなたは在宅医療に特化した薬局に勤めるベテラン薬剤師として、施設訪問薬歴の作成を支援するAIです。薬学的管理に精通しており、特に緩和ケア・褥瘡領域に秀でた立場で記録を作成してください。
+${noChangeNote}
+【本日の日付】${reiwaStr}（${dateStr}）
+【算定点数】${pts}
+
+【今回のS入力】
+${sVal || '（入力なし）'}
+
+【今回のO入力（配薬日付・診察サマリなど）】
+${oVal || '（入力なし）'}
+
+【前回の記録】
+${prev || '（なし）'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【出力形式】余計な前置き・説明は一切加えず以下の形式のみで出力すること。
+
+##S##
+##O##
+##A##
+##EP##
+##OP##
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【各項目のルール】
+
+①##S##
+${sVal.trim()
+  ? `今回のS入力を要約・言い換えせずそのまま記載する。
+入力内容の文脈から（施設スタッフ）または（本人）かを推定し、冒頭に付けて改行してから内容を記載する。入力に「本人」「家族」「娘さん」などの話者を示す語がある場合はそれを（　）で括った形式にする。`
+  : `S入力が空欄のため「${noChangeS}」を ##S## の内容とする。冒頭に（施設スタッフ）を付けて改行してから記載する。`}
+
+②##O##
+冒頭は必ず「定期訪問、定期配薬：」から始める。出力に空白行を入れないこと。
+【重要】今回の配薬期間は「${deliveryRange}」である。前回記録のOに書かれた配薬日程は絶対に引き継がず、必ず今回の配薬期間を使うこと。
+
+【定時薬の配薬期間】
+・O入力に期間指定（例：「定時薬 6/2-5」「6/2まで」「6/2ー6/5」「M/DーM/D」等）がある場合 → その期間をそのまま使う。自動計算値（${deliveryRange}）は絶対に使わない。
+・O入力に期間指定がない場合のみ → 自動計算値 ${deliveryRange} を使う。
+
+【追加薬剤】
+・O入力に「・薬剤名　数量」等の追加薬剤行がある場合 → 定時薬行の直下にそのまま全て追記する。内容は一切変えない。
+・O入力が空欄の場合：##O##に以下をそのまま一字一句出力すること（日付を自分で計算してはならない）：
+定期訪問、定期配薬：
+・定時薬　${deliveryRange}　※処方変更なし
+
+出力例（O入力「定時薬 6/2-5　・ヘパリン類似Cr 4本　・生食注 6本」の場合）：
+定期訪問、定期配薬：
+・定時薬　6/2ー5
+・ヘパリン類似Cr　4本
+・生食注　6本
+
+${hasShinsatsu ? `医師診察同行あり。配薬記録の下に続けて以下の形式で診察サマリを記載する：
+【${dateStr}診察時サマリ】
+（O入力に含まれる診察情報を記載）
+処方変更があれば「M/D　薬剤名　変更内容」の形式で追記する（元号・西暦不要）。日付はO入力に「M/D～」等の指定があればその日付を使い（例：「5/29～」→ 5/29、「～」は除く）、指定がなければ「${dateStr}」を使う。` : ``}
+
+③##A##
+【大前提】OPの既存薬剤・プロブレムを踏まえて薬学的アセスメントを書く。SやOから新たなプロブレムを作ってはならない。
+【方針】プロブレムを列挙する形式ではなく、今回の薬物療法全体の状況を総合的に2文の文章でまとめる。各文は必ず薬剤（薬名・薬効）に紐づけて書くこと。
+【記載の優先順位】
+①前回訪問時に追加・変更された薬剤（OPの直近の**追記**や最新日付の変更）がある場合 → その薬の効果・副作用・症状の変化を最優先でフォロー
+②今回のS・OとOPの★フォロー事項に関連する薬の効果・副作用・症状の変化
+③上記以外で現在内服中の薬（中止・終了・外用・頓服を除く）から気になる点があれば1点追記
+★フォロー事項は文章の中に自然に溶け込ませる。★記号は出力しない。中止・終了・外用・頓服は取り上げない。
+【禁止表現】「〜の妥当性が認められる」「〜のバランスは良好に維持されている」「臨床的に問題なく」「〜する必要がある」などの冗長・医師口調表現は禁止。
+【文体】「〜改善傾向」「〜安定」「〜様子見」「〜良好」「〜自制内」など薬剤師として端的な評価語を使う。
+バリエーション必須：前回Aと同じ薬剤・視点の繰り返し禁止（★フォロー確認は毎回書いてよい）
+
+④##EP##
+1文のみで記載する。感情的表現・共感表現・お気持ち系の言葉は一切使わない。
+【優先①】処方変更あり → その薬の薬効または服薬上の注意を1文
+【優先②】変更なし → ##A##で取り上げた薬剤・テーマと関連する薬の薬効または副作用（具体的症状）への注意を1文
+【副作用疑い】S・Oに副作用疑いがある場合 → 「●●（症状）は▲▲（薬剤名）の副作用の可能性がありますので、続く場合・悪化する場合には遠慮なく教えてください。」の形式
+【禁止表現】「〜が不可欠である」「〜が常態化している」「〜が確認されている」などの冗長・医師口調表現は禁止。
+・バリエーション必須：前回EPと同じ薬剤・内容の繰り返し禁止
+
+⑤##OP##
+【絶対禁止】要約・省略・言い換え・整理・短縮は一切禁止。どれほど長くても全文そのまま出力すること。途中で「…」や「（以下略）」などで省略することは厳禁。省略した場合は出力失格となる。
+以下の2ステップのみで処理する。
+【ステップ1：完全コピー】前回の##OP##を一字一句変えずにそのまま転記する。要約・省略・言い換え・並び替えは一切禁止。文字・記号・改行・スペースを含め完全に同一のテキストを出力すること。プロブレム数・行数が多くても全て出力すること。
+【ステップ2：追記のみ】##O##で薬剤変更があった場合：
+①##OP##全体の＃プロブレム（＃●●）を上から全て確認し、プロブレム名の一覧を把握する。
+②変更薬の薬効・適応症に照らして、最も病態的に関連するプロブレムを一つ特定する（関連が薄くても既存にあれば必ずそこに追記）。
+③特定したプロブレムの詳細ブロック最終行の直後に改行し、全角スペース1つ＋「**M/D　変更内容**」を追記する（** は太字マーカー。必ず付けること）。
+　日付は「${reiwaStr.split('.')[0]}.M/D」形式とする（例：${reiwaStr.split('.')[0]}.5/29）。O入力に変更日の指定があればそのM/Dを使い、指定がなければ${dateStr}。
+新規プロブレムは既存のどのプロブレムとも全く関連がない場合のみ許可。
+【追記フォーマット厳守】追記は必ず前の行の末尾で改行すること。前の行と同じ行に続けて書くことは絶対に禁止。インデントは直前の詳細行（全角スペース始まりの行）と完全に同じにすること。前後の行を見て合わせること。
+　例（O入力「5/29～アムロジピン5mg　追加」の場合）：
+　　（転記内容）
+　 **${reiwaStr.split('.')[0]}.5/29　アムロジピン5mg　追加**　←このように**で囲んで書く
+・新規プロブレムを追加する場合：プロブレム名は必ず疾患名・病態名とする（薬剤名をそのままプロブレム名にしてはならない）。例：✗＃エンシュアH　→　✓＃栄養状態低下（または関連する既存プロブレムに追記）
+・★の部分 → 処方変更があればフォローアップ内容に上書き。★が2段になることは絶対に避ける。変更がなければ一字一句変えずに残す。
+フォーマット：＃プロブレムは行頭から（インデントなし）。＃以外の詳細行は必ず行頭に全角スペース（　）を1つ入れてから書き始めること。半角スペースでの行頭インデントは禁止。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【出力前の確認事項】
+1. 文字化け・記号の乱れ・全角半角の不自然な混在がないか
+2. ①〜⑤のルールに完全に適合しているか。特に##OP##の一字一句転記、★の2段化がないか、##EP##に薬の効果・副作用への言及があるか
+3. 前回記録にない情報を勝手に追加・創作していないか
+4. ##OP##が前回記録のOP全文と完全に一致しているか。プロブレムの省略・行の欠落がないか`;
+  }
+
+  // みつば用（A なし：S・O・EP・OP）
+  return `あなたは在宅医療に特化した薬局に勤めるベテラン薬剤師として、施設訪問薬歴の作成を支援するAIです。薬学的管理に精通しており、特に緩和ケア・褥瘡領域に秀でた立場で記録を作成してください。
+${noChangeNote}
+【本日の日付】${reiwaStr}（${dateStr}）
+【算定点数】${pts}
+
+【今回のS入力】
+${sVal || '（入力なし）'}
+
+【今回のO入力（診察時サマリ）】
+${oVal || '（入力なし）'}
+
+【前回の記録】
+${prev || '（なし）'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【出力形式】余計な前置き・説明は一切加えず以下の形式のみで出力すること。
+
+##S##
+##O##
+##EP##
+##OP##
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【各項目のルール】
+
+①##S##
+今回のS入力を要約・言い換えせずそのまま記載する。
+入力内容の文脈から（施設スタッフ）または（本人）かを推定し、冒頭に付けて改行してから内容を記載する。入力に「本人」「家族」「娘さん」などの話者を示す語がある場合はそれを（　）で括った形式にする。
+
+②##O##
+前回の##O##の内容を基本的にそのまま引き継ぐ。
+【診察時サマリ】の日付を【${dateStr}診察時サマリ】に書き換え、今回のO入力内容に差し替える。
+処方変更があれば「M/D　薬剤名　変更内容」の形式で追記する（元号・西暦不要）。
+・日付はO入力に「M/D～」「M/Dより」等の指定があればその日付を使う（例：「5/29～」→ 5/29、「～」は除く）。
+・日付指定がなければ今日「${dateStr}」を使う。
+前回##O##内に採血データがある場合はそのまま残す。薬剤情報は変更があれば上書き、なければそのまま残す。
+
+③##EP##
+1文のみで記載する。感情的表現・共感表現・お気持ち系の言葉は一切使わない。
+【優先①】処方変更あり → その薬の薬効または服薬上の注意を1文
+【優先②】変更なし → 今回のS・OおよびOPの★フォロー事項に関連する薬の薬効または副作用（具体的症状）への注意を1文
+【副作用疑い】S・Oに副作用疑いがある場合 → 「●●（症状）は▲▲（薬剤名）の副作用の可能性がありますので、続く場合・悪化する場合には遠慮なく教えてください。」の形式
+【禁止表現】「〜が不可欠である」「〜が常態化している」「〜が確認されている」などの冗長・医師口調表現は禁止。
+・バリエーション必須：前回EPと同じ薬剤・内容の繰り返し禁止
+
+④##OP##
+【絶対禁止】要約・省略・言い換え・整理・短縮は一切禁止。どれほど長くても全文そのまま出力すること。途中で「…」や「（以下略）」などで省略することは厳禁。省略した場合は出力失格となる。
+以下の2ステップのみで処理する。
+【ステップ1：完全コピー】前回の##OP##を一字一句変えずにそのまま転記する。要約・省略・言い換え・並び替えは一切禁止。文字・記号・改行・スペースを含め完全に同一のテキストを出力すること。プロブレム数・行数が多くても全て出力すること。
+【ステップ2：追記のみ】##O##で薬剤変更があった場合：
+①##OP##全体の＃プロブレム（＃●●）を上から全て確認し、プロブレム名の一覧を把握する。
+②変更薬の薬効・適応症に照らして、最も病態的に関連するプロブレムを一つ特定する（関連が薄くても既存にあれば必ずそこに追記）。
+③特定したプロブレムの詳細ブロック最終行の直後に改行し、全角スペース1つ＋「**M/D　変更内容**」を追記する（** は太字マーカー。必ず付けること）。
+　日付は「${reiwaStr.split('.')[0]}.M/D」形式とする（例：${reiwaStr.split('.')[0]}.5/29）。O入力に変更日の指定があればそのM/Dを使い、指定がなければ${dateStr}。
+新規プロブレムは既存のどのプロブレムとも全く関連がない場合のみ許可。
+【追記フォーマット厳守】追記は必ず前の行の末尾で改行すること。前の行と同じ行に続けて書くことは絶対に禁止。インデントは直前の詳細行（全角スペース始まりの行）と完全に同じにすること。前後の行を見て合わせること。
+　例（O入力「5/29～アムロジピン5mg　追加」の場合）：
+　　（転記内容）
+　 **${reiwaStr.split('.')[0]}.5/29　アムロジピン5mg　追加**　←このように**で囲んで書く
+・新規プロブレムを追加する場合：プロブレム名は必ず疾患名・病態名とする（薬剤名をそのままプロブレム名にしてはならない）。例：✗＃エンシュアH　→　✓＃栄養状態低下（または関連する既存プロブレムに追記）
+・★の部分 → 処方変更があればフォローアップ内容に上書き。★が2段になることは絶対に避ける。変更がなければ一字一句変えずに残す。
+フォーマット：＃プロブレムは行頭から（インデントなし）。＃以外の詳細行は必ず行頭に全角スペース（　）を1つ入れてから書き始めること。半角スペースでの行頭インデントは禁止。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【出力前の確認事項】
+1. 文字化け・記号の乱れ・全角半角の不自然な混在がないか
+2. ①〜④のルールに完全に適合しているか。特に##OP##の一字一句転記、★の2段化がないか、##EP##に薬の効果・副作用への言及があるか
+3. 前回記録にない情報を勝手に追加・創作していないか
+4. ##OP##が前回記録のOP全文と完全に一致しているか。プロブレムの省略・行の欠落がないか`;
+}
+
+async function callClaude(apiKey, prompt) {
+  const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
+  if (!proxyUrl) throw new Error('GAS Proxy URLが未設定です');
+
+  const res = await fetch(proxyUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: JSON.stringify({
+      type: 'claude',
+      apiKey,
+      model: 'claude-haiku-4-5-20251001',
+      maxTokens: 8192,
+      system: 'あなたは訪問薬剤師の施設訪問記録作成を支援する専門アシスタントです。以下の方針で記載してください。\n・簡潔・正確な医療日本語で記載する\n・感情的表現・共感表現・励まし・お気持ち系の言葉は一切使わない\n・薬剤師としての専門的視点（薬効・副作用・相互作用）から客観的に記録する\n・患者の「気持ち」ではなく「状態」を記録する',
+      messages: [{ role: 'user', content: prompt }]
+    }),
+    redirect: 'follow'
+  });
+
+  if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.ok === false) throw new Error(typeof data.error === 'string' ? data.error : 'プロキシエラー');
+  if (data.error) {
+    const msg = typeof data.error === 'string' ? data.error
+      : (data.error.message || data.error.type || 'Claude APIエラー');
+    throw new Error(msg);
+  }
+  const text = data.content?.[0]?.text;
+  if (!text) throw new Error('レスポンスが空です');
+  return text;
+}
+
+// ─── Bulk S/O input ──────────────────────────────────────────────────────────
+function showBulkSOInput() {
+  showModal(`
+    <div class="form-group">
+      <div class="form-label">S/O一括入力</div>
+      <div class="text-xs text-p2" style="margin-bottom:8px">
+        形式：部屋番号　S内容　O内容（全角スペース区切り）<br>
+        例）201　落ち着いています。<br>
+        　　202　掻痒感が続いています。　レボセチリジン追加しています。
+      </div>
+      <textarea id="bulk-so-input" rows="12" style="font-size:13px;line-height:1.8;"
+        placeholder="201　落ち着いています。&#10;202　掻痒感が続いています。　レボセチリジン追加。"></textarea>
+    </div>
+  `, 'S/O一括入力',
+  `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+   <button class="btn btn-primary" onclick="applyBulkSO()">反映</button>`);
+}
+
+function applyBulkSO() {
+  const raw = document.getElementById('bulk-so-input')?.value || '';
+  const fac = getFac();
+  if (!fac) return;
+
+  let count = 0;
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const parts = trimmed.split('　');
+    const room = parts[0]?.trim();
+    if (!room || !fac.patients.find(p => p.room === room)) continue;
+    if (!inputState[room]) inputState[room] = initSt(room);
+    inputState[room].s = parts[1]?.trim() || '';
+    inputState[room].o = parts.slice(2).join('　').trim();
+    count++;
+  }
+
+  closeModal();
+  showToast(`${count}名分のS/Oを反映しました`);
+  renderApp();
+  // テキストエリアのサイズ調整
+  setTimeout(() => {
+    fac.patients.forEach(p => {
+      ['s-','o-'].forEach(pre => {
+        const el = document.getElementById(pre + p.room);
+        if (el) autoResize(el);
+      });
+    });
+  }, 50);
+}
+
+// ─── Bulk generate ───────────────────────────────────────────────────────────
+async function generateAll() {
+  const fac = getFac();
+  if (!fac) return;
+
+  const apiKey   = localStorage.getItem(LS_CLAUDE_API) || '';
+  const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
+  if (!apiKey) {
+    showToast('⚠️ Claude APIキーを設定してください');
+    return;
+  }
+  if (!proxyUrl) {
+    showToast('⚠️ GAS Proxy URLを設定してください');
+    return;
+  }
+
+  const pending = fac.patients.filter(p =>
+    !todayVisits.some(v => v.room === p.room) && !p.hospitalized
+  );
+  if (!pending.length) { showToast('全員完了済みです（入院中を除く）'); return; }
+
+  const btn = document.getElementById('bulk-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '生成中...'; }
+
+  let count = 0;
+  for (const p of pending) {
+    if (!inputState[p.room]) inputState[p.room] = initSt(p.room);
+    const st = inputState[p.room];
+
+    const now      = visitDate;
+    const reiwa    = now.getFullYear() - 2018;
+    const reiwaStr = `R${reiwa}.${now.getMonth()+1}`;
+    const dateStr  = `${now.getMonth()+1}/${now.getDate()}`;
+    const pts      = st.points || p.defaultPoints;
+    const sVal     = st.s || '';
+    const oVal     = st.o || '';
+    const prev     = p.lastRecord || '';
+    const noChange     = st.noChange || false;
+    const hasShinsatsu = st.hasShinsatsu || false;
+
+    showToast(`${p.room}号室 作成中… (${count+1}/${pending.length})`, 60000);
+
+    try {
+      const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
+      const text   = normalize(await callClaude(apiKey, prompt));
+
+      const rec = { room: p.room, name: p.name, points: pts, content: text };
+      const idx = todayVisits.findIndex(v => v.room === p.room);
+      if (idx >= 0) todayVisits[idx] = rec; else todayVisits.push(rec);
+      todayVisits.sort((a, b) => Number(a.room) - Number(b.room));
+      p.lastRecord  = text;
+      p.lastUpdated = fmtDate(now);
+      count++;
+      save();
+    } catch(e) {
+      if (e.message.includes('429') || e.message.includes('rate_limit') || e.message.includes('overloaded')) {
+        showToast(`レート制限に達しました。10秒待機中…`, 10000);
+        await new Promise(r => setTimeout(r, 10000));
+        try {
+          const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
+          const text   = normalize(await callClaude(apiKey, prompt));
+          const rec = { room: p.room, name: p.name, points: pts, content: text };
+          const idx = todayVisits.findIndex(v => v.room === p.room);
+          if (idx >= 0) todayVisits[idx] = rec; else todayVisits.push(rec);
+          p.lastRecord  = text;
+          p.lastUpdated = fmtDate(now);
+          count++;
+          save();
+        } catch(e2) {
+          showToast(`${p.room}号室 エラー: ${e2.message}`, 4000);
+        }
+      } else {
+        showToast(`${p.room}号室 エラー: ${e.message}`, 4000);
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+  }
+
+  save();
+  showToast(`一括作成完了：${count}名`);
+  renderApp();
+}
+
+// ─── Save record ──────────────────────────────────────────────────────────────
+function saveRecord(room) {
+  const outEl   = document.getElementById('out-' + room);
+  const content = (outEl ? outEl.innerText : (inputState[room]?.output || '')).replace(/\*\*/g, '').trim();
+  if (!content) { showToast('生成結果がありません'); return; }
+
+  const fac = getFac();
+  const p   = fac.patients.find(p => p.room === room);
+  const pts = inputState[room]?.points || p.defaultPoints;
+
+  const rec = { room, name: p.name, points: pts, content };
+  const idx = todayVisits.findIndex(v => v.room === room);
+  if (idx >= 0) todayVisits[idx] = rec;
+  else todayVisits.push(rec);
+  todayVisits.sort((a, b) => Number(a.room) - Number(b.room));
+
+  // Update patient last record
+  p.lastRecord  = content;
+  p.lastUpdated = fmtDate(visitDate);
+
+  save();
+  delete inputState[room];
+  showToast(`${room}号室 ${p.name} を保存しました`);
+  renderApp();
+}
+
+// ─── Today list ───────────────────────────────────────────────────────────────
+function toggleToday(i) {
+  const body = document.getElementById('tb-' + i);
+  const chev = document.getElementById('tc-' + i);
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  if (chev) chev.textContent = open ? '▾' : '▸';
+}
+
+function removeToday(i) {
+  if (!confirm('この記録を削除しますか？')) return;
+  todayVisits.splice(i, 1);
+  save();
+  renderApp();
+}
+
+// ─── Download ─────────────────────────────────────────────────────────────────
+function downloadTxt() {
+  if (!todayVisits.length) { showToast('ダウンロードする記録がありません'); return; }
+  const fac = getFac();
+  const today = visitDate;
+  const ds = `${today.getFullYear()}${pad(today.getMonth()+1)}${pad(today.getDate())}`;
+  const fname = `${fac?.name||'施設'}_${ds}.txt`;
+
+  const text = todayVisits.map(v =>
+    `${v.room}　${v.name}　${v.points}\n\n${v.content}`
+  ).join('\n\n\n');
