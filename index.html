@@ -313,6 +313,8 @@ const LS_FAC        = 'shisetsu_fac';
 const LS_CUR        = 'shisetsu_cur';
 const LS_TODAY      = 'shisetsu_today';
 const LS_CLAUDE_API = 'shisetsu_claude_api';
+const LS_GEMINI_API = 'shisetsu_gemini_api';
+const LS_AI_MODEL   = 'shisetsu_ai_model';
 const LS_PROXY      = 'shisetsu_proxy_url';
 const LS_TDATE      = 'shisetsu_today_date';
 const LS_NAME       = 'shisetsu_pharmacist_name';
@@ -754,16 +756,20 @@ async function generateRecord(room) {
   if (sEl)   { st.s = sEl.value;   inputState[room] = st; }
   if (oEl)   { st.o = oEl.value;   inputState[room] = st; }
 
-  const apiKey  = localStorage.getItem(LS_CLAUDE_API) || '';
+  const aiModel  = localStorage.getItem(LS_AI_MODEL) || 'claude';
+  const apiKey   = aiModel === 'gemini'
+    ? (localStorage.getItem(LS_GEMINI_API) || '')
+    : (localStorage.getItem(LS_CLAUDE_API) || '');
   const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
   const errEl   = document.getElementById('err-' + room);
   errEl.innerHTML = '';
 
   if (!apiKey) {
-    errEl.innerHTML = '<div class="err">⚠️ Claude APIキーが未設定です。右上 ⚙️ から入力してください。</div>';
+    const label = aiModel === 'gemini' ? 'Gemini APIキー' : 'Claude APIキー';
+    errEl.innerHTML = `<div class="err">⚠️ ${label}が未設定です。右上 ⚙️ から入力してください。</div>`;
     return;
   }
-  if (!proxyUrl) {
+  if (aiModel === 'claude' && !proxyUrl) {
     errEl.innerHTML = '<div class="err">⚠️ GAS Proxy URLが未設定です。右上 ⚙️ から入力してください。</div>';
     return;
   }
@@ -782,7 +788,10 @@ async function generateRecord(room) {
   const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
 
   try {
-    const text = normalize(await callClaude(apiKey, prompt));
+    const raw = aiModel === 'gemini'
+      ? await callGemini(apiKey, prompt)
+      : await callClaude(apiKey, prompt);
+    const text = normalize(raw);
     inputState[room].output = text;
 
     const errEl2 = document.getElementById('err-' + room);
@@ -1091,6 +1100,30 @@ async function callClaude(apiKey, prompt) {
   return text;
 }
 
+async function callGemini(apiKey, prompt) {
+  const systemPrompt = 'あなたは訪問薬剤師の施設訪問記録作成を支援する専門アシスタントです。以下の方針で記載してください。\n・簡潔・正確な医療日本語で記載する\n・感情的表現・共感表現・励まし・お気持ち系の言葉は一切使わない\n・薬剤師としての専門的視点（薬効・副作用・相互作用）から客観的に記録する\n・患者の「気持ち」ではなく「状態」を記録する';
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 8192 }
+      })
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Gemini APIエラー (${res.status})`);
+  }
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Geminiのレスポンスが空です');
+  return text;
+}
+
 // ─── Bulk S/O input ──────────────────────────────────────────────────────────
 function showBulkSOInput() {
   showModal(`
@@ -1146,13 +1179,19 @@ async function generateAll() {
   const fac = getFac();
   if (!fac) return;
 
-  const apiKey   = localStorage.getItem(LS_CLAUDE_API) || '';
+  const aiModel  = localStorage.getItem(LS_AI_MODEL) || 'claude';
+  const apiKey   = aiModel === 'gemini'
+    ? (localStorage.getItem(LS_GEMINI_API) || '')
+    : (localStorage.getItem(LS_CLAUDE_API) || '');
   const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
+  const genOne   = (prompt) => aiModel === 'gemini'
+    ? callGemini(apiKey, prompt)
+    : callClaude(apiKey, prompt);
   if (!apiKey) {
-    showToast('⚠️ Claude APIキーを設定してください');
+    showToast(aiModel === 'gemini' ? '⚠️ Gemini APIキーを設定してください' : '⚠️ Claude APIキーを設定してください');
     return;
   }
-  if (!proxyUrl) {
+  if (aiModel === 'claude' && !proxyUrl) {
     showToast('⚠️ GAS Proxy URLを設定してください');
     return;
   }
@@ -1185,7 +1224,7 @@ async function generateAll() {
 
     try {
       const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
-      const text   = normalize(await callClaude(apiKey, prompt));
+      const text   = normalize(await genOne(prompt));
 
       const rec = { room: p.room, name: p.name, points: pts, content: text };
       const idx = todayVisits.findIndex(v => v.room === p.room);
@@ -1201,7 +1240,7 @@ async function generateAll() {
         await new Promise(r => setTimeout(r, 10000));
         try {
           const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
-          const text   = normalize(await callClaude(apiKey, prompt));
+          const text   = normalize(await genOne(prompt));
           const rec = { room: p.room, name: p.name, points: pts, content: text };
           const idx = todayVisits.findIndex(v => v.room === p.room);
           if (idx >= 0) todayVisits[idx] = rec; else todayVisits.push(rec);
@@ -1602,14 +1641,27 @@ let _sHasA = false;
 function showSettings() {
   const fac    = getFac();
   const apiKey = localStorage.getItem(LS_CLAUDE_API) || '';
+  const geminiKey = localStorage.getItem(LS_GEMINI_API) || '';
+  const aiModel   = localStorage.getItem(LS_AI_MODEL) || 'claude';
   const proxy  = localStorage.getItem(LS_PROXY) || '';
   const pname  = localStorage.getItem(LS_NAME) || '';
   _sHasA = fac?.hasA || false;
 
   showModal(`
     <div class="form-group">
+      <div class="form-label">AIモデル</div>
+      <div class="chips" id="s-model-chips">
+        <button class="chip ${aiModel==='claude'?'sel':''}" onclick="sSelectModel('claude')">Claude Haiku</button>
+        <button class="chip ${aiModel==='gemini'?'sel':''}" onclick="sSelectModel('gemini')">Gemini 2.5 Pro</button>
+      </div>
+    </div>
+    <div class="form-group" id="s-claude-group" style="${aiModel==='gemini'?'display:none':''}">
       <div class="form-label">Claude APIキー</div>
       <input type="password" id="s-api" value="${esc(apiKey)}" placeholder="sk-ant-...">
+    </div>
+    <div class="form-group" id="s-gemini-group" style="${aiModel!=='gemini'?'display:none':''}">
+      <div class="form-label">Gemini APIキー</div>
+      <input type="password" id="s-gemini-api" value="${esc(geminiKey)}" placeholder="AIza...">
     </div>
     <div class="form-group">
       <div class="form-label">GAS Proxy URL <span style="font-weight:400;color:var(--p3)">Slack送信の中継（全施設共通）</span></div>
@@ -1673,6 +1725,16 @@ function sSelectA(val) {
   chips?.querySelectorAll('.chip').forEach((c,i) => c.classList.toggle('sel', i===(val?1:0)));
 }
 
+function sSelectModel(val) {
+  localStorage.setItem(LS_AI_MODEL, val);
+  const chips = document.getElementById('s-model-chips');
+  chips?.querySelectorAll('.chip').forEach((c,i) => c.classList.toggle('sel', i===(val==='gemini'?1:0)));
+  const cg = document.getElementById('s-claude-group');
+  const gg = document.getElementById('s-gemini-group');
+  if (cg) cg.style.display = val === 'gemini' ? 'none' : '';
+  if (gg) gg.style.display = val === 'gemini' ? '' : 'none';
+}
+
 function updateSettingsStatus() {
   const apiSet   = !!localStorage.getItem(LS_CLAUDE_API);
   const proxySet = !!localStorage.getItem(LS_PROXY);
@@ -1685,6 +1747,9 @@ function updateSettingsStatus() {
 function saveSettings() {
   const apiKey = document.getElementById('s-api')?.value.trim();
   if (apiKey) localStorage.setItem(LS_CLAUDE_API, apiKey);
+
+  const geminiKey = document.getElementById('s-gemini-api')?.value.trim();
+  if (geminiKey) localStorage.setItem(LS_GEMINI_API, geminiKey);
 
   const proxy = document.getElementById('s-proxy')?.value.trim();
   if (proxy) localStorage.setItem(LS_PROXY, proxy);
