@@ -2,9 +2,16 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>施設訪問記録</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="施設記録">
+<meta name="theme-color" content="#f8f8fc">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -36,7 +43,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic UI'
 .icon-btn:active{transform:scale(.94);}
 
 /* Content */
-.content{max-width:980px;margin:0 auto;padding:20px 12px 110px;}
+.content{max-width:980px;margin:0 auto;padding:20px 12px calc(110px + env(safe-area-inset-bottom));}
 
 /* Card */
 .card{background:var(--card);border-radius:var(--r);overflow:hidden;margin-bottom:16px;
