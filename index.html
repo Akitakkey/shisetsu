@@ -584,6 +584,7 @@ function renderApp() {
         <span>本日の進捗　<span style="font-weight:600">${done} / ${total}名</span></span>
         <div class="flex-c gap-8">
           <button class="btn btn-secondary btn-sm" onclick="showBulkSOInput()">📋 S/O一括入力</button>
+          <button class="btn btn-secondary btn-sm" onclick="showShinsatsuImport()">🩺 同行メモ取込</button>
           <button class="btn btn-primary btn-sm" id="bulk-btn" onclick="generateAll()">一括作成</button>
         </div>
       </div>
@@ -1202,6 +1203,87 @@ function applyBulkSO() {
         const el = document.getElementById(pre + p.room);
         if (el) autoResize(el);
       });
+    });
+  }, 50);
+}
+
+// ─── 診察同行メモの取り込み ─────────────────────────────────────────────────────
+// 部屋番号だけの行（例:「208」「107　すべて7/5ー25」）を区切りとして、
+// 続くテキストを該当患者のOに振り分ける。同じ部屋番号が複数回出てきたら追記する。
+// 既存のO入力がある場合も上書きせず末尾に追記する。
+function showShinsatsuImport() {
+  showModal(`
+    <div class="form-group">
+      <div class="form-label">診察同行メモの取り込み</div>
+      <div class="text-xs text-p2" style="margin-bottom:8px">
+        部屋番号から始まる行を区切りとして、続くテキストを各部屋のOに自動で振り分けます（複数行OK・同じ部屋番号が複数回出てきても追記されます）。<br>
+        該当する部屋は「医師診察同行あり」も自動でチェックされます。既存のO入力があれば末尾に追記します。
+      </div>
+      <textarea id="shinsatsu-import-input" rows="16" style="font-size:13px;line-height:1.8;"
+        placeholder="208&#10;マグミット錠330　1T1×朝食後　21日分（7/5ー25）　追加&#10;&#10;107　すべて7/5ー25&#10;ランソプラゾールOD錠15mg　1T1×朝追加"></textarea>
+    </div>
+  `, '診察同行メモの取り込み',
+  `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+   <button class="btn btn-primary" onclick="applyShinsatsuImport()">反映</button>`);
+}
+
+function applyShinsatsuImport() {
+  const raw = document.getElementById('shinsatsu-import-input')?.value || '';
+  const fac = getFac();
+  if (!fac) return;
+
+  const knownRooms = new Set(fac.patients.map(p => String(p.room)));
+  const blocks = new Map(); // room -> lines[]
+  const unassigned = [];
+  let curRoom = null;
+
+  for (const line of raw.split('\n')) {
+    // 部屋番号の判定にだけ全角数字→半角・「号室/号」除去を適用し、本文は元表記のまま保持する
+    const normalized = line.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+    const m = normalized.match(/^(\d+)(?:号室|号)?[ \t　]*(.*)$/);
+    const headRoom = m ? m[1] : null;
+    if (headRoom && knownRooms.has(headRoom)) {
+      curRoom = headRoom;
+      if (!blocks.has(curRoom)) blocks.set(curRoom, []);
+      const rest = m[2] ? line.slice(line.length - m[2].length) : '';
+      if (rest) blocks.get(curRoom).push(rest);
+    } else if (curRoom) {
+      blocks.get(curRoom).push(line);
+    } else if (line.trim()) {
+      unassigned.push(line);
+    }
+  }
+
+  let count = 0;
+  let skipped = 0;
+  blocks.forEach((lines, room) => {
+    const text = lines.join('\n').trim();
+    if (!text) return;
+    // 作成済み（AI生成後 or 一覧追加済み）の部屋は、取り込みで生成結果と食い違わないよう反映せず廃棄する
+    const alreadyMade = todayVisits.some(v => v.room === room) || !!(inputState[room]?.output);
+    if (alreadyMade) { skipped++; return; }
+    if (!inputState[room]) inputState[room] = initSt(room);
+    const existing = (inputState[room].o || '').trim();
+    inputState[room].o = existing ? existing + '\n\n' + text : text;
+    inputState[room].hasShinsatsu = true;
+    count++;
+  });
+
+  closeModal();
+  if (count === 0 && skipped === 0) {
+    showToast('部屋番号を認識できませんでした（患者一覧の部屋番号と一致していません）', 4000);
+    return;
+  }
+  const parts = [];
+  if (count)   parts.push(`${count}部屋分を反映しました`);
+  if (skipped) parts.push(`${skipped}部屋は作成済みのためスキップしました`);
+  if (unassigned.length) parts.push(`部屋番号の前にあった${unassigned.length}行は未割り当てです`);
+  showToast(parts.join('・'), (skipped || unassigned.length) ? 5500 : 2400);
+  renderApp();
+  setTimeout(() => {
+    fac.patients.forEach(p => {
+      const el = document.getElementById('o-' + p.room);
+      if (el) autoResize(el);
     });
   }, 50);
 }
