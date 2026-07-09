@@ -322,6 +322,7 @@ const LS_TODAY      = 'shisetsu_today';
 const LS_CLAUDE_API = 'shisetsu_claude_api';
 const LS_GEMINI_API = 'shisetsu_gemini_api';
 const LS_AI_MODEL   = 'shisetsu_ai_model';
+const LS_CLAUDE_MODEL = 'shisetsu_claude_model';
 const LS_PROXY      = 'shisetsu_proxy_url';
 const LS_TDATE      = 'shisetsu_today_date';
 const LS_NAME       = 'shisetsu_pharmacist_name';
@@ -842,8 +843,8 @@ async function generateRecord(room) {
 
   try {
     const raw = aiModel === 'gemini'
-      ? await callGemini(apiKey, prompt)
-      : await callClaude(apiKey, prompt);
+      ? await callGemini(apiKey, prompt.fixed + '\n\n' + prompt.variable)
+      : await callClaude(apiKey, prompt.fixed, prompt.variable);
     const text = normalize(raw);
     inputState[room].output = text;
 
@@ -939,26 +940,36 @@ function buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange=
 ・##A##（Aあり施設のみ）：##OP##から2剤をピックアップし、効果が得られているか副作用（具体的症状）が出ていないかをアセスメントする。【後述「前回A・EP使用済み内容」に従い別の薬剤を選ぶこと】
 ・##EP##：##OP##から2剤を抽出し副作用（具体的な症状）への注意を促す指導内容を作成する。「このままお薬を続けましょう」は不可。必ず薬の効果・副作用に言及すること。【後述「前回A・EP使用済み内容」に従い別の薬剤・内容を取り上げること】
 ` : '';
+  const mandatoryProblemNote = `【ステップ0：必須自動追加プロブレムのチェック】
+・今回のO入力に医療用麻薬（モルヒネ・オキシコドン・ヒドロモルフォン・フェンタニル・タペンタドール・トラマドール・アンペック・オプソ・ナルサス・ナルラピド・ワントラム・メサペイン等）の新規処方が含まれ、かつ前回の##OP##に「医療用麻薬使用状況」という語を含むプロブレムが存在しない場合 → ##OP##の一番最初のプロブレムとして、以下を一字一句この形のまま追加する（③は空欄のまま、④は欠番のまま出力。加算の算定要件であり省略・改変は禁止）：
+＃がん性疼痛、医療用麻薬使用状況
+　①麻薬の保管管理状況：施設で管理
+　②服薬状況：今回初回介入。次回以降で評価
+　③レスキューの残薬状況等：
+　⑤疼痛緩和等の状況：介入時は問題なし。
+　⑥継続又は増量投与による体調の変化：今回初回介入。次回以降で評価
+　⑦残薬の廃棄方法：原則保険薬局へ返納するよう説明
+
+・今回のO入力にTPN製剤（エルネオパ、フルカリック、ワンバル）の新規処方が含まれ、かつ前回の##OP##に「在宅中心静脈栄養法使用患者」というプロブレムが存在しない場合 → ##OP##の一番最初のプロブレムとして、以下を一字一句この形のまま追加する：
+＃在宅中心静脈栄養法使用患者
+　①輸液製剤の投与状況：40ml/hで24時間キープ
+　②保管管理状況：居室内で管理。未使用分は未開封、室温は適正であることを確認。
+　③残薬の状況：次回の輸液配薬まで残あり
+　④栄養状態等の状況：大きなトラブルはないことを確認
+　⑤輸液製剤による体調の変化：目に見えて副作用を疑う症状は無し
+　⑥薬剤の配合変化：単味の為に配合変化は無し
+
+・上記2つのプロブレムが前回の##OP##に既に存在する場合は新規追加しない（重複禁止）。ステップ1でそのまま転記されるため、①〜⑦・①〜⑥の「：」の後の値も前回の記載を一字一句踏襲し、書き換えない。
+・ここで新規追加または転記した医療用麻薬・TPNの処方変更は、下記ステップ2の追記対象には含めない（二重記載・定型文の書式崩れを防ぐため）。
+`;
 
   if (hasA) {
-    const { range: deliveryRange, start: deliveryStart } = getDeliveryRange();
+    const { range: deliveryRange } = getDeliveryRange();
     const noChangeS = fac.noChangeS || '特に変わったことはなく過ごされています。落ち着いた療養が出来ています。';
     // ナーシングホーム用（A あり：S・O・A・EP・OP）
-    return `あなたは在宅医療に特化した薬局に勤めるベテラン薬剤師として、施設訪問薬歴の作成を支援するAIです。薬学的管理に精通しており、特に緩和ケア・褥瘡領域に秀でた立場で記録を作成してください。
-${noChangeNote}
+    const fixed = `あなたは在宅医療に特化した薬局に勤めるベテラン薬剤師として、施設訪問薬歴の作成を支援するAIです。薬学的管理に精通しており、特に緩和ケア・褥瘡領域に秀でた立場で記録を作成してください。
+
 【本日の日付】${reiwaStr}（${dateStr}）
-【算定点数】${pts}
-
-【今回のS入力】
-${sVal || '（入力なし）'}
-
-【今回のO入力（配薬日付・診察サマリなど）】
-${oVal || '（入力なし）'}
-
-【前回の記録】
-${prev || '（なし）'}
-
-${prevVariationNote}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【出力形式】余計な前置き・説明は一切加えず以下の形式のみで出力すること。
@@ -973,9 +984,8 @@ ${prevVariationNote}
 【各項目のルール】
 
 ①##S##
-${sVal.trim()
-  ? rules.s
-  : `S入力が空欄のため「${noChangeS}」を ##S## の内容とする。冒頭に（施設スタッフ）を付けて改行してから記載する。`}
+【今回のS入力】欄が「（入力なし）」の場合：「${noChangeS}」を ##S## の内容とする。冒頭に（施設スタッフ）を付けて改行してから記載する。
+【今回のS入力】欄に内容がある場合：${rules.s}
 
 ②##O##
 冒頭は必ず「定期訪問、定期配薬：」から始める。出力に空白行を入れないこと。
@@ -997,10 +1007,14 @@ ${sVal.trim()
 ・ヘパリン類似Cr　4本
 ・生食注　6本
 
-${hasShinsatsu ? `医師診察同行あり。配薬記録の下に続けて以下の形式で診察サマリを記載する：
+【今回の診察同行】欄が「あり」の場合：配薬記録の下に続けて以下の形式で診察サマリを記載する：
 【${dateStr}診察時サマリ】
 （O入力に含まれる診察情報を記載）
-処方変更があれば「M/D　薬剤名　変更内容」の形式で追記する（元号・西暦不要）。日付はO入力に「M/D～」等の指定があればその日付を使い（例：「5/29～」→ 5/29、「～」は除く）、指定がなければ「${dateStr}」を使う。` : ``}
+処方変更があれば追記する。日付はO入力に「M/D～」等の指定があればその日付を使い（例：「5/29～」→ 5/29、「～」は除く）、指定がなければ「${dateStr}」を使う。
+【重要】同じ日付の処方変更は薬剤ごとに行を分けず、1行にまとめて横並びで記載すること。書式は「M/D　薬剤名A、薬剤名B　中止、薬剤名C　旧用法　→　新用法（用法変更）」のように、変更点ごとに読点（、）で区切って並べる。同じ変更内容（中止など）の薬剤が複数あれば薬剤名をまとめて列挙し、末尾に一度だけ変更内容を書く。
+　例（O入力「エピナスチン、アセトアミノフェン　中止／クエチアピン　寝る前→夕食後」の場合）：
+　7/17　エピナスチン、アセトアミノフェン中止、クエチアピン　寝前　→　夕食後（用法変更）
+【今回の診察同行】欄が「なし」の場合：診察サマリは記載しない。
 
 ③##A##
 ${rules.a}
@@ -1010,7 +1024,9 @@ ${rules.ep}
 
 ⑤##OP##
 【絶対禁止】要約・省略・言い換え・整理・短縮は一切禁止。どれほど長くても全文そのまま出力すること。途中で「…」や「（以下略）」などで省略することは厳禁。省略した場合は出力失格となる。
-以下の2ステップのみで処理する。
+以下の手順で処理する。
+
+${mandatoryProblemNote}
 【ステップ1：完全コピー】前回の##OP##を一字一句変えずにそのまま転記する。要約・省略・言い換え・並び替えは一切禁止。文字・記号・改行・スペースを含め完全に同一のテキストを出力すること。プロブレム数・行数が多くても全て出力すること。
 【ステップ2：追記のみ】##O##で薬剤変更があった場合：
 ①##OP##全体の＃プロブレム（＃●●）を上から全て確認し、プロブレム名の一覧を把握する。
@@ -1032,24 +1048,29 @@ ${rules.ep}
 2. ①〜⑤のルールに完全に適合しているか。特に##OP##の一字一句転記、★の2段化がないか、##EP##に薬の効果・副作用への言及があるか
 3. 前回記録にない情報を勝手に追加・創作していないか
 4. ##OP##が前回記録のOP全文と完全に一致しているか。プロブレムの省略・行の欠落がないか`;
-  }
 
-  // みつば用（A なし：S・O・EP・OP）
-  return `あなたは在宅医療に特化した薬局に勤めるベテラン薬剤師として、施設訪問薬歴の作成を支援するAIです。薬学的管理に精通しており、特に緩和ケア・褥瘡領域に秀でた立場で記録を作成してください。
-${noChangeNote}
-【本日の日付】${reiwaStr}（${dateStr}）
+    const variable = `${noChangeNote}
 【算定点数】${pts}
+【今回の診察同行】${hasShinsatsu ? 'あり' : 'なし'}
 
 【今回のS入力】
-${sVal || '（入力なし）'}
+${sVal.trim() || '（入力なし）'}
 
-【今回のO入力（診察時サマリ）】
+【今回のO入力（配薬日付・診察サマリなど）】
 ${oVal || '（入力なし）'}
 
 【前回の記録】
 ${prev || '（なし）'}
 
-${prevVariationNote}
+${prevVariationNote}`;
+
+    return { fixed, variable };
+  }
+
+  // みつば用（A なし：S・O・EP・OP）
+  const fixed = `あなたは在宅医療に特化した薬局に勤めるベテラン薬剤師として、施設訪問薬歴の作成を支援するAIです。薬学的管理に精通しており、特に緩和ケア・褥瘡領域に秀でた立場で記録を作成してください。
+
+【本日の日付】${reiwaStr}（${dateStr}）
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【出力形式】余計な前置き・説明は一切加えず以下の形式のみで出力すること。
@@ -1063,14 +1084,18 @@ ${prevVariationNote}
 【各項目のルール】
 
 ①##S##
-${rules.s}
+【今回のS入力】欄が「（入力なし）」の場合：「${fac.noChangeS || '特に変わったことはなく過ごされています。落ち着いた療養が出来ています。'}」を ##S## の内容とする。冒頭に（施設スタッフ）を付けて改行してから記載する。
+【今回のS入力】欄に内容がある場合：${rules.s}
 
 ②##O##
 前回の##O##の内容を基本的にそのまま引き継ぐ。
-【診察時サマリ】の日付を【${dateStr}診察時サマリ】に書き換え、今回のO入力内容に差し替える。
-処方変更があれば「M/D　薬剤名　変更内容」の形式で追記する（元号・西暦不要）。
+【診察時サマリ】の日付を【${dateStr}診察時サマリ】に書き換える。今回のO入力に内容があればその内容に差し替え、O入力が空欄の場合は前回の診察時サマリの内容をそのまま維持する（勝手に空欄や「変更なし」等に書き換えない）。
+処方変更があれば追記する。
 ・日付はO入力に「M/D～」「M/Dより」等の指定があればその日付を使う（例：「5/29～」→ 5/29、「～」は除く）。
 ・日付指定がなければ今日「${dateStr}」を使う。
+【重要】同じ日付の処方変更は薬剤ごとに行を分けず、1行にまとめて横並びで記載すること。書式は「M/D　薬剤名A、薬剤名B　中止、薬剤名C　旧用法　→　新用法（用法変更）」のように、変更点ごとに読点（、）で区切って並べる。同じ変更内容（中止など）の薬剤が複数あれば薬剤名をまとめて列挙し、末尾に一度だけ変更内容を書く。
+　例（O入力「エピナスチン、アセトアミノフェン　中止／クエチアピン　寝る前→夕食後」の場合）：
+　7/17　エピナスチン、アセトアミノフェン中止、クエチアピン　寝前　→　夕食後（用法変更）
 前回##O##内に採血データがある場合はそのまま残す。薬剤情報は変更があれば上書き、なければそのまま残す。
 
 ③##EP##
@@ -1078,7 +1103,9 @@ ${rules.ep}
 
 ④##OP##
 【絶対禁止】要約・省略・言い換え・整理・短縮は一切禁止。どれほど長くても全文そのまま出力すること。途中で「…」や「（以下略）」などで省略することは厳禁。省略した場合は出力失格となる。
-以下の2ステップのみで処理する。
+以下の手順で処理する。
+
+${mandatoryProblemNote}
 【ステップ1：完全コピー】前回の##OP##を一字一句変えずにそのまま転記する。要約・省略・言い換え・並び替えは一切禁止。文字・記号・改行・スペースを含め完全に同一のテキストを出力すること。プロブレム数・行数が多くても全て出力すること。
 【ステップ2：追記のみ】##O##で薬剤変更があった場合：
 ①##OP##全体の＃プロブレム（＃●●）を上から全て確認し、プロブレム名の一覧を把握する。
@@ -1100,11 +1127,31 @@ ${rules.ep}
 2. ①〜④のルールに完全に適合しているか。特に##OP##の一字一句転記、★の2段化がないか、##EP##に薬の効果・副作用への言及があるか
 3. 前回記録にない情報を勝手に追加・創作していないか
 4. ##OP##が前回記録のOP全文と完全に一致しているか。プロブレムの省略・行の欠落がないか`;
+
+  const variable = `${noChangeNote}
+【算定点数】${pts}
+
+【今回のS入力】
+${sVal.trim() || '（入力なし）'}
+
+【今回のO入力（診察時サマリ）】
+${oVal || '（入力なし）'}
+
+【前回の記録】
+${prev || '（なし）'}
+
+${prevVariationNote}`;
+
+  return { fixed, variable };
 }
 
-async function callClaude(apiKey, prompt) {
+async function callClaude(apiKey, fixedPrompt, variablePrompt) {
   const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
   if (!proxyUrl) throw new Error('GAS Proxy URLが未設定です');
+
+  const claudeModel = (localStorage.getItem(LS_CLAUDE_MODEL) || 'haiku') === 'sonnet'
+    ? 'claude-sonnet-5'
+    : 'claude-haiku-4-5-20251001';
 
   const res = await fetch(proxyUrl, {
     method: 'POST',
@@ -1112,10 +1159,16 @@ async function callClaude(apiKey, prompt) {
     body: JSON.stringify({
       type: 'claude',
       apiKey,
-      model: 'claude-haiku-4-5-20251001',
+      model: claudeModel,
       maxTokens: 8192,
       system: 'あなたは訪問薬剤師の施設訪問記録作成を支援する専門アシスタントです。以下の方針で記載してください。\n・簡潔・正確な医療日本語で記載する\n・感情的表現・共感表現・励まし・お気持ち系の言葉は一切使わない\n・薬剤師としての専門的視点（薬効・副作用・相互作用）から客観的に記録する\n・患者の「気持ち」ではなく「状態」を記録する',
-      messages: [{ role: 'user', content: prompt }]
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: fixedPrompt, cache_control: { type: 'ephemeral' } },
+          { type: 'text', text: variablePrompt }
+        ]
+      }]
     }),
     redirect: 'follow'
   });
@@ -1211,13 +1264,37 @@ function applyBulkSO() {
 // 部屋番号だけの行（例:「208」「107　すべて7/5ー25」）を区切りとして、
 // 続くテキストを該当患者のOに振り分ける。同じ部屋番号が複数回出てきたら追記する。
 // 既存のO入力がある場合も上書きせず末尾に追記する。
+// 患者氏名（fac.patientsの氏名辞書と一致する語）はAIへ送信する前に部屋番号へ自動置換して除去する。
+function redactShinsatsuNames(text, fac) {
+  const nameToRoom = {};
+  fac.patients.forEach(p => {
+    const name = String(p.name || '').trim();
+    const room = String(p.room || '').trim();
+    if (name && room) nameToRoom[name] = room;
+  });
+
+  // 名前が長い順に処理する（短い名前が長い名前の一部に含まれて誤置換されるのを防ぐ）
+  const names = Object.keys(nameToRoom).sort((a, b) => b.length - a.length);
+  let redacted = text;
+  names.forEach(name => {
+    const room = nameToRoom[name];
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // 部屋番号+氏名が直接くっついている形はまず部屋番号だけに圧縮
+    redacted = redacted.replace(new RegExp(room + escaped, 'g'), room);
+    // それ以外の場所に単独で出てくる氏名も部屋番号に置換
+    redacted = redacted.replace(new RegExp(escaped, 'g'), room);
+  });
+  return redacted;
+}
+
 function showShinsatsuImport() {
   showModal(`
     <div class="form-group">
       <div class="form-label">診察同行メモの取り込み</div>
       <div class="text-xs text-p2" style="margin-bottom:8px">
         部屋番号から始まる行を区切りとして、続くテキストを各部屋のOに自動で振り分けます（複数行OK・同じ部屋番号が複数回出てきても追記されます）。<br>
-        該当する部屋は「医師診察同行あり」も自動でチェックされます。既存のO入力があれば末尾に追記します。
+        該当する部屋は「医師診察同行あり」も自動でチェックされます。既存のO入力があれば末尾に追記します。<br>
+        患者氏名は自動で部屋番号に置き換えて除去されます。
       </div>
       <textarea id="shinsatsu-import-input" rows="16" style="font-size:13px;line-height:1.8;"
         placeholder="208&#10;マグミット錠330　1T1×朝食後　21日分（7/5ー25）　追加&#10;&#10;107　すべて7/5ー25&#10;ランソプラゾールOD錠15mg　1T1×朝追加"></textarea>
@@ -1257,8 +1334,9 @@ function applyShinsatsuImport() {
   let count = 0;
   let skipped = 0;
   blocks.forEach((lines, room) => {
-    const text = lines.join('\n').trim();
-    if (!text) return;
+    const joined = lines.join('\n').trim();
+    if (!joined) return;
+    const text = redactShinsatsuNames(joined, fac);
     // 作成済み（AI生成後 or 一覧追加済み）の部屋は、取り込みで生成結果と食い違わないよう反映せず廃棄する
     const alreadyMade = todayVisits.some(v => v.room === room) || !!(inputState[room]?.output);
     if (alreadyMade) { skipped++; return; }
@@ -1299,8 +1377,8 @@ async function generateAll() {
     : (localStorage.getItem(LS_CLAUDE_API) || '');
   const proxyUrl = (localStorage.getItem(LS_PROXY) || '').trim();
   const genOne   = (prompt) => aiModel === 'gemini'
-    ? callGemini(apiKey, prompt)
-    : callClaude(apiKey, prompt);
+    ? callGemini(apiKey, prompt.fixed + '\n\n' + prompt.variable)
+    : callClaude(apiKey, prompt.fixed, prompt.variable);
   if (!apiKey) {
     showToast(aiModel === 'gemini' ? '⚠️ Gemini APIキーを設定してください' : '⚠️ Claude APIキーを設定してください');
     return;
@@ -1757,6 +1835,7 @@ function showSettings() {
   const apiKey = localStorage.getItem(LS_CLAUDE_API) || '';
   const geminiKey = localStorage.getItem(LS_GEMINI_API) || '';
   const aiModel   = localStorage.getItem(LS_AI_MODEL) || 'claude';
+  const claudeModelSel = localStorage.getItem(LS_CLAUDE_MODEL) || 'haiku';
   const proxy  = localStorage.getItem(LS_PROXY) || '';
   const pname  = localStorage.getItem(LS_NAME) || '';
   _sHasA = fac?.hasA || false;
@@ -1767,7 +1846,8 @@ function showSettings() {
     <div class="form-group">
       <div class="form-label">AIモデル</div>
       <div class="chips" id="s-model-chips">
-        <button class="chip ${aiModel==='claude'?'sel':''}" onclick="sSelectModel('claude')">Claude Haiku</button>
+        <button class="chip ${aiModel==='claude' && claudeModelSel==='haiku'?'sel':''}" onclick="sSelectModel('claude','haiku')">Claude Haiku</button>
+        <button class="chip ${aiModel==='claude' && claudeModelSel==='sonnet'?'sel':''}" onclick="sSelectModel('claude','sonnet')">Claude Sonnet</button>
         <button class="chip ${aiModel==='gemini'?'sel':''}" onclick="sSelectModel('gemini')">Gemini 2.5 Pro</button>
       </div>
     </div>
@@ -1896,10 +1976,12 @@ function sSelectA(val) {
   chips?.querySelectorAll('.chip').forEach((c,i) => c.classList.toggle('sel', i===(val?1:0)));
 }
 
-function sSelectModel(val) {
+function sSelectModel(val, claudeModel) {
   localStorage.setItem(LS_AI_MODEL, val);
+  if (val === 'claude') localStorage.setItem(LS_CLAUDE_MODEL, claudeModel || 'haiku');
   const chips = document.getElementById('s-model-chips');
-  chips?.querySelectorAll('.chip').forEach((c,i) => c.classList.toggle('sel', i===(val==='gemini'?1:0)));
+  const idx = val === 'gemini' ? 2 : (claudeModel === 'sonnet' ? 1 : 0);
+  chips?.querySelectorAll('.chip').forEach((c,i) => c.classList.toggle('sel', i===idx));
   const cg = document.getElementById('s-claude-group');
   const gg = document.getElementById('s-gemini-group');
   if (cg) cg.style.display = val === 'gemini' ? 'none' : '';
