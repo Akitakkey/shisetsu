@@ -1198,9 +1198,11 @@ async function callClaude(apiKey, fixedPrompt, variablePrompt) {
       : (data.error.message || data.error.type || 'Claude APIエラー');
     throw new Error(msg);
   }
-  const text = data.content?.[0]?.text;
+  const textBlock = data.content?.find(b => b.type === 'text');
+  const text = textBlock?.text;
   if (!text) {
-    console.error('[callClaude] raw response:', JSON.stringify(data));
+    console.error('[callClaude] stop_reason:', data.stop_reason, 'usage:', JSON.stringify(data.usage));
+    console.error('[callClaude] content blocks:', JSON.stringify((data.content || []).map(b => ({ type: b.type, textLen: b.text ? b.text.length : 0, thinkingLen: b.thinking ? b.thinking.length : 0 }))));
     throw new Error('レスポンスが空です');
   }
   return text;
