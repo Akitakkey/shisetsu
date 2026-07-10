@@ -1199,7 +1199,10 @@ async function callClaude(apiKey, fixedPrompt, variablePrompt) {
     throw new Error(msg);
   }
   const text = data.content?.[0]?.text;
-  if (!text) throw new Error('レスポンスが空です');
+  if (!text) {
+    console.error('[callClaude] raw response:', JSON.stringify(data));
+    throw new Error('レスポンスが空です');
+  }
   return text;
 }
 
