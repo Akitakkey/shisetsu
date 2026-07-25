@@ -545,6 +545,10 @@ window.addEventListener('pageshow', e => {
 function load() {
   try { facilities  = JSON.parse(localStorage.getItem(LS_FAC)   || '[]'); } catch { facilities = []; }
   try { todayVisits = JSON.parse(localStorage.getItem(LS_TODAY)  || '[]'); } catch { todayVisits = []; }
+  // 旧方式でfacility内に平文保存されていたSlack Botトークンを除去（GAS Proxy側のScript Propertiesに移行済み）
+  let hadSlackToken = false;
+  facilities.forEach(f => { if (f.slackToken) { hadSlackToken = true; delete f.slackToken; } });
+  if (hadSlackToken) localStorage.setItem(LS_FAC, JSON.stringify(facilities));
   currentFacId = localStorage.getItem(LS_CUR) || null;
   if (currentFacId && !facilities.find(f => f.id === currentFacId)) currentFacId = null;
   // 日付が変わっていたら本日完了分をリセット
@@ -1014,6 +1018,8 @@ function buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange=
 【重要】同じ日付の処方変更は薬剤ごとに行を分けず、1行にまとめて横並びで記載すること。書式は「M/D　薬剤名A、薬剤名B　中止、薬剤名C　旧用法　→　新用法（用法変更）」のように、変更点ごとに読点（、）で区切って並べる。同じ変更内容（中止など）の薬剤が複数あれば薬剤名をまとめて列挙し、末尾に一度だけ変更内容を書く。
 　例（O入力「エピナスチン、アセトアミノフェン　中止／クエチアピン　寝る前→夕食後」の場合）：
 　7/17　エピナスチン、アセトアミノフェン中止、クエチアピン　寝前　→　夕食後（用法変更）
+　例（O入力「フェブリク10mg　追加／アロプリノール100mg　中止」、いずれも7/25対応の場合）：
+　7/25　フェブリク10mg　追加、アロプリノール100mg　中止
 【今回の診察同行】欄が「なし」の場合：診察サマリは記載しない。
 
 ③##A##
@@ -1037,7 +1043,7 @@ ${mandatoryProblemNote}
 【追記フォーマット厳守】追記は必ず前の行の末尾で改行すること。前の行と同じ行に続けて書くことは絶対に禁止。インデントは直前の詳細行（全角スペース始まりの行）と完全に同じにすること。前後の行を見て合わせること。
 　例（O入力「5/29～アムロジピン5mg　追加」の場合）：
 　　（転記内容）
-　 **${reiwaStr.split('.')[0]}.5/29　アムロジピン5mg　追加**　←このように**で囲んで書く
+　**${reiwaStr.split('.')[0]}.5/29　アムロジピン5mg　追加**　←このように**で囲んで書く
 ・新規プロブレムを追加する場合：プロブレム名は必ず疾患名・病態名とする（薬剤名をそのままプロブレム名にしてはならない）。例：✗＃エンシュアH　→　✓＃栄養状態低下（または関連する既存プロブレムに追記）
 ・★の部分 → 処方変更があればフォローアップ内容に上書き。★が2段になることは絶対に避ける。変更がなければ一字一句変えずに残す。
 フォーマット：＃プロブレムは行頭から（インデントなし）。＃以外の詳細行は必ず行頭に全角スペース（　）を1つ入れてから書き始めること。半角スペースでの行頭インデントは禁止。
@@ -1115,6 +1121,10 @@ M/D～　薬剤名　変更内容
 ・用量変更：「M/D～　薬剤名　旧用量　→　新用量　に増量／に減量」
 ・用法変更：「M/D～　薬剤名　旧用法　→　新用法　に変更」
 
+【重要】同じ日付の処方変更は、種類（追加・中止・用量変更・用法変更）が異なっていても薬剤ごとに行を分けず、1行にまとめて横並びで記載すること。変更点ごとに読点（、）で区切って並べる。同じ変更内容の薬剤が複数あれば薬剤名をまとめて列挙し、末尾に一度だけ変更内容を書く。
+　例（O入力「フェブリク10mg　追加／アロプリノール100mg　中止」、いずれも7/25対応の場合）：
+　7/25～　フェブリク10mg　追加、アロプリノール100mg　中止
+
 ③##EP##
 ${rules.ep}
 
@@ -1133,7 +1143,7 @@ ${mandatoryProblemNote}
 【追記フォーマット厳守】追記は必ず前の行の末尾で改行すること。前の行と同じ行に続けて書くことは絶対に禁止。インデントは直前の詳細行（全角スペース始まりの行）と完全に同じにすること。前後の行を見て合わせること。
 　例（O入力「5/29～アムロジピン5mg　追加」の場合）：
 　　（転記内容）
-　 **${reiwaStr.split('.')[0]}.5/29　アムロジピン5mg　追加**　←このように**で囲んで書く
+　**${reiwaStr.split('.')[0]}.5/29　アムロジピン5mg　追加**　←このように**で囲んで書く
 ・新規プロブレムを追加する場合：プロブレム名は必ず疾患名・病態名とする（薬剤名をそのままプロブレム名にしてはならない）。例：✗＃エンシュアH　→　✓＃栄養状態低下（または関連する既存プロブレムに追記）
 ・★の部分 → 処方変更があればフォローアップ内容に上書き。★が2段になることは絶対に避ける。変更がなければ一字一句変えずに残す。
 フォーマット：＃プロブレムは行頭から（インデントなし）。＃以外の詳細行は必ず行頭に全角スペース（　）を1つ入れてから書き始めること。半角スペースでの行頭インデントは禁止。
@@ -1541,8 +1551,8 @@ function downloadTxt() {
 // ─── Slack ────────────────────────────────────────────────────────────────────
 function sendSlack() {
   const fac = getFac();
-  if (!fac?.slackToken || !fac?.slackChannel) {
-    showModal('<div class="err">⚠️ Slack設定が未完了です。⚙️設定からBotトークンとチャンネルIDを入力してください。</div>', 'Slack未設定');
+  if (!fac?.slackChannel) {
+    showModal('<div class="err">⚠️ Slack設定が未完了です。⚙️設定からチャンネルIDを入力してください。</div>', 'Slack未設定');
     return;
   }
   if (!localStorage.getItem(LS_PROXY)) {
@@ -1606,7 +1616,6 @@ async function execSlackSend() {
 
   try {
     const data = await callProxy({
-      token: fac.slackToken,
       channelId: fac.slackChannel,
       filename: fname,
       content: text,
@@ -1839,7 +1848,7 @@ function addFacility() {
     id: Date.now().toString(), name, hasA: _addHasA,
     noChangeS: '特に変わったことはなく過ごされています。落ち着いた療養が出来ています。',
     noChangeO: '内科的に特に問題はない。現行治療で継続。\n※処方変更なし。',
-    slackToken: '', slackChannel: '',
+    slackChannel: '',
     slackMessage: '{施設名}　{月}月{日}日　{薬剤師名}の名前で転記お願いします。',
     patients: []
   };
@@ -1951,10 +1960,6 @@ function showSettings() {
     <hr>
     <div style="font-size:13px;font-weight:600;color:var(--p2);margin-bottom:10px">Slack設定</div>
     <div class="form-group">
-      <div class="form-label">Bot トークン <span style="font-weight:400;color:var(--p3)">xoxb-...</span></div>
-      <input type="password" id="s-token" value="${esc(fac.slackToken||'')}" placeholder="xoxb-...">
-    </div>
-    <div class="form-group">
       <div class="form-label">チャンネルID <span style="font-weight:400;color:var(--p3)">C...</span></div>
       <input type="text" id="s-ch" value="${esc(fac.slackChannel||'')}" placeholder="C0XXXXXXXXX">
     </div>
@@ -2014,7 +2019,7 @@ function updateSettingsStatus() {
   const apiSet   = !!localStorage.getItem(LS_CLAUDE_API);
   const proxySet = !!localStorage.getItem(LS_PROXY);
   const fac = getFac();
-  const slackSet = !!(fac?.slackToken && fac?.slackChannel && proxySet);
+  const slackSet = !!(fac?.slackChannel && proxySet);
   const el = document.getElementById('settings-status');
   if (el) el.textContent = `API ${apiSet ? '✅' : '❌'}　Slack ${slackSet ? '✅' : '❌'}`;
 }
@@ -2039,7 +2044,6 @@ function saveSettings() {
     fac.hasA = _sHasA;
     const nos = document.getElementById('s-nos'); if (nos) fac.noChangeS = nos.value;
     const noo = document.getElementById('s-noo'); if (noo) fac.noChangeO = noo.value;
-    const tok = document.getElementById('s-token'); if (tok) fac.slackToken   = tok.value.trim();
     const ch  = document.getElementById('s-ch');    if (ch)  fac.slackChannel = ch.value.trim();
     const msg = document.getElementById('s-msg');   if (msg) fac.slackMessage = msg.value;
   }
