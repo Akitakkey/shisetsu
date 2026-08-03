@@ -595,6 +595,7 @@ function renderApp() {
         <span>本日の進捗　<span style="font-weight:600">${done} / ${total}名</span></span>
         <div class="flex-c gap-8">
           <button class="btn btn-secondary btn-sm" onclick="showBulkSOInput()">📋 S/O一括入力</button>
+          <button class="btn btn-secondary btn-sm" onclick="showDeliveryImport()">💊 配薬済取込</button>
           <button class="btn btn-secondary btn-sm" onclick="showShinsatsuImport()">🩺 同行メモ取込</button>
           <button class="btn btn-primary btn-sm" id="bulk-btn" onclick="generateAll()" ${bulkGenerating?'disabled':''}>${bulkGenerating?'生成中...':'一括作成'}</button>
         </div>
@@ -696,13 +697,8 @@ function buildRow(p, fac) {
         onchange="updatePatientName('${esc(p.room)}',this.value)">
       <textarea class="compact-ta" id="s-${esc(p.room)}" rows="1" ${dis}
         oninput="storeInput('${esc(p.room)}','s',this.value);autoResize(this)">${esc(sVal)}</textarea>
-      <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
-        <textarea class="compact-ta" id="o-${esc(p.room)}" rows="1" ${dis}
-          oninput="storeInput('${esc(p.room)}','o',this.value);autoResize(this)">${esc(oVal)}</textarea>
-        <button type="button" class="btn btn-secondary btn-sm" ${dis}
-          style="align-self:flex-start;padding:2px 8px;font-size:11px;white-space:nowrap"
-          onclick="pasteDeliveryRange('${esc(p.room)}')">📋 配薬済を貼付</button>
-      </div>
+      <textarea class="compact-ta" id="o-${esc(p.room)}" rows="1" ${dis}
+        oninput="storeInput('${esc(p.room)}','o',this.value);autoResize(this)">${esc(oVal)}</textarea>
       <div class="col-nc" style="pointer-events:${isDone?'none':'auto'}">
         ${fac.hasA
           ? `<input type="checkbox" class="cb-nc" ${hasShinsatsu?'checked':''} ${dis}
@@ -788,24 +784,42 @@ function getDeliveryRange() {
   return { range: `${s}ー${e}`, start: s };
 }
 
-// ─── 配薬済クリップボード取込 ──────────────────────────────────────────────
-function parseDeliveredDateFromClipboard(text) {
-  const firstLine = (text || '').replace(/\r/g, '').split('\n')[0];
-  const cols = firstLine.split('\t');
-  const last = (cols[cols.length - 1] || '').trim();
-  const m = last.match(/^(\d{1,2})\/(\d{1,2})$/);
-  if (!m) return null;
-  return { month: parseInt(m[1], 10), day: parseInt(m[2], 10) };
+// ─── 配薬済一括取込 ────────────────────────────────────────────────────────
+// スプレッドシートの表をそのまま貼り付け、各行から部屋番号と配薬済日を拾って
+// 全患者のOに「・定時薬　M/DーD」を振り分ける。列の並びには依存しない。
+function normalizeRoom(s) {
+  return String(s || '')
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/(号室|号)$/, '')
+    .trim();
 }
 
-// 貼り付けた行から部屋番号らしき列（先頭2列のうち数字2〜4桁＋任意英字1文字）を探す
-function extractRoomFromClipboard(text) {
-  const firstLine = (text || '').replace(/\r/g, '').split('\n')[0];
-  const cols = firstLine.split('\t').map(c => c.trim());
-  for (let i = 0; i < Math.min(cols.length, 2); i++) {
-    if (/^\d{2,4}[A-Za-z]?$/.test(cols[i])) return cols[i];
+// 1行を解析して {room, month, day, extraDates} を返す。該当しない行はnull
+function parseDeliveryRow(line, knownRooms) {
+  const cols = (line.includes('\t') ? line.split('\t') : line.split(/[,、\s　]+/))
+    .map(c => c.trim()).filter(c => c !== '');
+  if (!cols.length) return null;
+
+  let room = null;
+  for (const c of cols) {
+    const n = normalizeRoom(c);
+    if (knownRooms.has(n)) { room = n; break; }
   }
-  return null;
+  if (!room) return null;
+
+  // M/D形式のセルを拾う。複数あれば一番右を配薬済日として扱う
+  const dates = cols
+    .map(c => c.replace(/[０-９／]/g, ch => ch === '／' ? '/' : String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)))
+    .filter(c => /^\d{1,2}\/\d{1,2}$/.test(c));
+  if (!dates.length) return null;
+
+  const [m, d] = dates[dates.length - 1].split('/');
+  return {
+    room,
+    month: parseInt(m, 10),
+    day: parseInt(d, 10),
+    extraDates: dates.length > 1 ? dates : null
+  };
 }
 
 function findPrevDeliveryEnd(recordText) {
@@ -836,46 +850,115 @@ function formatDeliveryRangeFromDelivered(delivered, prevEnd, baseDate) {
   return `${sStr}ー${eStr}`;
 }
 
-async function pasteDeliveryRange(room) {
-  const errEl = document.getElementById('err-' + room);
-  if (errEl) errEl.innerHTML = '';
-
-  let text;
-  try {
-    text = await navigator.clipboard.readText();
-  } catch (e) {
-    if (errEl) errEl.innerHTML = '<div class="err">⚠️ クリップボードを読み取れませんでした。ブラウザの権限を確認してください。</div>';
-    return;
+// O入力に既に定時薬行があれば置換、なければ追記する（重ねて取り込んでも増殖しない）
+function mergeDeliveryLine(oVal, line) {
+  const cur = String(oVal || '');
+  if (/^[・･]?\s*定時薬/m.test(cur)) {
+    return cur.replace(/^[・･]?\s*定時薬.*$/m, line);
   }
+  return cur.trim() ? cur.replace(/\n+$/, '') + '\n' + line : line;
+}
 
-  const delivered = parseDeliveredDateFromClipboard(text);
-  if (!delivered) {
-    if (errEl) errEl.innerHTML = '<div class="err">⚠️ 配薬済の日付が見つかりませんでした（貼り付け内容の末尾がM/D形式の日付である必要があります）。</div>';
-    return;
-  }
+function showDeliveryImport() {
+  showModal(`
+    <div class="form-group">
+      <div class="form-label">配薬済一覧の取り込み</div>
+      <div class="text-xs text-p2" style="margin-bottom:8px">
+        スプレッドシートの表を<b>まるごと選択してコピー</b>し、下に貼り付けてください。<br>
+        各行から部屋番号と配薬済の日付（M/D）を拾い、全員分のOに「・定時薬　M/DーD」を振り分けます。<b>列の並びは問いません。</b><br>
+        開始日は前回記録の定時薬期間の翌日、前回記録が無い場合は配薬済日の6日前になります。<br>
+        既にOに定時薬の行がある場合は書き換えます。作成済みの患者は対象外です。
+      </div>
+      <textarea id="delivery-import-input" rows="10" style="font-size:13px;line-height:1.8;"
+        oninput="renderDeliveryPreview()"
+        placeholder="101&#9;田中 花子&#9;8/3&#10;102&#9;佐藤 太郎&#9;8/3"></textarea>
+      <div id="delivery-preview" style="margin-top:10px"></div>
+    </div>
+  `, '配薬済一覧の取り込み',
+  `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+   <button class="btn btn-primary" onclick="applyDeliveryImport()">反映</button>`);
+}
 
-  const clipRoom = extractRoomFromClipboard(text);
-  if (clipRoom !== null && clipRoom !== String(room)) {
-    if (errEl) errEl.innerHTML = `<div class="err">⚠️ 貼り付けた行の部屋番号(${esc(clipRoom)})と、この患者の部屋番号(${esc(room)})が一致しません。正しい行をコピーしているか確認してください。</div>`;
-    return;
-  }
-
+// 貼り付け内容を解析して結果配列を返す（プレビューと反映で共用）
+function analyzeDeliveryInput() {
+  const raw = document.getElementById('delivery-import-input')?.value || '';
   const fac = getFac();
-  const p   = fac?.patients.find(p => p.room === room);
-  const prevEnd = findPrevDeliveryEnd(p?.lastRecord || '');
-  const range = formatDeliveryRangeFromDelivered(delivered, prevEnd, visitDate);
+  if (!fac) return { rows: [], unmatched: [] };
 
-  const oEl = document.getElementById('o-' + room);
-  if (!oEl) return;
-  const line = `・定時薬　${range}`;
-  const newVal = oEl.value ? (oEl.value.replace(/\n+$/, '') + '\n' + line) : line;
-  oEl.value = newVal;
-  storeInput(room, 'o', newVal);
-  autoResize(oEl);
+  const knownRooms = new Set(fac.patients.map(p => String(p.room)));
+  const rows = [];
+  const seen = new Set();
+  const unmatched = [];
 
-  if (errEl) errEl.innerHTML = clipRoom === null
-    ? `<div class="err" style="color:var(--orange,#ff9500)">⚠️ 「${esc(line)}」を追加しました（部屋番号は貼り付け内容から確認できませんでした。合っているか目視確認してください）</div>`
-    : `<div style="color:var(--green,#34c759);font-size:12px;margin-top:4px">✅ ${esc(room)}号室：「${esc(line)}」を追加しました</div>`;
+  for (const line of raw.replace(/\r/g, '').split('\n')) {
+    if (!line.trim()) continue;
+    const parsed = parseDeliveryRow(line, knownRooms);
+    if (!parsed) { unmatched.push(line.trim()); continue; }
+    if (seen.has(parsed.room)) continue;   // 同じ部屋が複数行あれば最初の行を採用
+    seen.add(parsed.room);
+
+    const p = fac.patients.find(x => String(x.room) === parsed.room);
+    const prevEnd = findPrevDeliveryEnd(p?.lastRecord || '');
+    rows.push({
+      room  : parsed.room,
+      name  : p?.name || '',
+      range : formatDeliveryRangeFromDelivered(parsed, prevEnd, visitDate),
+      noPrev: !prevEnd,
+      extraDates: parsed.extraDates,
+      skipped: todayVisits.some(v => v.room === parsed.room) || !!(inputState[parsed.room]?.output),
+      hosp  : !!p?.hospitalized
+    });
+  }
+  return { rows, unmatched };
+}
+
+function renderDeliveryPreview() {
+  const el = document.getElementById('delivery-preview');
+  if (!el) return;
+  const { rows, unmatched } = analyzeDeliveryInput();
+  if (!rows.length && !unmatched.length) { el.innerHTML = ''; return; }
+
+  const target = rows.filter(r => !r.skipped && !r.hosp);
+  let html = `<div class="text-xs text-p2" style="margin-bottom:4px">
+    読み取り結果：<b>${target.length}名</b>に反映されます</div>`;
+  if (rows.length) {
+    html += `<div style="max-height:220px;overflow-y:auto;border:1px solid var(--sep);border-radius:var(--rsm)">`;
+    rows.forEach(r => {
+      const dim = (r.skipped || r.hosp) ? 'opacity:.45;' : '';
+      const note = r.skipped ? '<span style="color:var(--p3)">（作成済みのため対象外）</span>'
+                 : r.hosp    ? '<span style="color:var(--red)">（入院中のため対象外）</span>'
+                 : r.noPrev  ? '<span style="color:var(--orange,#ff9500)">（前回記録なし・6日前で仮置き）</span>'
+                 : '';
+      const dupe = r.extraDates
+        ? `<div style="font-size:11px;color:var(--orange,#ff9500)">日付が複数（${esc(r.extraDates.join('、'))}）→ 右端を使用</div>` : '';
+      html += `<div style="padding:5px 9px;border-bottom:1px solid var(--sep);font-size:12px;${dim}">
+        <b>${esc(r.room)}</b>　${esc(r.name)}　→　・定時薬　${esc(r.range)}　${note}${dupe}</div>`;
+    });
+    html += `</div>`;
+  }
+  if (unmatched.length) {
+    html += `<div class="text-xs" style="color:var(--orange,#ff9500);margin-top:6px">
+      読み飛ばした行（${unmatched.length}）：部屋番号か日付が見つかりません<br>
+      <span style="color:var(--p3)">${esc(unmatched.slice(0,3).join(' / '))}${unmatched.length>3?' …':''}</span></div>`;
+  }
+  el.innerHTML = html;
+}
+
+function applyDeliveryImport() {
+  const fac = getFac();
+  if (!fac) return;
+  const { rows } = analyzeDeliveryInput();
+  const target = rows.filter(r => !r.skipped && !r.hosp);
+  if (!target.length) { showToast('反映できる患者がいません'); return; }
+
+  target.forEach(r => {
+    if (!inputState[r.room]) inputState[r.room] = initSt(r.room);
+    inputState[r.room].o = mergeDeliveryLine(inputState[r.room].o, `・定時薬　${r.range}`);
+  });
+
+  closeModal();
+  showToast(`${target.length}名分の配薬期間を反映しました`);
+  renderApp();
 }
 
 function toggleNoChange(room, checked) {
