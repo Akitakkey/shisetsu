@@ -348,6 +348,9 @@ let currentFacId = null;
 let todayVisits  = [];
 const inputState = {}; // room -> {s, o, points, output, noChange}
 let visitDate    = new Date();
+// 生成中の部屋番号。renderApp()で再描画されても「生成中...」表示を維持するために保持する
+const generating = new Set();
+let bulkGenerating = false;
 
 // ─── Prompt rule defaults ────────────────────────────────────────────────────
 const _defSRule = `今回のS入力を要約・言い換えせずそのまま記載する。
@@ -593,7 +596,7 @@ function renderApp() {
         <div class="flex-c gap-8">
           <button class="btn btn-secondary btn-sm" onclick="showBulkSOInput()">📋 S/O一括入力</button>
           <button class="btn btn-secondary btn-sm" onclick="showShinsatsuImport()">🩺 同行メモ取込</button>
-          <button class="btn btn-primary btn-sm" id="bulk-btn" onclick="generateAll()">一括作成</button>
+          <button class="btn btn-primary btn-sm" id="bulk-btn" onclick="generateAll()" ${bulkGenerating?'disabled':''}>${bulkGenerating?'生成中...':'一括作成'}</button>
         </div>
       </div>
       <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
@@ -696,6 +699,9 @@ function buildRow(p, fac) {
       <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
         <textarea class="compact-ta" id="o-${esc(p.room)}" rows="1" ${dis}
           oninput="storeInput('${esc(p.room)}','o',this.value);autoResize(this)">${esc(oVal)}</textarea>
+        <button type="button" class="btn btn-secondary btn-sm" ${dis}
+          style="align-self:flex-start;padding:2px 8px;font-size:11px;white-space:nowrap"
+          onclick="pasteDeliveryRange('${esc(p.room)}')">📋 配薬済を貼付</button>
       </div>
       <div class="col-nc" style="pointer-events:${isDone?'none':'auto'}">
         ${fac.hasA
@@ -717,7 +723,8 @@ function buildRow(p, fac) {
         : isHosp
           ? `<span class="badge" style="background:#fff0f0;color:var(--red);margin-top:5px">入院中</span><span></span>`
           : `<button class="btn btn-primary btn-sm" style="margin-top:2px;white-space:nowrap"
-               id="gen-${esc(p.room)}" onclick="generateRecord('${esc(p.room)}')">作成</button>
+               id="gen-${esc(p.room)}" onclick="generateRecord('${esc(p.room)}')"
+               ${generating.has(p.room)?'disabled':''}>${generating.has(p.room)?'<span class="spin"></span> 生成中...':'作成'}</button>
              ${p.lastRecord
                ? `<button class="btn btn-secondary btn-sm" style="margin-top:2px;white-space:nowrap"
                     onclick="showLastRecord('${esc(p.room)}')">前回記録</button>`
@@ -781,10 +788,100 @@ function getDeliveryRange() {
   return { range: `${s}ー${e}`, start: s };
 }
 
+// ─── 配薬済クリップボード取込 ──────────────────────────────────────────────
+function parseDeliveredDateFromClipboard(text) {
+  const firstLine = (text || '').replace(/\r/g, '').split('\n')[0];
+  const cols = firstLine.split('\t');
+  const last = (cols[cols.length - 1] || '').trim();
+  const m = last.match(/^(\d{1,2})\/(\d{1,2})$/);
+  if (!m) return null;
+  return { month: parseInt(m[1], 10), day: parseInt(m[2], 10) };
+}
+
+// 貼り付けた行から部屋番号らしき列（先頭2列のうち数字2〜4桁＋任意英字1文字）を探す
+function extractRoomFromClipboard(text) {
+  const firstLine = (text || '').replace(/\r/g, '').split('\n')[0];
+  const cols = firstLine.split('\t').map(c => c.trim());
+  for (let i = 0; i < Math.min(cols.length, 2); i++) {
+    if (/^\d{2,4}[A-Za-z]?$/.test(cols[i])) return cols[i];
+  }
+  return null;
+}
+
+function findPrevDeliveryEnd(recordText) {
+  if (!recordText) return null;
+  const m = recordText.match(/定時薬[　\s]*(\d{1,2})\/(\d{1,2})[ー\-](?:(\d{1,2})\/)?(\d{1,2})/);
+  if (!m) return null;
+  return { month: m[3] ? parseInt(m[3], 10) : parseInt(m[1], 10), day: parseInt(m[4], 10) };
+}
+
+// month/dayを、baseDateから半年以内に収まる年に解決する（年またぎ対応）
+function resolveNearestYear(month, day, baseDate) {
+  const y = baseDate.getFullYear();
+  let d = new Date(y, month - 1, day);
+  const diffDays = (d - baseDate) / 864e5;
+  if (diffDays > 200) d = new Date(y - 1, month - 1, day);
+  else if (diffDays < -200) d = new Date(y + 1, month - 1, day);
+  return d;
+}
+
+function formatDeliveryRangeFromDelivered(delivered, prevEnd, baseDate) {
+  const endDate = resolveNearestYear(delivered.month, delivered.day, baseDate);
+  const startDate = prevEnd
+    ? new Date(resolveNearestYear(prevEnd.month, prevEnd.day, baseDate).getTime() + 864e5)
+    : new Date(endDate.getTime() - 6 * 864e5);
+  const sameMonth = startDate.getMonth() === endDate.getMonth();
+  const sStr = `${startDate.getMonth()+1}/${startDate.getDate()}`;
+  const eStr = sameMonth ? `${endDate.getDate()}` : `${endDate.getMonth()+1}/${endDate.getDate()}`;
+  return `${sStr}ー${eStr}`;
+}
+
+async function pasteDeliveryRange(room) {
+  const errEl = document.getElementById('err-' + room);
+  if (errEl) errEl.innerHTML = '';
+
+  let text;
+  try {
+    text = await navigator.clipboard.readText();
+  } catch (e) {
+    if (errEl) errEl.innerHTML = '<div class="err">⚠️ クリップボードを読み取れませんでした。ブラウザの権限を確認してください。</div>';
+    return;
+  }
+
+  const delivered = parseDeliveredDateFromClipboard(text);
+  if (!delivered) {
+    if (errEl) errEl.innerHTML = '<div class="err">⚠️ 配薬済の日付が見つかりませんでした（貼り付け内容の末尾がM/D形式の日付である必要があります）。</div>';
+    return;
+  }
+
+  const clipRoom = extractRoomFromClipboard(text);
+  if (clipRoom !== null && clipRoom !== String(room)) {
+    if (errEl) errEl.innerHTML = `<div class="err">⚠️ 貼り付けた行の部屋番号(${esc(clipRoom)})と、この患者の部屋番号(${esc(room)})が一致しません。正しい行をコピーしているか確認してください。</div>`;
+    return;
+  }
+
+  const fac = getFac();
+  const p   = fac?.patients.find(p => p.room === room);
+  const prevEnd = findPrevDeliveryEnd(p?.lastRecord || '');
+  const range = formatDeliveryRangeFromDelivered(delivered, prevEnd, visitDate);
+
+  const oEl = document.getElementById('o-' + room);
+  if (!oEl) return;
+  const line = `・定時薬　${range}`;
+  const newVal = oEl.value ? (oEl.value.replace(/\n+$/, '') + '\n' + line) : line;
+  oEl.value = newVal;
+  storeInput(room, 'o', newVal);
+  autoResize(oEl);
+
+  if (errEl) errEl.innerHTML = clipRoom === null
+    ? `<div class="err" style="color:var(--orange,#ff9500)">⚠️ 「${esc(line)}」を追加しました（部屋番号は貼り付け内容から確認できませんでした。合っているか目視確認してください）</div>`
+    : `<div style="color:var(--green,#34c759);font-size:12px;margin-top:4px">✅ ${esc(room)}号室：「${esc(line)}」を追加しました</div>`;
+}
+
 function toggleNoChange(room, checked) {
   if (!inputState[room]) inputState[room] = initSt(room);
   inputState[room].noChange = checked;
-  renderApp();
+  // チェック状態以外に表示は変わらないため再描画しない（生成中の表示が巻き戻るのを防ぐ）
 }
 
 function toggleShinsatsu(room, checked) {
@@ -835,6 +932,7 @@ async function generateRecord(room) {
     return;
   }
 
+  generating.add(room);
   const btn = document.getElementById('gen-' + room);
   btn.disabled = true;
   btn.innerHTML = '<span class="spin"></span> 生成中...';
@@ -878,11 +976,14 @@ async function generateRecord(room) {
       `;
       container.appendChild(panelDiv);
     }
+    generating.delete(room);
     const genBtn = document.getElementById('gen-' + room);
     if (genBtn) { genBtn.disabled = false; genBtn.innerHTML = '作成'; }
     showToast(`${p.name} の記録が完成しました ✓`, 3000);
   } catch(e) {
-    errEl.innerHTML = `<div class="err">⚠️ ${esc(e.message)}</div>`;
+    generating.delete(room);
+    const errEl3 = document.getElementById('err-' + room);
+    if (errEl3) errEl3.innerHTML = `<div class="err">⚠️ ${esc(e.message)}</div>`;
     const b = document.getElementById('gen-' + room);
     if (b) { b.disabled = false; b.innerHTML = '作成'; }
   }
@@ -1428,6 +1529,7 @@ async function generateAll() {
   );
   if (!pending.length) { showToast('全員完了済みです（入院中を除く）'); return; }
 
+  bulkGenerating = true;
   const btn = document.getElementById('bulk-btn');
   if (btn) { btn.disabled = true; btn.textContent = '生成中...'; }
 
@@ -1485,6 +1587,7 @@ async function generateAll() {
     }
   }
 
+  bulkGenerating = false;
   save();
   showToast(`一括作成完了：${count}名`);
   renderApp();
@@ -2123,12 +2226,15 @@ function showAddPatient() {
     <div class="form-group">
       <div class="form-label">
         疾患名・薬剤名
-        <span style="font-weight:400;color:var(--p3)">新患OP生成用（任意）</span>
+        <span style="font-weight:400;color:var(--p3)">新患OP生成用（任意）・既存OPの貼り付けも可</span>
       </div>
       <textarea id="ap-dis" rows="5" placeholder="例：
 高血圧　アムロジピン5mg
 糖尿病　メトホルミン500mg
-不眠症　デエビゴ5mg"></textarea>
+
+または既存のOPをそのまま貼り付け：
+＃高血圧
+　・アムロジピン5mg"></textarea>
     </div>
   `, '患者を追加',
   `<button class="btn btn-secondary" onclick="showPatientMgr()">戻る</button>
@@ -2166,16 +2272,31 @@ function addPatient() {
   showPatientMgr();
 }
 
+// 入力形式を自動判定してOPを組み立てる。
+// ・既存OPの貼り付け（＃始まりの行を含む）→ 行構造をそのまま保ち、詳細行の行頭全角スペースだけ整える
+// ・素の「疾患名　薬剤名」形式 → 従来どおり＃プロブレム＋・薬剤に変換
 function buildInitialOP(diseases) {
-  const lines = diseases.split('\n').filter(l => l.trim());
+  const lines = (diseases || '').replace(/\r/g, '').split('\n')
+    .filter(l => l.trim() && !/^##OP##$/.test(l.trim()));   // ##OP##ヘッダを含めて貼られても二重にしない
+  const isOpFormat = lines.some(l => /^[＃#]/.test(l.trim()));
   let op = '##OP##\n';
   for (const line of lines) {
-    const parts   = line.trim().split(/[\s　]+/);
-    const disease = parts[0] || '';
-    const drugs   = parts.slice(1).join('、');
-    if (disease) {
-      op += `＃${disease}\n`;
-      if (drugs) op += `　・${drugs}\n`;
+    const indented = /^[\s　]/.test(line);   // 行頭が空白＝詳細行（trim前に判定する）
+    const body     = line.trim();
+    if (/^[＃#]/.test(body)) {
+      // プロブレム行。＃・#どちらで書かれていても全角＃1つに統一する
+      op += `＃${body.replace(/^[＃#]+[\s　]*/, '')}\n`;
+    } else if (isOpFormat || indented || /^[・★\-]/.test(body)) {
+      // 詳細行。行頭は全角スペース1つ（プロンプトのフォーマット規定に合わせる）
+      op += `　${body}\n`;
+    } else {
+      const parts   = body.split(/[\s　]+/);
+      const disease = parts[0] || '';
+      const drugs   = parts.slice(1).join('、');
+      if (disease) {
+        op += `＃${disease}\n`;
+        if (drugs) op += `　・${drugs}\n`;
+      }
     }
   }
   return op;
