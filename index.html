@@ -785,8 +785,9 @@ function getDeliveryRange() {
 }
 
 // ─── 配薬済一括取込 ────────────────────────────────────────────────────────
-// スプレッドシートの表をそのまま貼り付け、各行から部屋番号と配薬済日を拾って
-// 全患者のOに「・定時薬　M/DーD」を振り分ける。列の並びには依存しない。
+// スプレッドシートの表をヘッダー行ごと貼り付け、「配薬済」列から配薬期間を、
+// 「他病院①②」＋「残薬」列から他院処方の残薬を拾って全患者のOに振り分ける。
+// 「処方済」「残薬」など日付列が複数あるため、列の位置はヘッダー行で特定する。
 function normalizeRoom(s) {
   return String(s || '')
     .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
@@ -794,32 +795,78 @@ function normalizeRoom(s) {
     .trim();
 }
 
-// 1行を解析して {room, month, day, extraDates} を返す。該当しない行はnull
-function parseDeliveryRow(line, knownRooms) {
-  const cols = (line.includes('\t') ? line.split('\t') : line.split(/[,、\s　]+/))
-    .map(c => c.trim()).filter(c => c !== '');
-  if (!cols.length) return null;
+// セルがM/D形式なら{month,day}、そうでなければnull
+function toMD(s) {
+  const t = String(s || '')
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/／/g, '/').trim();
+  const m = t.match(/^(\d{1,2})\/(\d{1,2})$/);
+  return m ? { month: parseInt(m[1], 10), day: parseInt(m[2], 10) } : null;
+}
 
-  let room = null;
-  for (const c of cols) {
-    const n = normalizeRoom(c);
-    if (knownRooms.has(n)) { room = n; break; }
+// 列位置を保つため、タブ/カンマのみで分割する（空セルも捨てない）
+function splitDeliveryCols(line) {
+  return (line.includes('\t') ? line.split('\t') : line.split(/[,、]/))
+    .map(c => c.replace(/^"|"$/g, '').replace(/[\r\n]+/g, '').trim());
+}
+
+// ヘッダー行から列位置を特定する。「配薬済」が無ければヘッダーではないのでnull
+function detectDeliveryHeader(line) {
+  const cols = splitDeliveryCols(line);
+  const hdr = { room: -1, delivered: -1, pairs: [] };
+  const drugCols = [], restCols = [];
+  cols.forEach((c, i) => {
+    const t = c.replace(/[\s　]/g, '');
+    if (hdr.room      < 0 && /部屋/.test(t))   hdr.room = i;
+    if (hdr.delivered < 0 && /配薬済/.test(t)) hdr.delivered = i;
+    if (/^他病院/.test(t)) drugCols.push(i);
+    if (/^残薬/.test(t))   restCols.push(i);
+  });
+  if (hdr.delivered < 0) return null;
+  // 他病院列ごとに、その右側で一番近い残薬列をペアにする
+  drugCols.forEach(di => {
+    const ri = restCols.find(r => r > di);
+    hdr.pairs.push({ drug: di, rest: ri === undefined ? -1 : ri });
+  });
+  return hdr;
+}
+
+// ヘッダーで特定した列位置に従って1行を読む
+function parseDeliveryRow(line, hdr, knownRooms) {
+  const cols = splitDeliveryCols(line);
+  // 部屋番号列が特定できていればそこを、無ければ既知の部屋番号に一致するセルを探す
+  let room = hdr.room >= 0 ? normalizeRoom(cols[hdr.room] || '') : '';
+  if (!knownRooms.has(room)) {
+    room = '';
+    for (const c of cols) {
+      const n = normalizeRoom(c);
+      if (knownRooms.has(n)) { room = n; break; }
+    }
   }
   if (!room) return null;
 
-  // M/D形式のセルを拾う。複数あれば一番右を配薬済日として扱う
-  const dates = cols
-    .map(c => c.replace(/[０-９／]/g, ch => ch === '／' ? '/' : String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)))
-    .filter(c => /^\d{1,2}\/\d{1,2}$/.test(c));
-  if (!dates.length) return null;
+  const dCell = (cols[hdr.delivered] || '').trim();
+  const others = [];
+  hdr.pairs.forEach(pair => {
+    const drug = (cols[pair.drug] || '').trim();
+    if (!drug) return;
+    others.push({ drug, rest: pair.rest >= 0 ? (cols[pair.rest] || '').trim() : '' });
+  });
 
-  const [m, d] = dates[dates.length - 1].split('/');
   return {
     room,
-    month: parseInt(m, 10),
-    day: parseInt(d, 10),
-    extraDates: dates.length > 1 ? dates : null
+    delivered   : toMD(dCell),
+    hospitalized: /入院/.test(dCell),
+    others,
+    note        : dCell && !toMD(dCell) ? dCell : ''   // 「入院」「ご逝去」等の記載
   };
+}
+
+// 他院処方の1行を作る。残薬が日付なら「M/Dまで処方あり」、日付以外はそのまま、空なら薬剤名のみ
+function formatOtherLine(o) {
+  if (!o.rest) return `※${o.drug}`;
+  const md = toMD(o.rest);
+  return md ? `※${o.drug}　${md.month}/${md.day}まで処方あり` : `※${o.drug}　${o.rest}`;
 }
 
 function findPrevDeliveryEnd(recordText) {
@@ -841,22 +888,32 @@ function resolveNearestYear(month, day, baseDate) {
 
 function formatDeliveryRangeFromDelivered(delivered, prevEnd, baseDate) {
   const endDate = resolveNearestYear(delivered.month, delivered.day, baseDate);
-  const startDate = prevEnd
+  let startDate = prevEnd
     ? new Date(resolveNearestYear(prevEnd.month, prevEnd.day, baseDate).getTime() + 864e5)
     : new Date(endDate.getTime() - 6 * 864e5);
-  const sameMonth = startDate.getMonth() === endDate.getMonth();
-  const sStr = `${startDate.getMonth()+1}/${startDate.getDate()}`;
-  const eStr = sameMonth ? `${endDate.getDate()}` : `${endDate.getMonth()+1}/${endDate.getDate()}`;
-  return `${sStr}ー${eStr}`;
+  // 前回記録の期間終了日が配薬済日に追いついている場合（表がまだ更新されていない等）は
+  // 開始日が終了日を追い越してしまうため、6日前に戻して警告する
+  const invalidPrev = startDate > endDate;
+  if (invalidPrev) startDate = new Date(endDate.getTime() - 6 * 864e5);
+  // 「8/10ー8/16」形式。同月でも月を省略しない（ユーザー指定の記載形式）
+  return {
+    range: `${startDate.getMonth()+1}/${startDate.getDate()}ー${endDate.getMonth()+1}/${endDate.getDate()}`,
+    invalidPrev
+  };
 }
 
-// O入力に既に定時薬行があれば置換、なければ追記する（重ねて取り込んでも増殖しない）
-function mergeDeliveryLine(oVal, line) {
-  const cur = String(oVal || '');
-  if (/^[・･]?\s*定時薬/m.test(cur)) {
-    return cur.replace(/^[・･]?\s*定時薬.*$/m, line);
-  }
-  return cur.trim() ? cur.replace(/\n+$/, '') + '\n' + line : line;
+// 取り込んだ行をO入力にマージする。定時薬行と、同じ薬剤の※行は入れ替えるので
+// 重ねて取り込んでも増殖しない。手入力した他の行はそのまま残す。
+function mergeDeliveryLines(oVal, deliveryLine, otherLines) {
+  const drugs = otherLines.map(l => l.replace(/^※/, '').split('　')[0]).filter(Boolean);
+  const kept = String(oVal || '').split('\n').filter(l => {
+    const t = l.trim();
+    if (!t) return false;
+    if (/^[・･]?\s*定時薬/.test(t)) return false;
+    if (/^※/.test(t) && drugs.some(d => t.includes(d))) return false;
+    return true;
+  });
+  return [deliveryLine, ...kept, ...otherLines].filter(Boolean).join('\n');
 }
 
 function showDeliveryImport() {
@@ -864,14 +921,16 @@ function showDeliveryImport() {
     <div class="form-group">
       <div class="form-label">配薬済一覧の取り込み</div>
       <div class="text-xs text-p2" style="margin-bottom:8px">
-        スプレッドシートの表を<b>まるごと選択してコピー</b>し、下に貼り付けてください。<br>
-        各行から部屋番号と配薬済の日付（M/D）を拾い、全員分のOに「・定時薬　M/DーD」を振り分けます。<b>列の並びは問いません。</b><br>
-        開始日は前回記録の定時薬期間の翌日、前回記録が無い場合は配薬済日の6日前になります。<br>
-        既にOに定時薬の行がある場合は書き換えます。作成済みの患者は対象外です。
+        スプレッドシートの表を<b>ヘッダー行（部屋番号・配薬済…の行）から</b>選択してコピーし、下に貼り付けてください。<br>
+        「処方済」「残薬」など日付の列が複数あるため、<b>ヘッダー行で列を判別します</b>。<br>
+        ・<b>配薬済</b>列 → 「・定時薬　M/DーM/D」（開始日は前回記録の期間の翌日、前回記録が無ければ配薬済日の6日前）<br>
+        ・<b>他病院＋残薬</b>列 → 「※薬剤名　M/Dまで処方あり」（残薬が日付でなければそのまま、空欄なら薬剤名のみ）<br>
+        ・配薬済が<b>「入院」</b>の患者は入院中トグルをONにします。「ご逝去」「退居」の行は何もしません。<br>
+        既にOに同じ行がある場合は書き換えます。作成済みの患者は対象外です。
       </div>
       <textarea id="delivery-import-input" rows="10" style="font-size:13px;line-height:1.8;"
         oninput="renderDeliveryPreview()"
-        placeholder="101&#9;田中 花子&#9;8/3&#10;102&#9;佐藤 太郎&#9;8/3"></textarea>
+        placeholder="部屋番号&#9;氏名&#9;処方済&#9;配薬済&#9;他病院①&#9;残薬&#10;213&#9;○○&#9;8/21&#9;8/16&#9;フェントス4&#9;8/12"></textarea>
       <div id="delivery-preview" style="margin-top:10px"></div>
     </div>
   `, '配薬済一覧の取り込み',
@@ -883,63 +942,104 @@ function showDeliveryImport() {
 function analyzeDeliveryInput() {
   const raw = document.getElementById('delivery-import-input')?.value || '';
   const fac = getFac();
-  if (!fac) return { rows: [], unmatched: [] };
+  const empty = { rows: [], unmatched: [], noHeader: false };
+  if (!fac) return empty;
+
+  const lines = raw.replace(/\r/g, '').split('\n').filter(l => l.trim());
+  if (!lines.length) return empty;
+
+  // ヘッダー行を探す（見つからなければ列を判別できないので中止する）
+  let hdr = null, hdrIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const h = detectDeliveryHeader(lines[i]);
+    if (h) { hdr = h; hdrIdx = i; break; }
+  }
+  if (!hdr) return { rows: [], unmatched: [], noHeader: true };
 
   const knownRooms = new Set(fac.patients.map(p => String(p.room)));
   const rows = [];
   const seen = new Set();
   const unmatched = [];
 
-  for (const line of raw.replace(/\r/g, '').split('\n')) {
-    if (!line.trim()) continue;
-    const parsed = parseDeliveryRow(line, knownRooms);
-    if (!parsed) { unmatched.push(line.trim()); continue; }
+  for (let i = hdrIdx + 1; i < lines.length; i++) {
+    const parsed = parseDeliveryRow(lines[i], hdr, knownRooms);
+    if (!parsed) { unmatched.push(lines[i].trim()); continue; }
     if (seen.has(parsed.room)) continue;   // 同じ部屋が複数行あれば最初の行を採用
     seen.add(parsed.room);
 
     const p = fac.patients.find(x => String(x.room) === parsed.room);
     const prevEnd = findPrevDeliveryEnd(p?.lastRecord || '');
+    const otherLines = parsed.others.map(formatOtherLine);
+    // 配薬済日も他院処方も無い行（ご逝去・退居・空欄）は入院指定でなければ対象外
+    const nothing = !parsed.delivered && !otherLines.length && !parsed.hospitalized;
+    const calc = parsed.delivered
+      ? formatDeliveryRangeFromDelivered(parsed.delivered, prevEnd, visitDate) : null;
+
     rows.push({
-      room  : parsed.room,
-      name  : p?.name || '',
-      range : formatDeliveryRangeFromDelivered(parsed, prevEnd, visitDate),
-      noPrev: !prevEnd,
-      extraDates: parsed.extraDates,
+      room   : parsed.room,
+      name   : p?.name || '',
+      range  : calc ? calc.range : '',
+      otherLines,
+      noPrev : !!parsed.delivered && !prevEnd,
+      invalidPrev: !!calc?.invalidPrev,
+      toHosp : parsed.hospitalized && !p?.hospitalized,
+      note   : parsed.note,
+      nothing,
       skipped: todayVisits.some(v => v.room === parsed.room) || !!(inputState[parsed.room]?.output),
-      hosp  : !!p?.hospitalized
+      hosp   : !!p?.hospitalized
     });
   }
-  return { rows, unmatched };
+  return { rows, unmatched, noHeader: false };
+}
+
+// Oへ書き込む対象（入院指定だけの行や作成済みは除く）
+function deliveryTargets(rows) {
+  return rows.filter(r => !r.skipped && !r.hosp && !r.nothing && (r.range || r.otherLines.length));
 }
 
 function renderDeliveryPreview() {
   const el = document.getElementById('delivery-preview');
   if (!el) return;
-  const { rows, unmatched } = analyzeDeliveryInput();
+  const { rows, unmatched, noHeader } = analyzeDeliveryInput();
+
+  if (noHeader) {
+    el.innerHTML = `<div class="err">⚠️ ヘッダー行が見つかりません。「配薬済」という見出しのある行から選択してコピーしてください。
+      （日付の列が複数あるため、見出しが無いとどれが配薬済か判別できません）</div>`;
+    return;
+  }
   if (!rows.length && !unmatched.length) { el.innerHTML = ''; return; }
 
-  const target = rows.filter(r => !r.skipped && !r.hosp);
+  const target  = deliveryTargets(rows);
+  const toHosp  = rows.filter(r => r.toHosp);
   let html = `<div class="text-xs text-p2" style="margin-bottom:4px">
-    読み取り結果：<b>${target.length}名</b>に反映されます</div>`;
+    読み取り結果：<b>${target.length}名</b>のOに反映`;
+  if (toHosp.length) html += ` ／ <b>${toHosp.length}名</b>を入院中にします`;
+  html += `</div>`;
+
   if (rows.length) {
-    html += `<div style="max-height:220px;overflow-y:auto;border:1px solid var(--sep);border-radius:var(--rsm)">`;
+    html += `<div style="max-height:240px;overflow-y:auto;border:1px solid var(--sep);border-radius:var(--rsm)">`;
     rows.forEach(r => {
-      const dim = (r.skipped || r.hosp) ? 'opacity:.45;' : '';
-      const note = r.skipped ? '<span style="color:var(--p3)">（作成済みのため対象外）</span>'
-                 : r.hosp    ? '<span style="color:var(--red)">（入院中のため対象外）</span>'
-                 : r.noPrev  ? '<span style="color:var(--orange,#ff9500)">（前回記録なし・6日前で仮置き）</span>'
-                 : '';
-      const dupe = r.extraDates
-        ? `<div style="font-size:11px;color:var(--orange,#ff9500)">日付が複数（${esc(r.extraDates.join('、'))}）→ 右端を使用</div>` : '';
+      const off = r.skipped || r.hosp || (r.nothing && !r.toHosp);
+      const dim = off ? 'opacity:.45;' : '';
+      let note = '';
+      if (r.skipped)      note = '<span style="color:var(--p3)">（作成済みのため対象外）</span>';
+      else if (r.hosp)    note = '<span style="color:var(--red)">（すでに入院中のため対象外）</span>';
+      else if (r.toHosp)  note = '<span style="color:var(--red)">→ 入院中にします</span>';
+      else if (r.nothing) note = `<span style="color:var(--p3)">（${esc(r.note || '記載なし')}・何もしません）</span>`;
+      else if (r.invalidPrev) note = '<span style="color:var(--orange,#ff9500)">（前回の期間が配薬済日に追いついているため6日前で仮置き。要確認）</span>';
+      else if (r.noPrev)  note = '<span style="color:var(--orange,#ff9500)">（前回記録なし・6日前で仮置き）</span>';
+
+      const lines = [r.range ? `・定時薬　${r.range}` : '', ...r.otherLines].filter(Boolean);
       html += `<div style="padding:5px 9px;border-bottom:1px solid var(--sep);font-size:12px;${dim}">
-        <b>${esc(r.room)}</b>　${esc(r.name)}　→　・定時薬　${esc(r.range)}　${note}${dupe}</div>`;
+        <b>${esc(r.room)}</b>　${esc(r.name)}　${note}
+        ${lines.length ? `<div style="color:var(--p2);white-space:pre-wrap;margin-top:2px">${esc(lines.join('\n'))}</div>` : ''}
+      </div>`;
     });
     html += `</div>`;
   }
   if (unmatched.length) {
-    html += `<div class="text-xs" style="color:var(--orange,#ff9500);margin-top:6px">
-      読み飛ばした行（${unmatched.length}）：部屋番号か日付が見つかりません<br>
-      <span style="color:var(--p3)">${esc(unmatched.slice(0,3).join(' / '))}${unmatched.length>3?' …':''}</span></div>`;
+    html += `<div class="text-xs" style="color:var(--p3);margin-top:6px">
+      読み飛ばした行：${unmatched.length}（未登録の部屋番号・空行など）</div>`;
   }
   el.innerHTML = html;
 }
@@ -947,17 +1047,34 @@ function renderDeliveryPreview() {
 function applyDeliveryImport() {
   const fac = getFac();
   if (!fac) return;
-  const { rows } = analyzeDeliveryInput();
-  const target = rows.filter(r => !r.skipped && !r.hosp);
-  if (!target.length) { showToast('反映できる患者がいません'); return; }
+  const { rows, noHeader } = analyzeDeliveryInput();
+  if (noHeader) { showToast('⚠️ ヘッダー行を含めて貼り付けてください'); return; }
+
+  const target = deliveryTargets(rows);
+  const toHosp = rows.filter(r => r.toHosp);
+  if (!target.length && !toHosp.length) { showToast('反映できる患者がいません'); return; }
 
   target.forEach(r => {
     if (!inputState[r.room]) inputState[r.room] = initSt(r.room);
-    inputState[r.room].o = mergeDeliveryLine(inputState[r.room].o, `・定時薬　${r.range}`);
+    inputState[r.room].o = mergeDeliveryLines(
+      inputState[r.room].o,
+      r.range ? `・定時薬　${r.range}` : '',
+      r.otherLines
+    );
   });
 
+  toHosp.forEach(r => {
+    const p = fac.patients.find(x => String(x.room) === r.room);
+    if (p) p.hospitalized = true;
+  });
+  if (toHosp.length) save();
+
   closeModal();
-  showToast(`${target.length}名分の配薬期間を反映しました`);
+  const msg = [
+    target.length ? `${target.length}名分のOを反映` : '',
+    toHosp.length ? `${toHosp.length}名を入院中に設定` : ''
+  ].filter(Boolean).join('／');
+  showToast(msg + 'しました');
   renderApp();
 }
 
