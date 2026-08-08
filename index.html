@@ -548,6 +548,50 @@ window.addEventListener('pageshow', e => {
   }
 });
 
+// ─── 算定点数と加算 ──────────────────────────────────────────────────────────
+// 基本点数は342点（介護）／320点（医療）の2つ。加算は患者ごとに患者管理画面で
+// チェックしておく（毎回選ぶ運用にはしない）。麻薬・TPNのチェックONは点数に
+// 足すだけでなく、OPへの必須＃ブロック追加の発火点にもなる。
+// ★点数を変えるときはこの定義だけ直せばよい。
+const BASE_POINTS = [
+  { value: 342, note: '介護' },
+  { value: 320, note: '医療' }
+];
+const KASAN_DEFS = {
+  opioid: { label: '麻薬', points: 100 },
+  tpn   : { label: 'TPN',  points: 150 }
+};
+
+// '342点' → 342。数字が取れなければ null（「その他」の自由入力に備える）
+function basePointNum(pts) {
+  const m = String(pts || '').match(/^(\d+)点$/);
+  return m ? Number(m[1]) : null;
+}
+
+// 患者の点数表記を組み立てる。例: '342点＋麻薬100点＋TPN150点'
+function pointsLabel(p) {
+  const base = String(p?.defaultPoints || '342点');
+  const k    = p?.kasan || {};
+  const parts = [base];
+  Object.keys(KASAN_DEFS).forEach(key => {
+    if (k[key]) parts.push(`${KASAN_DEFS[key].label}${KASAN_DEFS[key].points}点`);
+  });
+  return parts.join('＋');
+}
+
+// pointsLabel の逆変換。'342点＋麻薬100点' → { defaultPoints:'342点', kasan:{opioid:true} }
+// 貼り付け取り込みで、書き出した点数表記から加算のチェック状態を復元するのに使う。
+function parsePointsLabel(label) {
+  const parts = String(label || '').split('＋').map(s => s.trim()).filter(Boolean);
+  const out = { defaultPoints: parts[0] || '342点', kasan: { opioid: false, tpn: false } };
+  parts.slice(1).forEach(part => {
+    Object.keys(KASAN_DEFS).forEach(k => {
+      if (part.startsWith(KASAN_DEFS[k].label)) out.kasan[k] = true;
+    });
+  });
+  return out;
+}
+
 function load() {
   try { facilities  = JSON.parse(localStorage.getItem(LS_FAC)   || '[]'); } catch { facilities = []; }
   try { todayVisits = JSON.parse(localStorage.getItem(LS_TODAY)  || '[]'); } catch { todayVisits = []; }
@@ -555,6 +599,24 @@ function load() {
   let hadSlackToken = false;
   facilities.forEach(f => { if (f.slackToken) { hadSlackToken = true; delete f.slackToken; } });
   if (hadSlackToken) localStorage.setItem(LS_FAC, JSON.stringify(facilities));
+  // 算定点数を「基本点数＋加算」方式へ移行。442点は 342点＋麻薬加算100点 を
+  // 1つの数字に潰したものだったので、基本点数と加算フラグに分解する。
+  let migrated = false;
+  facilities.forEach(f => (f.patients || []).forEach(p => {
+    if (!p.kasan) { p.kasan = { opioid: false, tpn: false }; migrated = true; }
+    const base = basePointNum(p.defaultPoints);
+    if (base !== null) {
+      Object.keys(KASAN_DEFS).forEach(k => {
+        // 442→342＋麻薬 のように、加算分が乗った数字を分解する
+        if (base - KASAN_DEFS[k].points === 342 || base - KASAN_DEFS[k].points === 320) {
+          p.defaultPoints = `${base - KASAN_DEFS[k].points}点`;
+          p.kasan[k] = true;
+          migrated = true;
+        }
+      });
+    }
+  }));
+  if (migrated) localStorage.setItem(LS_FAC, JSON.stringify(facilities));
   currentFacId = localStorage.getItem(LS_CUR) || null;
   if (currentFacId && !facilities.find(f => f.id === currentFacId)) currentFacId = null;
   // 日付が変わっていたら本日完了分をリセット
@@ -685,7 +747,7 @@ function buildRow(p, fac) {
   const st       = inputState[p.room] || {};
   const noChange     = st.noChange || false;
   const hasShinsatsu = st.hasShinsatsu || false;
-  const pts          = st.points !== undefined ? st.points : p.defaultPoints;
+  const pts          = pointsLabel(p);
   const sVal         = st.s || '';
   const oVal         = st.o || '';
   const out      = st.output || '';
@@ -772,9 +834,8 @@ function storeInput(room, key, val) {
 }
 
 function initSt(room) {
-  const fac = getFac();
-  const p   = fac?.patients.find(p => p.room === room);
-  return { s:'', o:'', points: p?.defaultPoints||'342点', output:'', noChange:false, hasShinsatsu:false };
+  // 点数は患者側（defaultPoints＋kasan）に一本化したので、ここでは持たない
+  return { s:'', o:'', output:'', noChange:false, hasShinsatsu:false };
 }
 
 function getDeliveryRange() {
@@ -1113,7 +1174,7 @@ async function generateRecord(room) {
   const sVal  = (sEl ? sEl.value : st.s).trim();
   const oVal  = (oEl ? oEl.value : st.o).trim();
   const prev  = (p.lastRecord || '').trim();
-  const pts   = st.points || p.defaultPoints;
+  const pts   = pointsLabel(p);
 
   if (sEl)   { st.s = sEl.value;   inputState[room] = st; }
   if (oEl)   { st.o = oEl.value;   inputState[room] = st; }
@@ -1252,26 +1313,33 @@ function buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange=
 ・##A##（Aあり施設のみ）：##OP##から2剤をピックアップし、効果が得られているか副作用（具体的症状）が出ていないかをアセスメントする。【後述「前回A・EP使用済み内容」に従い別の薬剤を選ぶこと】
 ・##EP##：##OP##から2剤を抽出し副作用（具体的な症状）への注意を促す指導内容を作成する。「このままお薬を続けましょう」は不可。必ず薬の効果・副作用に言及すること。【後述「前回A・EP使用済み内容」に従い別の薬剤・内容を取り上げること】
 ` : '';
-  const mandatoryProblemNote = `【ステップ0：必須自動追加プロブレムのチェック】
-・今回のO入力に医療用麻薬（モルヒネ・オキシコドン・ヒドロモルフォン・フェンタニル・タペンタドール・トラマドール・アンペック・オプソ・ナルサス・ナルラピド・ワントラム・メサペイン等）の新規処方が含まれ、かつ前回の##OP##に「医療用麻薬使用状況」という語を含むプロブレムが存在しない場合 → ##OP##の一番最初のプロブレムとして、以下を一字一句この形のまま追加する（③は空欄のまま、④は欠番のまま出力。加算の算定要件であり省略・改変は禁止）：
+  // 【ステップ0】算定要件の必須＃ブロック。
+  // 発火点は薬剤名の検出ではなく、患者管理画面でONにした加算チェック。
+  // ONにした加算のぶんだけ指示文を組み立てる（OFFの加算の文言は送らない）。
+  // ★＃の文面を変えるときはこの2つの定数だけ直せばよい。
+  const MANDATORY_BLOCKS = {
+    opioid: `・前回の##OP##に「医療用麻薬使用状況」という語を含むプロブレムが存在しない場合 → ##OP##の一番最初のプロブレムとして、以下を一字一句この形のまま追加する（③は空欄のまま、④は欠番のまま出力。加算の算定要件であり省略・改変は禁止）：
 ＃がん性疼痛、医療用麻薬使用状況
 　①麻薬の保管管理状況：施設で管理
 　②服薬状況：今回初回介入。次回以降で評価
 　③レスキューの残薬状況等：
 　⑤疼痛緩和等の状況：介入時は問題なし。
 　⑥継続又は増量投与による体調の変化：今回初回介入。次回以降で評価
-　⑦残薬の廃棄方法：原則保険薬局へ返納するよう説明
-
-・今回のO入力にTPN製剤（エルネオパ、フルカリック、ワンバル）の新規処方が含まれ、かつ前回の##OP##に「在宅中心静脈栄養法使用患者」というプロブレムが存在しない場合 → ##OP##の一番最初のプロブレムとして、以下を一字一句この形のまま追加する：
+　⑦残薬の廃棄方法：原則保険薬局へ返納するよう説明`,
+    tpn: `・前回の##OP##に「在宅中心静脈栄養法使用患者」というプロブレムが存在しない場合 → ##OP##の一番最初のプロブレムとして、以下を一字一句この形のまま追加する：
 ＃在宅中心静脈栄養法使用患者
 　①輸液製剤の投与状況：40ml/hで24時間キープ
 　②保管管理状況：居室内で管理。未使用分は未開封、室温は適正であることを確認。
 　③残薬の状況：次回の輸液配薬まで残あり
 　④栄養状態等の状況：大きなトラブルはないことを確認
 　⑤輸液製剤による体調の変化：目に見えて副作用を疑う症状は無し
-　⑥薬剤の配合変化：単味の為に配合変化は無し
+　⑥薬剤の配合変化：単味の為に配合変化は無し`
+  };
+  const onKasan = Object.keys(MANDATORY_BLOCKS).filter(k => (p.kasan || {})[k]);
+  const mandatoryProblemNote = onKasan.length === 0 ? '' : `【ステップ0：必須自動追加プロブレムのチェック】
+${onKasan.map(k => MANDATORY_BLOCKS[k]).join('\n\n')}
 
-・上記2つのプロブレムが前回の##OP##に既に存在する場合は新規追加しない（重複禁止）。ステップ1でそのまま転記されるため、①〜⑦・①〜⑥の「：」の後の値も前回の記載を一字一句踏襲し、書き換えない。
+・上記のプロブレムが前回の##OP##に既に存在する場合は新規追加しない（重複禁止）。ステップ1でそのまま転記されるため、①〜⑦・①〜⑥の「：」の後の値も前回の記載を一字一句踏襲し、書き換えない。
 ・ここで新規追加または転記した医療用麻薬・TPNの処方変更は、下記ステップ2の追記対象には含めない（二重記載・定型文の書式崩れを防ぐため）。
 `;
 
@@ -1754,7 +1822,7 @@ async function generateAll() {
     const reiwa    = now.getFullYear() - 2018;
     const reiwaStr = `R${reiwa}.${now.getMonth()+1}`;
     const dateStr  = `${now.getMonth()+1}/${now.getDate()}`;
-    const pts      = st.points || p.defaultPoints;
+    const pts      = pointsLabel(p);
     const sVal     = st.s || '';
     const oVal     = st.o || '';
     const prev     = p.lastRecord || '';
@@ -1813,7 +1881,7 @@ function saveRecord(room) {
 
   const fac = getFac();
   const p   = fac.patients.find(p => p.room === room);
-  const pts = inputState[room]?.points || p.defaultPoints;
+  const pts = pointsLabel(p);
 
   const rec = { room, name: p.name, points: pts, content };
   const idx = todayVisits.findIndex(v => v.room === room);
@@ -1977,17 +2045,19 @@ function parsePasteBlocks(raw) {
     const stripped = lines[i].replace(/^[#＃]+/, '').trim();
     const m = stripped.match(/^(\d{2,4})(?:[　\s]+(.*))?$/);
     const rest = m ? (m[2] || '').split(/[　\s]+/).filter(Boolean) : [];
+    // 点数トークン。「342点」のほか、加算を内訳表記した「342点＋麻薬100点＋TPN150点」も拾う。
+    const ptsTok = rest.find(t => /^\d+点(＋[^＋\s　]+\d+点)*$/.test(t));
     let isHeader = false;
-    if (m && stripped.length <= 30 && !/^##[SOAEP]/.test(stripped)) {
+    if (m && stripped.length <= 60 && !/^##[SOAEP]/.test(stripped)) {
       // 本文中の「　1500 Kcal で維持」のような行を見出しと誤認しないよう二重に絞る。
       // ・行頭にスペースがある行（記録の詳細行）は見出しにしない
       // ・算定点数が書かれているか、直後が ## で始まる行であること
       isHeader = !/^[\s　]/.test(lines[i])
-              && (rest.some(t => /^\d+点$/.test(t)) || /^[#＃]{2}/.test(nextNonEmpty(i)));
+              && (!!ptsTok || /^[#＃]{2}/.test(nextNonEmpty(i)));
     }
     if (isHeader) {
       if (cur) blocks.push(cur);
-      cur = { room: m[1], points: rest.find(t => /^\d+点$/.test(t)) || '', lines: [] };
+      cur = { room: m[1], points: ptsTok || '', lines: [] };
     } else if (cur) {
       cur.lines.push(lines[i]);
     }
@@ -2014,13 +2084,19 @@ function importText(raw, recordDate) {
     if (existing) {
       existing.lastRecord  = b.record;
       existing.lastUpdated = stamp;
-      if (b.points) existing.defaultPoints = b.points;   // 氏名は上書きしない
+      if (b.points) {                                    // 氏名は上書きしない
+        const pv = parsePointsLabel(b.points);
+        existing.defaultPoints = pv.defaultPoints;
+        existing.kasan         = pv.kasan;
+      }
       updated++;
     } else {
+      const pv = parsePointsLabel(b.points || '342点');
       fac.patients.push({
         room         : b.room,
         name         : `${b.room}号室`,                   // 氏名は取り込まない
-        defaultPoints: b.points || '342点',
+        defaultPoints: pv.defaultPoints,
+        kasan        : pv.kasan,
         lastRecord   : b.record,
         lastUpdated  : stamp
       });
@@ -2477,7 +2553,7 @@ function showPatientMgr() {
         <div class="p-row">
           <span class="p-room">${esc(p.room)}</span>
           <span class="p-name">${esc(p.name)}</span>
-          <span class="p-pts">${esc(p.defaultPoints)}</span>
+          <span class="p-pts">${esc(pointsLabel(p))}</span>
           <button class="btn btn-ghost btn-sm" onclick="showEditPatient(${i})">編集</button>
           <button class="btn btn-danger btn-sm" onclick="deletePatient(${i})">削除</button>
         </div>`).join('') + `</div>`;
@@ -2489,10 +2565,82 @@ function showPatientMgr() {
   );
 }
 
+// ── 点数＋加算のフォーム（患者の追加・編集で共用）──
+// prefix は 'ap'（追加）/ 'ep'（編集）。DOM id の衝突を避けるため接頭辞で分ける。
+let _ptsState = {};   // { ap:{base,kasan}, ep:{base,kasan} }
+
+function pointsFormHtml(prefix, base, kasan) {
+  const isOther = basePointNum(base) === null
+                  || !BASE_POINTS.some(b => `${b.value}点` === base);
+  _ptsState[prefix] = { base: isOther ? 'other' : base, kasan: { ...kasan } };
+  const chips = BASE_POINTS.map(b =>
+    `<button class="chip ${base === b.value + '点' ? 'sel' : ''}"
+       onclick="ptsBase(this,'${prefix}','${b.value}点')">${b.value}点<span class="text-xs" style="opacity:.7;margin-left:4px">${b.note}</span></button>`
+  ).join('');
+  const kasanChips = Object.keys(KASAN_DEFS).map(k =>
+    `<button class="chip ${kasan[k] ? 'sel' : ''}"
+       onclick="ptsKasan(this,'${prefix}','${k}')">${KASAN_DEFS[k].label} +${KASAN_DEFS[k].points}点</button>`
+  ).join('');
+  return `
+    <div class="form-group">
+      <div class="form-label">デフォルト算定点数</div>
+      <div class="chips" id="${prefix}-chips">
+        ${chips}
+        <button class="chip ${isOther ? 'sel' : ''}" onclick="ptsBase('${prefix}','other')">その他</button>
+      </div>
+      <input type="text" id="${prefix}-other" placeholder="点数を入力"
+        style="display:${isOther ? 'block' : 'none'};margin-top:8px"
+        value="${isOther ? esc(base) : ''}" oninput="ptsRefresh('${prefix}')">
+    </div>
+    <div class="form-group">
+      <div class="form-label">加算<span class="text-xs text-p2" style="margin-left:6px">チェックするとOPに算定要件の＃が入ります</span></div>
+      <div class="chips" id="${prefix}-kasan">${kasanChips}</div>
+      <div class="text-xs" id="${prefix}-total" style="margin-top:8px;color:var(--blue);font-weight:600">${esc(totalText({ defaultPoints: base, kasan }))}</div>
+    </div>`;
+}
+
+function totalText(v) {
+  const label = pointsLabel(v);
+  const sum = label.split('＋').reduce((a, s) => a + Number((s.match(/(\d+)点/) || [0, 0])[1]), 0);
+  return `${label}　＝　合計 ${sum}点`;
+}
+
+function ptsBase(btn, prefix, val) {
+  _ptsState[prefix].base = val;
+  document.getElementById(prefix + '-chips').querySelectorAll('.chip').forEach(c => c.classList.remove('sel'));
+  btn.classList.add('sel');
+  const other = document.getElementById(prefix + '-other');
+  other.style.display = val === 'other' ? 'block' : 'none';
+  if (val !== 'other') other.value = '';
+  ptsRefresh(prefix);
+}
+
+function ptsKasan(btn, prefix, key) {
+  const st = _ptsState[prefix];
+  st.kasan[key] = !st.kasan[key];
+  btn.classList.toggle('sel', st.kasan[key]);
+  ptsRefresh(prefix);
+}
+
+// 現在の選択から { defaultPoints, kasan } を取り出す
+function ptsValue(prefix) {
+  const st = _ptsState[prefix] || { base: '342点', kasan: {} };
+  let base = st.base;
+  if (base === 'other') {
+    const raw = document.getElementById(prefix + '-other')?.value.trim() || '';
+    const m = raw.match(/\d+/);
+    base = m ? `${m[0]}点` : '342点';
+  }
+  return { defaultPoints: base, kasan: { ...st.kasan } };
+}
+
+function ptsRefresh(prefix) {
+  const el = document.getElementById(prefix + '-total');
+  if (el) el.textContent = totalText(ptsValue(prefix));
+}
+
 // ── Add patient ──
-let _apPts = '342点';
 function showAddPatient() {
-  _apPts = '342点';
   showModal(`
     <div class="form-group">
       <div class="form-label">部屋番号</div>
@@ -2502,16 +2650,7 @@ function showAddPatient() {
       <div class="form-label">氏名</div>
       <input type="text" id="ap-name" placeholder="例：田中 花子">
     </div>
-    <div class="form-group">
-      <div class="form-label">デフォルト算定点数</div>
-      <div class="chips" id="ap-chips">
-        <button class="chip sel" onclick="apPts(this,'342点')">342点</button>
-        <button class="chip" onclick="apPts(this,'442点')">442点</button>
-        <button class="chip" onclick="apPts(this,'320点')">320点</button>
-        <button class="chip" onclick="apPts(this,'other')">その他</button>
-      </div>
-      <input type="text" id="ap-other" placeholder="点数を入力" style="display:none;margin-top:8px">
-    </div>
+    ${pointsFormHtml('ap', '342点', { opioid: false, tpn: false })}
     <div class="form-group">
       <div class="form-label">
         疾患名・薬剤名
@@ -2530,19 +2669,11 @@ function showAddPatient() {
    <button class="btn btn-primary" onclick="addPatient()">追加</button>`);
 }
 
-function apPts(btn, val) {
-  document.getElementById('ap-chips').querySelectorAll('.chip').forEach(c => c.classList.remove('sel'));
-  btn.classList.add('sel');
-  _apPts = val;
-  document.getElementById('ap-other').style.display = val === 'other' ? 'block' : 'none';
-}
-
 function addPatient() {
   const fac   = getFac();
   const room  = document.getElementById('ap-room')?.value.trim();
   const name  = document.getElementById('ap-name')?.value.trim();
-  const other = document.getElementById('ap-other')?.value.trim();
-  const pts   = _apPts === 'other' ? other : _apPts;
+  const pts   = ptsValue('ap');
   const dis   = document.getElementById('ap-dis')?.value.trim();
 
   if (!room) { alert('部屋番号を入力してください'); return; }
@@ -2551,7 +2682,8 @@ function addPatient() {
 
   fac.patients.push({
     room, name,
-    defaultPoints: pts || '342点',
+    defaultPoints: pts.defaultPoints,
+    kasan        : pts.kasan,
     lastRecord   : dis ? buildInitialOP(dis) : '',
     lastUpdated  : dis ? fmtDate(new Date()) : ''
   });
@@ -2604,10 +2736,7 @@ function showEditPatient(i) {
       <div class="form-label">氏名</div>
       <input type="text" id="ep-name" value="${esc(p.name)}">
     </div>
-    <div class="form-group">
-      <div class="form-label">デフォルト算定点数</div>
-      <input type="text" id="ep-pts" value="${esc(p.defaultPoints)}">
-    </div>
+    ${pointsFormHtml('ep', p.defaultPoints || '342点', p.kasan || { opioid: false, tpn: false })}
     <div class="form-group">
       <div class="form-label">
         前回記録 / OP
@@ -2625,7 +2754,9 @@ function updatePatient(i) {
   const p   = fac.patients[i];
   p.room          = document.getElementById('ep-room')?.value.trim() || p.room;
   p.name          = document.getElementById('ep-name')?.value.trim() || p.name;
-  p.defaultPoints = document.getElementById('ep-pts') ?.value.trim() || p.defaultPoints;
+  const pts       = ptsValue('ep');
+  p.defaultPoints = pts.defaultPoints;
+  p.kasan         = pts.kasan;
   p.lastRecord    = document.getElementById('ep-rec') ?.value || '';
   fac.patients.sort((a, b) => Number(a.room) - Number(b.room));
   save(); showToast('更新しました'); showPatientMgr();
