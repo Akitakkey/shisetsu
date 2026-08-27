@@ -2031,7 +2031,78 @@ function readFile(file) {
   r.readAsText(file, 'UTF-8');
 }
 
-// 貼り付けテキストを患者ブロックに分割する。
+// 取り込みテキストの形式を自動判別して解析する（D&D・ファイル追加・貼り付け共通）。
+// ・「Ｓ）Ｏ）Ａ）ＯＰ）」見出しの引き継ぎ資料形式 → parseLegacyBlocks（氏名も取り込む）
+// ・それ以外（##S##形式や薬歴の完成形の貼り付け） → parsePasteBlocks（氏名は取り込まない）
+function parseImportBlocks(raw) {
+  return isLegacyChartFormat(raw) ? parseLegacyBlocks(raw) : parsePasteBlocks(raw);
+}
+
+function isLegacyChartFormat(raw) {
+  return /^(S|O|A|OP)）[ \t　]*$/m.test(raw || '');
+}
+
+// 引き継ぎ資料形式（例）を解析する：
+//   101　山田太郎
+//   #疾患名（サマリ用の一覧。OPと重複するため取り込まない）
+//   S）
+//   （本人の発言）
+//   施設スタッフ）
+//   （スタッフからの情報）
+//   O）…　A）…　OP）…
+// 見出し行に部屋番号と氏名が並んでいるため、この形式に限り氏名も取り込む。
+function parseLegacyBlocks(raw) {
+  const lines  = (raw || '').replace(/\r/g, '').split('\n');
+  const blocks = [];
+  let cur = null;
+  // 部屋番号（半角2〜4桁）＋氏名。氏名部分に数字や記号（：/、。%＋）を含む行は
+  // 検査値等の本文行と誤認しないよう除外する。
+  const headerRe = /^(\d{2,4})[　\s]+([^\d：:／\/、。%＋+]{1,20})$/;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const m = trimmed && !/^[\s　]/.test(line) ? headerRe.exec(trimmed) : null;
+    if (m) {
+      if (cur) blocks.push(cur);
+      cur = { room: m[1], name: m[2].trim(), lines: [] };
+    } else if (cur) {
+      cur.lines.push(line);
+    }
+  }
+  if (cur) blocks.push(cur);
+
+  return blocks
+    .map(b => ({ room: b.room, name: b.name, points: '', record: buildLegacyRecord(b.lines.join('\n')) }))
+    .filter(b => b.record);
+}
+
+// Ｓ）Ｏ）Ａ）ＯＰ）区切りの本文を、内部形式（##S##/##O##/##A##/##EP##/##OP##）に変換する。
+// 見出し直後の「＃疾患名」の一覧（OPと重複する要約）は取り込まない。EPに相当する項目は
+// 元々存在しないため空欄になる（前回A・EP内容の重複回避が今回だけ効かない程度の影響）。
+function buildLegacyRecord(body) {
+  const markerRe = /^(S|O|A|OP)）[ \t　]*$/;
+  const sections = { S: [], O: [], A: [], OP: [] };
+  let cur = null;
+  for (const line of body.split('\n')) {
+    const m = markerRe.exec(line.trim());
+    if (m) { cur = m[1]; continue; }
+    if (cur) sections[cur].push(line);
+  }
+
+  const sText = sections.S.join('\n').trim()
+    .replace(/^(施設スタッフ|ご家族|家族|本人)）[ \t　]*$/gm, '（$1）');
+  const oText = sections.O.join('\n').trim();
+  const aText = sections.A.join('\n').trim().replace(/^#/gm, '＃');
+  const opRaw = sections.OP.join('\n').trim();
+  if (!sText && !oText && !aText && !opRaw) return '';
+
+  // OPの＃プロブレム／詳細行インデントの正規化は、患者追加時の「既存OP貼り付け」と同じロジックを流用する。
+  const opBlock = opRaw ? buildInitialOP(opRaw) : '##OP##\n';
+
+  return `##S##\n${sText}\n##O##\n${oText}\n##A##\n${aText}\n##EP##\n\n${opBlock}`.trim();
+}
+
+// 貼り付けテキストを患者ブロックに分割する（通常形式）。
 // 見出し行から読み取るのは部屋番号と算定点数だけで、氏名は意図的に取り込まない
 // （記録本文も ## から後ろだけを保存するため、貼り付けた氏名はアプリに残らない）。
 function parsePasteBlocks(raw) {
@@ -2080,7 +2151,7 @@ function importText(raw, recordDate) {
   if (!fac) return;
 
   const stamp  = fmtDate(recordDate instanceof Date && !isNaN(recordDate) ? recordDate : visitDate);
-  const blocks = parsePasteBlocks(raw);
+  const blocks = parseImportBlocks(raw);
   let added = 0, updated = 0;
 
   for (const b of blocks) {
@@ -2088,7 +2159,8 @@ function importText(raw, recordDate) {
     if (existing) {
       existing.lastRecord  = b.record;
       existing.lastUpdated = stamp;
-      if (b.points) {                                    // 氏名は上書きしない
+      if (b.name) existing.name = b.name;                // 引き継ぎ資料形式のみ氏名を反映（通常形式は上書きしない）
+      if (b.points) {
         const pv = parsePointsLabel(b.points);
         existing.defaultPoints = pv.defaultPoints;
         existing.kasan         = pv.kasan;
@@ -2098,7 +2170,7 @@ function importText(raw, recordDate) {
       const pv = parsePointsLabel(b.points || '342点');
       fac.patients.push({
         room         : b.room,
-        name         : `${b.room}号室`,                   // 氏名は取り込まない
+        name         : b.name || `${b.room}号室`,          // 引き継ぎ資料形式は氏名を取り込む。それ以外は取り込まない
         defaultPoints: pv.defaultPoints,
         kasan        : pv.kasan,
         lastRecord   : b.record,
@@ -2131,6 +2203,7 @@ function showPasteImport() {
         薬歴の完成形をそのまま貼り付けてください。<b>何人分をまとめて貼っても構いません</b>。<br>
         <b>氏名は取り込みません</b>（読み取るのは部屋番号と算定点数だけ。記録は ## から後ろだけを保存します）。<br>
         <b>部屋番号だけの行</b>でも区切りとして認識するので、氏名を消してから貼っても大丈夫です。<br>
+        「101　山田太郎」＋「S）O）A）OP）」見出しの<b>引き継ぎ資料形式</b>を貼った場合は自動判別し、この形式に限り<b>氏名も取り込みます</b>。<br>
         既存の患者は<b>前回記録が上書き</b>されます。下のプレビューで確認してください。
       </div>
       <textarea id="paste-import-text" rows="12" style="font-size:12px;line-height:1.7;"
@@ -2148,16 +2221,17 @@ function analyzePasteInput() {
   const raw = document.getElementById('paste-import-text')?.value || '';
   const fac = getFac();
   if (!fac || !raw.trim()) return [];
-  return parsePasteBlocks(raw).map(b => {
+  return parseImportBlocks(raw).map(b => {
     const p = fac.patients.find(x => String(x.room) === b.room);
     return {
-      room     : b.room,
-      points   : b.points,
-      record   : b.record,
-      exists   : !!p,
-      name     : p?.name || '',
-      hadPrev  : !!p?.lastRecord,
-      lineCount: b.record.split('\n').length
+      room       : b.room,
+      points     : b.points,
+      record     : b.record,
+      exists     : !!p,
+      name       : b.name || p?.name || '',
+      importsName: !!b.name,                              // 引き継ぎ資料形式のみtrue（氏名を取り込む）
+      hadPrev    : !!p?.lastRecord,
+      lineCount  : b.record.split('\n').length
     };
   });
 }
@@ -2189,8 +2263,11 @@ function renderPastePreview() {
       <div style="color:var(--p2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(head)}</div>
     </div>`;
   });
+  const anyName = rows.some(r => r.importsName);
   html += `</div>
-    <div class="text-xs" style="color:var(--p3);margin-top:6px">氏名は保存されません（新規は「○○号室」で登録されます）</div>`;
+    <div class="text-xs" style="color:var(--p3);margin-top:6px">${anyName
+      ? '氏名は見出し行から取り込まれます（取り込めなかった患者は「○○号室」で登録されます）'
+      : '氏名は保存されません（新規は「○○号室」で登録されます）'}</div>`;
   el.innerHTML = html;
 }
 
