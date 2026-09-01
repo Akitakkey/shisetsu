@@ -2103,8 +2103,8 @@ function buildLegacyRecord(body) {
 }
 
 // 貼り付けテキストを患者ブロックに分割する（通常形式）。
-// 見出し行から読み取るのは部屋番号と算定点数だけで、氏名は意図的に取り込まない
-// （記録本文も ## から後ろだけを保存するため、貼り付けた氏名はアプリに残らない）。
+// 見出し行から読み取るのは部屋番号・算定点数・（あれば）氏名。
+// 記録本文は ## から後ろだけを保存するため、見出し行に書いた氏名が本文に混入することはない。
 function parsePasteBlocks(raw) {
   const lines  = (raw || '').replace(/\r/g, '').split('\n');
   const blocks = [];
@@ -2119,20 +2119,24 @@ function parsePasteBlocks(raw) {
     // 行頭の # を除去してから判定（###101　山田　太郎 などに対応）
     const stripped = lines[i].replace(/^[#＃]+/, '').trim();
     const m = stripped.match(/^(\d{2,4})(?:[　\s]+(.*))?$/);
-    const rest = m ? (m[2] || '').split(/[　\s]+/).filter(Boolean) : [];
+    const restRaw = m ? (m[2] || '').trim() : '';
+    const rest = restRaw ? restRaw.split(/[　\s]+/).filter(Boolean) : [];
     // 点数トークン。「342点」のほか、加算を内訳表記した「342点＋麻薬100点＋TPN150点」も拾う。
     const ptsTok = rest.find(t => /^\d+点(＋[^＋\s　]+\d+点)*$/.test(t));
     let isHeader = false;
     if (m && stripped.length <= 60 && !/^##[SOAEP]/.test(stripped)) {
       // 本文中の「　1500 Kcal で維持」のような行を見出しと誤認しないよう二重に絞る。
       // ・行頭にスペースがある行（記録の詳細行）は見出しにしない
-      // ・算定点数が書かれているか、直後が ## で始まる行であること
+      // ・算定点数が書かれているか、直後がセクション見出し（##S##／S／S） など、書き方は人によって揺れる）であること
       isHeader = !/^[\s　]/.test(lines[i])
-              && (!!ptsTok || /^[#＃]{2}/.test(nextNonEmpty(i)));
+              && (!!ptsTok || /^(?:[#＃]{2}|(?:S|O|A|OP)[）\)]?[ \t　]*$)/.test(nextNonEmpty(i)));
     }
+    // 見出しと判定できた行に限り、点数トークンでない残り文字列（数字や記号を含まない20文字以内）を氏名として拾う。
+    // isHeaderの判定自体には使わない（本文中の数字行を氏名だと誤認して新しい患者ブロックに割ってしまうのを防ぐため）。
+    const nameTok = isHeader && !ptsTok && restRaw && /^[^\d：:／\/、。%＋+]{1,20}$/.test(restRaw) ? restRaw : '';
     if (isHeader) {
       if (cur) blocks.push(cur);
-      cur = { room: m[1], points: ptsTok || '', lines: [] };
+      cur = { room: m[1], points: ptsTok || '', name: nameTok || '', lines: [] };
     } else if (cur) {
       cur.lines.push(lines[i]);
     }
@@ -2142,7 +2146,7 @@ function parsePasteBlocks(raw) {
   return blocks.map(b => {
     const rawBlock = b.lines.join('\n').trim();
     const start    = rawBlock.indexOf('##');
-    return { room: b.room, points: b.points, record: start >= 0 ? rawBlock.substring(start).trim() : rawBlock };
+    return { room: b.room, points: b.points, name: b.name || '', record: start >= 0 ? rawBlock.substring(start).trim() : rawBlock };
   }).filter(b => b.record);
 }
 
@@ -2159,7 +2163,7 @@ function importText(raw, recordDate) {
     if (existing) {
       existing.lastRecord  = b.record;
       existing.lastUpdated = stamp;
-      if (b.name) existing.name = b.name;                // 引き継ぎ資料形式のみ氏名を反映（通常形式は上書きしない）
+      if (b.name) existing.name = b.name;                // 見出し行に氏名があれば反映（引き継ぎ資料形式／部屋番号+氏名だけの行）
       if (b.points) {
         const pv = parsePointsLabel(b.points);
         existing.defaultPoints = pv.defaultPoints;
@@ -2170,7 +2174,7 @@ function importText(raw, recordDate) {
       const pv = parsePointsLabel(b.points || '342点');
       fac.patients.push({
         room         : b.room,
-        name         : b.name || `${b.room}号室`,          // 引き継ぎ資料形式は氏名を取り込む。それ以外は取り込まない
+        name         : b.name || `${b.room}号室`,          // 見出し行に氏名があれば取り込む。無ければ「○○号室」で仮登録
         defaultPoints: pv.defaultPoints,
         kasan        : pv.kasan,
         lastRecord   : b.record,
@@ -2201,9 +2205,9 @@ function showPasteImport() {
       <div class="form-label">テキストを貼り付けて前回記録に反映</div>
       <div class="text-xs text-p2" style="margin-bottom:8px">
         薬歴の完成形をそのまま貼り付けてください。<b>何人分をまとめて貼っても構いません</b>。<br>
-        <b>氏名は取り込みません</b>（読み取るのは部屋番号と算定点数だけ。記録は ## から後ろだけを保存します）。<br>
+        見出し行は「101」「101　342点」「101　山田太郎」のいずれでもOKです（記録は ## から後ろだけを保存します）。<br>
         <b>部屋番号だけの行</b>でも区切りとして認識するので、氏名を消してから貼っても大丈夫です。<br>
-        「101　山田太郎」＋「S）O）A）OP）」見出しの<b>引き継ぎ資料形式</b>を貼った場合は自動判別し、この形式に限り<b>氏名も取り込みます</b>。<br>
+        「S）O）A）OP）」見出しの<b>引き継ぎ資料形式</b>を貼った場合は自動判別し、氏名も取り込みます。<br>
         既存の患者は<b>前回記録が上書き</b>されます。下のプレビューで確認してください。
       </div>
       <textarea id="paste-import-text" rows="12" style="font-size:12px;line-height:1.7;"
@@ -2243,7 +2247,7 @@ function renderPastePreview() {
   const raw  = document.getElementById('paste-import-text')?.value || '';
   if (!rows.length) {
     el.innerHTML = raw.trim()
-      ? `<div class="err">⚠️ 部屋番号の行が見つかりません。各患者の記録の前に「113」または「113　342点」のような行を入れてください。</div>`
+      ? `<div class="err">⚠️ 部屋番号の行が見つかりません。各患者の記録の前に「113」「113　342点」「113　山田太郎」のような行を入れてください。</div>`
       : '';
     return;
   }
