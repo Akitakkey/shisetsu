@@ -212,7 +212,7 @@ hr{border:none;border-top:1px solid var(--sep);margin:16px 0;}
 /* Horizontal patient row */
 .h-header,.h-row{
   display:grid;
-  grid-template-columns:46px minmax(88px,100px) 3fr 4fr 40px 40px 72px 72px;
+  grid-template-columns:46px minmax(88px,100px) 3fr 4fr 40px 40px 40px 72px 72px 40px;
   gap:8px;padding:9px 12px;align-items:start;
 }
 .h-header{
@@ -558,9 +558,15 @@ const BASE_POINTS = [
   { value: 320, note: '医療' }
 ];
 const KASAN_DEFS = {
-  opioid: { label: '麻薬', points: 100 },
-  tpn   : { label: 'TPN',  points: 150 }
+  opioid          : { label: '麻薬',   points: 100 },
+  opioidContinuous: { label: '麻薬持続', points: 250 },
+  tpn             : { label: 'TPN',    points: 150 }
 };
+
+// KASAN_DEFSの全キーをfalseで初期化したオブジェクトを返す
+function defaultKasan() {
+  return Object.keys(KASAN_DEFS).reduce((o, k) => (o[k] = false, o), {});
+}
 
 // '342点' → 342。数字が取れなければ null（「その他」の自由入力に備える）
 function basePointNum(pts) {
@@ -581,12 +587,13 @@ function pointsLabel(p) {
 
 // pointsLabel の逆変換。'342点＋麻薬100点' → { defaultPoints:'342点', kasan:{opioid:true} }
 // 貼り付け取り込みで、書き出した点数表記から加算のチェック状態を復元するのに使う。
+// ラベル同士が前方一致しうる（例：「麻薬」と「麻薬持続」）ため、「ラベル+点数」の完全一致で判定する。
 function parsePointsLabel(label) {
   const parts = String(label || '').split('＋').map(s => s.trim()).filter(Boolean);
-  const out = { defaultPoints: parts[0] || '342点', kasan: { opioid: false, tpn: false } };
+  const out = { defaultPoints: parts[0] || '342点', kasan: defaultKasan() };
   parts.slice(1).forEach(part => {
     Object.keys(KASAN_DEFS).forEach(k => {
-      if (part.startsWith(KASAN_DEFS[k].label)) out.kasan[k] = true;
+      if (part === `${KASAN_DEFS[k].label}${KASAN_DEFS[k].points}点`) out.kasan[k] = true;
     });
   });
   return out;
@@ -603,7 +610,7 @@ function load() {
   // 1つの数字に潰したものだったので、基本点数と加算フラグに分解する。
   let migrated = false;
   facilities.forEach(f => (f.patients || []).forEach(p => {
-    if (!p.kasan) { p.kasan = { opioid: false, tpn: false }; migrated = true; }
+    if (!p.kasan) { p.kasan = defaultKasan(); migrated = true; }
     const base = basePointNum(p.defaultPoints);
     if (base !== null) {
       Object.keys(KASAN_DEFS).forEach(k => {
@@ -689,8 +696,10 @@ function renderApp() {
         <span>部屋番号</span><span>患者名</span>
         <span>S</span><span>O</span>
         <span style="text-align:center">${fac.hasA ? '診察あり' : '変更なし'}</span>
+        <span style="text-align:center">緊急</span>
         <span style="text-align:center">入院中</span>
         <span></span><span></span>
+        <span style="text-align:center">今月</span>
       </div>`;
     fac.patients.forEach(p => { html += buildRow(p, fac); });
     html += `</div>
@@ -747,6 +756,7 @@ function buildRow(p, fac) {
   const st       = inputState[p.room] || {};
   const noChange     = st.noChange || false;
   const hasShinsatsu = st.hasShinsatsu || false;
+  const isUrgent     = st.isUrgent || false;
   const pts          = pointsLabel(p);
   const sVal         = st.s || '';
   const oVal         = st.o || '';
@@ -772,6 +782,10 @@ function buildRow(p, fac) {
           : `<input type="checkbox" class="cb-nc" ${noChange?'checked':''} ${dis}
                onchange="toggleNoChange('${esc(p.room)}',this.checked)">`}
       </div>
+      <div class="col-nc" style="pointer-events:${isDone?'none':'auto'}">
+        <input type="checkbox" class="cb-nc" ${isUrgent?'checked':''} ${dis}
+          onchange="toggleUrgent('${esc(p.room)}',this.checked)">
+      </div>
       <div class="col-nc" style="pointer-events:auto;opacity:1;">
         <label class="sw sw-danger" style="cursor:pointer">
           <input type="checkbox" ${isHosp?'checked':''}
@@ -791,6 +805,7 @@ function buildRow(p, fac) {
                ? `<button class="btn btn-secondary btn-sm" style="margin-top:2px;white-space:nowrap"
                     onclick="showLastRecord('${esc(p.room)}')">前回記録</button>`
                : '<span></span>'}`}
+      <span style="text-align:center;line-height:34px;font-size:12px;color:var(--p2)">${monthlyVisitCount(p, visitDate)}回</span>
     </div>
     <div id="err-${esc(p.room)}"></div>`;
 
@@ -835,18 +850,7 @@ function storeInput(room, key, val) {
 
 function initSt(room) {
   // 点数は患者側（defaultPoints＋kasan）に一本化したので、ここでは持たない
-  return { s:'', o:'', output:'', noChange:false, hasShinsatsu:false };
-}
-
-function getDeliveryRange() {
-  const now   = visitDate;
-  const day   = now.getDay();
-  const daysToNextMonday = ((8 - day) % 7) || 7;
-  const start = new Date(now.getTime() + daysToNextMonday * 864e5);
-  const end   = new Date(start.getTime() + 6 * 864e5);
-  const s = `${start.getMonth()+1}/${start.getDate()}`;
-  const e = `${end.getMonth()+1}/${end.getDate()}`;
-  return { range: `${s}ー${e}`, start: s };
+  return { s:'', o:'', output:'', noChange:false, hasShinsatsu:false, isUrgent:false };
 }
 
 // ─── 配薬済一括取込 ────────────────────────────────────────────────────────
@@ -1154,6 +1158,11 @@ function toggleShinsatsu(room, checked) {
   inputState[room].hasShinsatsu = checked;
 }
 
+function toggleUrgent(room, checked) {
+  if (!inputState[room]) inputState[room] = initSt(room);
+  inputState[room].isUrgent = checked;
+}
+
 function toggleHospitalized(room, checked) {
   const fac = getFac();
   const p = fac?.patients.find(p => p.room === room);
@@ -1209,7 +1218,8 @@ async function generateRecord(room) {
 
   const noChange     = inputState[room]?.noChange || false;
   const hasShinsatsu = inputState[room]?.hasShinsatsu || false;
-  const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
+  const isUrgent     = inputState[room]?.isUrgent || false;
+  const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu, isUrgent);
 
   try {
     const raw = aiModel === 'gemini'
@@ -1297,7 +1307,7 @@ function extractSection(text, tag) {
   return m ? m[1].trim() : '';
 }
 
-function buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange=false, hasShinsatsu=false) {
+function buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange=false, hasShinsatsu=false, isUrgent=false) {
   const hasA = fac.hasA;
   const rules  = getPromptRules(hasA ? 'a' : 'b');
   const prevA  = extractSection(prev, 'A');
@@ -1348,8 +1358,43 @@ ${onKasan.map(k => MANDATORY_BLOCKS[k]).join('\n\n')}
 `;
 
   if (hasA) {
-    const { range: deliveryRange } = getDeliveryRange();
     const noChangeS = fac.noChangeS || '特に変わったことはなく過ごされています。落ち着いた療養が出来ています。';
+    // 緊急訪問の場合、配薬に関する記述はO入力をそのまま転記するだけの専用フォーマットに完全に置き換える
+    const deliveryNote = isUrgent ? `【緊急訪問時の配薬】今回は緊急訪問のため、以下の形式で出力する（下記の通常時ルールは使わない）：
+・O入力の各行を、先頭に「・」を付けてそのまま転記する。薬剤名・規格・用法・数量・期間などの表記は一切変更しない（要約・言い換え・計算は禁止）。
+
+出力例（O入力が
+スピロノラクトン錠25mg　1T1×朝　8/13ー15
+の場合）：
+緊急訪問、配薬：
+・スピロノラクトン錠25mg　1T1×朝　8/13ー15` : `【配薬情報】
+・O入力に配薬期間の指定（例：「定時薬 6/2-5」「6/2まで」「6/2ー6/5」「M/DーM/D」等）がある場合：
+定期訪問、定期配薬：
+・定時薬　（O入力の期間をそのまま使う。自分で計算しない）　※処方変更なし
+　O入力に「・薬剤名　数量」等の追加薬剤行があれば、定時薬行の直下にそのまま全て追記する（内容は一切変えない）。
+・O入力に配薬期間の指定はないが「・薬剤名　数量」等の追加薬剤行はある場合：
+定期訪問、定期配薬：
+　（追加薬剤行だけをそのまま出力する。定時薬の行は出さない）
+・O入力に配薬期間の指定も追加薬剤行も無い場合：
+　「定期訪問、定期配薬：」を含む配薬に関する記述は一切出力しない（この項目自体を省略する）。
+
+出力例1（O入力「定時薬 6/2-5　・ヘパリン類似Cr 4本　・生食注 6本」の場合）：
+定期訪問、定期配薬：
+・定時薬　6/2ー5　※処方変更なし
+・ヘパリン類似Cr　4本
+・生食注　6本
+
+出力例2（O入力「・ヘパリン類似Cr 4本」のみ、配薬期間の指定なしの場合）：
+定期訪問、定期配薬：
+・ヘパリン類似Cr　4本`;
+    // 緊急訪問の場合、##A##はOPに追記した薬剤についての定型的な3文構成に置き換える
+    const aRules = isUrgent ? `【緊急訪問時のA】今回OPに追記した薬剤について、以下の3文構成でアセスメントを書く：
+①（OP追記対象のプロブレムが示す病態・症状）に対して（追加された薬剤名・規格）が追加になった。
+②（その薬剤に期待される改善効果）を確認しつつ、（薬効から想定される具体的な副作用・注意すべき症状や検査値）に注意してフォローする。
+③（今後の用量調整の見立て：増量余地があれば上限の目安、無ければ経過観察の方針）と考える。
+
+例（心不全に対してスピロノラクトン錠25mgが追加になった場合）：
+心不全に対してスピロノラクトン錠25mgが追加になった。浮腫改善具合を確認しつつ、高カリウム血症などに注意してフォローする。50mgまでは増量可能と考える。` : rules.a;
     // ナーシングホーム用（A あり：S・O・A・EP・OP）
     const fixed = `あなたは在宅医療に特化した薬局に勤めるベテラン薬剤師として、施設訪問薬歴の作成を支援するAIです。薬学的管理に精通しており、特に緩和ケア・褥瘡領域に秀でた立場で記録を作成してください。
 
@@ -1372,26 +1417,11 @@ ${onKasan.map(k => MANDATORY_BLOCKS[k]).join('\n\n')}
 【今回のS入力】欄に内容がある場合：${rules.s}
 
 ②##O##
-冒頭は必ず「定期訪問、定期配薬：」から始める。出力に空白行を入れないこと。
-【重要】今回の配薬期間は「${deliveryRange}」である。前回記録のOに書かれた配薬日程は絶対に引き継がず、必ず今回の配薬期間を使うこと。
+出力に空白行を入れないこと。
 
-【定時薬の配薬期間】
-・O入力に期間指定（例：「定時薬 6/2-5」「6/2まで」「6/2ー6/5」「M/DーM/D」等）がある場合 → その期間をそのまま使う。自動計算値（${deliveryRange}）は絶対に使わない。
-・O入力に期間指定がない場合のみ → 自動計算値 ${deliveryRange} を使う。
+${deliveryNote}
 
-【追加薬剤】
-・O入力に「・薬剤名　数量」等の追加薬剤行がある場合 → 定時薬行の直下にそのまま全て追記する。内容は一切変えない。
-・O入力が空欄の場合：##O##に以下をそのまま一字一句出力すること（日付を自分で計算してはならない）：
-定期訪問、定期配薬：
-・定時薬　${deliveryRange}　※処方変更なし
-
-出力例（O入力「定時薬 6/2-5　・ヘパリン類似Cr 4本　・生食注 6本」の場合）：
-定期訪問、定期配薬：
-・定時薬　6/2ー5
-・ヘパリン類似Cr　4本
-・生食注　6本
-
-【今回の診察同行】欄が「あり」の場合：配薬記録の下に続けて以下の形式で診察サマリを記載する：
+【今回の診察同行】欄が「あり」の場合：（上記の配薬に関する記述がある場合はその下に続けて改行、無い場合はここから）以下の形式で診察サマリを記載する：
 【${dateStr}診察時サマリ】
 （O入力に含まれる診察情報を記載）
 処方変更があれば追記する。日付はO入力に「M/D～」等の指定があればその日付を使い（例：「5/29～」→ 5/29、「～」は除く）、指定がなければ「${dateStr}」を使う。
@@ -1403,7 +1433,7 @@ ${onKasan.map(k => MANDATORY_BLOCKS[k]).join('\n\n')}
 【今回の診察同行】欄が「なし」の場合：診察サマリは記載しない。
 
 ③##A##
-${rules.a}
+${aRules}
 
 ④##EP##
 ${rules.ep}
@@ -1442,6 +1472,7 @@ ${mandatoryProblemNote}
     const variable = `${noChangeNote}
 【算定点数】${pts}
 【今回の診察同行】${hasShinsatsu ? 'あり' : 'なし'}
+【今回の緊急訪問】${isUrgent ? 'あり' : 'なし'}
 
 【今回のS入力】
 ${sVal.trim() || '（入力なし）'}
@@ -1458,27 +1489,15 @@ ${prevVariationNote}`;
   }
 
   // A欄なし施設用（S・O・EP・OP）
-  const fixed = `あなたは在宅医療に特化した薬局に勤めるベテラン薬剤師として、施設訪問薬歴の作成を支援するAIです。薬学的管理に精通しており、特に緩和ケア・褥瘡領域に秀でた立場で記録を作成してください。
+  // 緊急訪問の場合、##O##はO入力をそのまま転記するだけの専用フォーマットに完全に置き換える
+  const oRules = isUrgent ? `【緊急訪問時のO】今回は緊急訪問のため、以下の形式で出力する（下記の通常時ルールは使わない）：
+・O入力の各行を、先頭に「・」を付けてそのまま転記する。薬剤名・規格・用法・数量・期間などの表記は一切変更しない（要約・言い換え・計算は禁止）。
 
-【本日の日付】${reiwaStr}（${dateStr}）
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【出力形式】余計な前置き・説明は一切加えず以下の形式のみで出力すること。
-
-##S##
-##O##
-##EP##
-##OP##
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【各項目のルール】
-
-①##S##
-【今回のS入力】欄が「（入力なし）」の場合：「${fac.noChangeS || '特に変わったことはなく過ごされています。落ち着いた療養が出来ています。'}」を ##S## の内容とする。冒頭に（施設スタッフ）を付けて改行してから記載する。
-【今回のS入力】欄に内容がある場合：${rules.s}
-
-②##O##
-【今回のO入力】には、自由記述のメモに加えて、訪問診療記録からの抜粋（「薬学的有害事象防止加算「理由文」」の形式）がそのまま含まれる場合がある。
+出力例（O入力が
+スピロノラクトン錠25mg　1T1×朝　8/13ー15
+の場合）：
+緊急訪問、配薬：
+・スピロノラクトン錠25mg　1T1×朝　8/13ー15` : `【今回のO入力】には、自由記述のメモに加えて、訪問診療記録からの抜粋（「薬学的有害事象防止加算「理由文」」の形式）がそのまま含まれる場合がある。
 ・「薬学的有害事象防止加算「◯◯」」という記載があれば、鉤括弧内の理由文を診察サマリの自然な医療日本語の文章に言い換えて使う（「薬学的有害事象防止加算」という語自体はサマリに書かない）。
 ・それ以外の自由記述のメモの場合は、その内容をそのまま診察サマリの根拠として使う。
 
@@ -1507,7 +1526,28 @@ M/D～　薬剤名　変更内容
 
 【重要】同じ日付の処方変更は、種類（追加・中止・用量変更・用法変更）が異なっていても薬剤ごとに行を分けず、1行にまとめて横並びで記載すること。変更点ごとに読点（、）で区切って並べる。同じ変更内容の薬剤が複数あれば薬剤名をまとめて列挙し、末尾に一度だけ変更内容を書く。
 　例（O入力「フェブリク10mg　追加／アロプリノール100mg　中止」、いずれも7/25対応の場合）：
-　7/25～　フェブリク10mg　追加、アロプリノール100mg　中止
+　7/25～　フェブリク10mg　追加、アロプリノール100mg　中止`;
+  const fixed = `あなたは在宅医療に特化した薬局に勤めるベテラン薬剤師として、施設訪問薬歴の作成を支援するAIです。薬学的管理に精通しており、特に緩和ケア・褥瘡領域に秀でた立場で記録を作成してください。
+
+【本日の日付】${reiwaStr}（${dateStr}）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【出力形式】余計な前置き・説明は一切加えず以下の形式のみで出力すること。
+
+##S##
+##O##
+##EP##
+##OP##
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【各項目のルール】
+
+①##S##
+【今回のS入力】欄が「（入力なし）」の場合：「${fac.noChangeS || '特に変わったことはなく過ごされています。落ち着いた療養が出来ています。'}」を ##S## の内容とする。冒頭に（施設スタッフ）を付けて改行してから記載する。
+【今回のS入力】欄に内容がある場合：${rules.s}
+
+②##O##
+${oRules}
 
 ③##EP##
 ${rules.ep}
@@ -1545,6 +1585,7 @@ ${mandatoryProblemNote}
 
   const variable = `${noChangeNote}
 【算定点数】${pts}
+【今回の緊急訪問】${isUrgent ? 'あり' : 'なし'}
 
 【今回のS入力】
 ${sVal.trim() || '（入力なし）'}
@@ -1832,11 +1873,12 @@ async function generateAll() {
     const prev     = p.lastRecord || '';
     const noChange     = st.noChange || false;
     const hasShinsatsu = st.hasShinsatsu || false;
+    const isUrgent     = st.isUrgent || false;
 
     showToast(`${p.room}号室 作成中… (${count+1}/${pending.length})`, 60000);
 
     try {
-      const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
+      const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu, isUrgent);
       const text   = normalize(await genOne(prompt));
 
       const rec = { room: p.room, name: p.name, points: pts, content: text };
@@ -1845,6 +1887,7 @@ async function generateAll() {
       todayVisits.sort((a, b) => Number(a.room) - Number(b.room));
       p.lastRecord  = text;
       p.lastUpdated = fmtDate(now);
+      recordVisitLog(p, fmtISO(now));
       count++;
       save();
     } catch(e) {
@@ -1852,13 +1895,14 @@ async function generateAll() {
         showToast(`レート制限に達しました。10秒待機中…`, 10000);
         await new Promise(r => setTimeout(r, 10000));
         try {
-          const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu);
+          const prompt = buildPrompt(fac, p, sVal, oVal, prev, pts, reiwaStr, dateStr, noChange, hasShinsatsu, isUrgent);
           const text   = normalize(await genOne(prompt));
           const rec = { room: p.room, name: p.name, points: pts, content: text };
           const idx = todayVisits.findIndex(v => v.room === p.room);
           if (idx >= 0) todayVisits[idx] = rec; else todayVisits.push(rec);
           p.lastRecord  = text;
           p.lastUpdated = fmtDate(now);
+          recordVisitLog(p, fmtISO(now));
           count++;
           save();
         } catch(e2) {
@@ -1875,6 +1919,19 @@ async function generateAll() {
   save();
   showToast(`一括作成完了：${count}名`);
   renderApp();
+}
+
+// ─── 月間記録回数 ─────────────────────────────────────────────────────────────
+// 記録を保存した「日」をユニークに積み上げる（同日に再生成・再保存しても1回扱い）。
+// 導入前に書いた記録は遡って数えられないため、導入日以降の保存分から積み上がっていく。
+function recordVisitLog(p, dateStr) {
+  if (!Array.isArray(p.visitLog)) p.visitLog = [];
+  if (!p.visitLog.includes(dateStr)) p.visitLog.push(dateStr);
+}
+
+function monthlyVisitCount(p, refDate) {
+  const ym = fmtISO(refDate).slice(0, 7);
+  return (p.visitLog || []).filter(d => d.slice(0, 7) === ym).length;
 }
 
 // ─── Save record ──────────────────────────────────────────────────────────────
@@ -1896,6 +1953,7 @@ function saveRecord(room) {
   // Update patient last record
   p.lastRecord  = content;
   p.lastUpdated = fmtDate(visitDate);
+  recordVisitLog(p, fmtISO(visitDate));
 
   save();
   delete inputState[room];
@@ -2709,7 +2767,7 @@ function ptsKasan(btn, prefix, key) {
 
 // 現在の選択から { defaultPoints, kasan } を取り出す
 function ptsValue(prefix) {
-  const st = _ptsState[prefix] || { base: '342点', kasan: {} };
+  const st = _ptsState[prefix] || { base: '342点', kasan: defaultKasan() };
   let base = st.base;
   if (base === 'other') {
     const raw = document.getElementById(prefix + '-other')?.value.trim() || '';
@@ -2735,7 +2793,7 @@ function showAddPatient() {
       <div class="form-label">氏名</div>
       <input type="text" id="ap-name" placeholder="例：田中 花子">
     </div>
-    ${pointsFormHtml('ap', '342点', { opioid: false, tpn: false })}
+    ${pointsFormHtml('ap', '342点', defaultKasan())}
     <div class="form-group">
       <div class="form-label">
         疾患名・薬剤名
@@ -2821,7 +2879,7 @@ function showEditPatient(i) {
       <div class="form-label">氏名</div>
       <input type="text" id="ep-name" value="${esc(p.name)}">
     </div>
-    ${pointsFormHtml('ep', p.defaultPoints || '342点', p.kasan || { opioid: false, tpn: false })}
+    ${pointsFormHtml('ep', p.defaultPoints || '342点', p.kasan || defaultKasan())}
     <div class="form-group">
       <div class="form-label">
         前回記録 / OP
