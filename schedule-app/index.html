@@ -1,0 +1,3809 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+}<style>
+* { box-sizing: border-box; }
+.narc-text {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #c0c0c0;
+  transition: color .15s;
+}
+#edit-narcotics:checked ~ .narc-text {
+  color: #202124;
+}
+body {
+  margin: 0;
+  font-family: "Segoe UI", -apple-system, system-ui, sans-serif;
+  background: #f8f9fa;
+  color: #202124;
+  user-select: none;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  flex-wrap: wrap;
+}
+.toolbar button {
+  padding: 6px 12px;
+  background: #fff;
+  color: #1a73e8;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.toolbar button:hover { background: #f1f3f4; }
+.toolbar button:disabled {
+  color: #c0c0c0;
+  cursor: not-allowed;
+  background: #fafafa;
+  border-color: #ececec;
+}
+.toolbar button:disabled:hover { background: #fafafa; }
+.toolbar button.primary {
+  background: #1a73e8;
+  color: #fff;
+  border-color: #1a73e8;
+}
+.toolbar button.primary:hover { background: #1557b0; }
+.date-display {
+  padding: 8px 18px !important;
+  font-size: 19px !important;
+  font-weight: 700 !important;
+  color: #202124 !important;
+  min-width: 200px;
+  text-align: center;
+  letter-spacing: 0.3px;
+}
+.date-display .wd { margin-left: 6px; }
+.date-display .wd.sun { color: #d93025; }
+.date-display .wd.sat { color: #1a73e8; }
+#date-hidden {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.status { margin-left: auto; color: #5f6368; font-size: 12px; }
+.tb-collapse {
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  color: #5f6368 !important;
+}
+.toolbar-expand {
+  position: fixed;
+  top: 4px;
+  left: 4px;
+  z-index: 50;
+  display: none;
+  padding: 4px 12px;
+  font-size: 13px;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+.solo-back {
+  position: fixed;
+  top: 4px;
+  right: 4px;
+  z-index: 50;
+  padding: 6px 14px;
+  font-size: 13px;
+  background: #d93025;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+body.tb-collapsed .toolbar,
+body.tb-collapsed .shift-panel { display: none !important; }
+body.tb-collapsed .toolbar-expand { display: block; }
+body.tb-collapsed .grid-wrap { max-height: calc(100vh - 4px); }
+/* スマホ長押しの文字選択・コピーメニューを抑制（イベント/セル/ツールバー）。メモ等の入力欄は除外 */
+.event, .cell, .h, .toolbar, .shift-panel {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+input, textarea, [contenteditable="true"] {
+  -webkit-touch-callout: default;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.grid-wrap { overflow: auto; max-height: calc(100vh - 56px); position: relative; }
+.grid {
+  display: grid;
+  background: #fff;
+  position: relative;
+}
+.h, .time, .cell {
+  border-right: 1px solid #e8eaed;
+  border-bottom: 1px solid #c0c2c5;
+}
+.h {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  padding: 10px 8px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 17px;
+  z-index: 3;
+  border-bottom: 2px solid #d0d0d0;
+}
+.h.unassigned {
+  font-size: 11px;
+  color: #5f6368;
+  font-weight: 500;
+  padding: 8px 4px;
+}
+.h.corner { position: sticky; left: 0; z-index: 4; }
+.h-name { padding: 2px 4px; cursor: default; }
+.h-name[contenteditable="true"] { outline: none; border-bottom: 2px solid #1a73e8; cursor: text; min-width: 20px; }
+.h-count { font-size: 11px; font-weight: 400; color: #888; margin-left: 5px; }
+.time {
+  position: sticky;
+  left: 0;
+  background: #f8f9fa;
+  padding: 0 8px;
+  font-size: 12px;
+  color: #5f6368;
+  text-align: right;
+  height: 60px;
+  z-index: 1;
+  border-bottom: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  overflow: visible;
+}
+.time span {
+  display: inline-block;
+  transform: translateY(-50%);
+  line-height: 1;
+}
+.cell {
+  position: relative;
+  height: 60px;
+  transition: background-color .1s;
+}
+.drop-indicator {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  border-radius: 4px;
+  opacity: .35;
+  pointer-events: none;
+  z-index: 1;
+  outline: 2px solid rgba(255,255,255,.85);
+  outline-offset: -2px;
+  box-shadow: 0 0 0 2px #1a73e8;
+}
+.event {
+  position: absolute;
+  border-radius: 4px;
+  padding: 4px 6px 6px;
+  color: #fff;
+  font-size: 13px;
+  overflow: hidden;
+  cursor: grab;
+  box-shadow: 0 1px 2px rgba(0,0,0,.15);
+  transition: box-shadow .08s, opacity .08s;
+  z-index: 1;
+  touch-action: none;
+  text-shadow: 0 1px 3px rgba(0,0,0,.35);
+}
+.event:hover { z-index: 4; }
+.event-resize { z-index: 5; }
+.event:hover { box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+.event.dragging { opacity: .4; cursor: grabbing; }
+.event.pending { outline: 2px dashed rgba(255,255,255,.7); }
+.event.resizing { cursor: ns-resize; }
+.event-title { font-weight: 600; line-height: 1.3; font-size: 16px; }
+.event-addr { font-size: 11px; opacity: .8; text-align: right; display: block; }
+.event-time { opacity: .85; font-size: 12px; }
+.event-resize {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 8px;
+  cursor: ns-resize;
+  background: rgba(255,255,255,0);
+  transition: background .08s;
+}
+.event-resize::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 16px;
+  height: 2px;
+  background: rgba(255,255,255,.45);
+  transform: translateX(-50%);
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity .1s;
+}
+.event:hover .event-resize::after { opacity: 1; }
+.event-resize:hover { background: rgba(255,255,255,.15); }
+
+/* 現在時刻ライン */
+.now-line {
+  position: absolute;
+  left: 60px;
+  right: 0;
+  height: 2px;
+  background: #ea4335;
+  z-index: 2;
+  pointer-events: none;
+}
+.now-line::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ea4335;
+}
+
+/* コンテキストメニュー */
+.ctx-menu {
+  position: fixed;
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+  z-index: 200;
+  min-width: 160px;
+  padding: 4px 0;
+  font-size: 13px;
+  user-select: none;
+}
+.ctx-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.ctx-menu button:hover { background: #f1f3f4; }
+
+/* 担当セレクトのドロップダウン（編集モーダル） */
+.pharm-menu {
+  display: none;
+  /* 幅で列数を決めると画面によって2列になってしまうので、列数を直接決める */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+  z-index: 200;
+  overflow: hidden;
+}
+.pharm-menu.open { display: grid; }
+/* スマホなど狭い画面では2列 */
+@media (max-width: 700px) {
+  .pharm-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.pharm-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+  color: #202124;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pharm-opt > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pharm-opt.is-current { font-weight: 700; }
+/* マウスのある端末だけ。タッチ端末だと色が張り付いたままになるため */
+@media (hover: hover) {
+  .pharm-opt:hover { background: #f1f3f4; }
+}
+.pharm-opt:active { background: #e8eaed; }
+
+/* モーダル */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(32, 33, 36, .5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: #fff;
+  border-radius: 8px;
+  max-width: 480px;
+  width: 100%;
+  max-height: 96vh;
+  overflow: auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,.2);
+}
+.modal-header {
+  padding: 18px 20px 0;
+  border-bottom: 1px solid #e8eaed;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.modal-header button, .modal-header [contenteditable] { cursor: auto; }
+#modal > .modal { cursor: grab; }
+#modal > .modal:active { cursor: grabbing; }
+#modal > .modal button { cursor: pointer; }
+#modal > .modal input, #modal > .modal select, #modal > .modal textarea, #modal > .modal [contenteditable="true"] { cursor: auto; }
+.modal-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.modal-title {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+  flex: 1;
+  align-self: flex-end;
+  padding-bottom: 4px;
+}
+#modal .modal-color { margin-left: 20px; }
+.modal-close {
+  background: none;
+  border: 0;
+  font-size: 24px;
+  cursor: pointer;
+  color: #5f6368;
+  padding: 0 4px;
+}
+.modal-body { padding: 20px 20px; }
+
+/* イベント編集フィールド */
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  font-size: 14px;
+}
+.field-row label {
+  width: 48px;
+  flex-shrink: 0;
+  color: #5f6368;
+  font-size: 12px;
+}
+.field-row input,
+.field-row select {
+  padding: 7px 10px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+}
+.field-row input:focus,
+.field-row select:focus {
+  outline: none;
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 1px #1a73e8;
+}
+.field-row textarea {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+  resize: vertical;
+  min-height: 100px;
+}
+.field-row textarea:focus {
+  outline: none;
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 1px #1a73e8;
+}
+.field-row input[type=date] { flex: 1; }
+.field-row input[type=time] { width: 100px; }
+.field-row select { flex: 1; }
+.field-sep { color: #5f6368; font-size: 13px; }
+.modal-title[contenteditable="true"] {
+  outline: none;
+  cursor: text;
+  border-bottom: 2px solid #1a73e8;
+  padding-bottom: 2px;
+  min-width: 60px;
+}
+
+/* 名前編集モーダル */
+.name-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 15px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-family: inherit;
+}
+.name-input:focus {
+  outline: none;
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 2px rgba(26,115,232,.2);
+}
+.name-meta {
+  font-size: 12px;
+  color: #5f6368;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.name-meta-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+.modal-actions button {
+  padding: 8px 16px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  background: #fff;
+  color: #1a73e8;
+  cursor: pointer;
+  font-size: 14px;
+}
+.modal-actions button:hover { background: #f1f3f4; }
+.modal-actions button.primary {
+  background: #1a73e8;
+  color: #fff;
+  border-color: #1a73e8;
+}
+.modal-actions button.primary:hover { background: #1557b0; }
+
+/* カレンダーピッカー */
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 10px;
+}
+.cal-nav {
+  background: none;
+  border: 0;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 12px;
+  color: #5f6368;
+  border-radius: 50%;
+}
+.cal-nav:hover { background: #f1f3f4; }
+.cal-month {
+  font-weight: 600;
+  font-size: 15px;
+  color: #202124;
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.cal-cell {
+  text-align: center;
+  padding: 8px 0;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 50%;
+  user-select: none;
+  line-height: 1.3;
+}
+.cal-cell.cal-wd-header {
+  font-weight: 600;
+  color: #5f6368;
+  cursor: default;
+  font-size: 11px;
+}
+.cal-cell.cal-wd-header.sun { color: #d93025; }
+.cal-cell.cal-wd-header.sat { color: #1a73e8; }
+.cal-cell.cal-other { color: #c8c8c8; }
+.cal-cell.cal-today {
+  font-weight: 700;
+  color: #1a73e8;
+}
+.cal-cell.cal-selected {
+  background: #1a73e8 !important;
+  color: #fff !important;
+  font-weight: 700;
+}
+.cal-cell:not(.cal-wd-header):not(.cal-selected):hover {
+  background: #f1f3f4;
+}
+
+.dry-run-banner {
+  display: none;
+  background: #d93025;
+  color: #fff;
+  text-align: center;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.dry-run-banner.show { display: block; }
+
+/* 次回確認モーダル */
+.confirm-info {
+  background: #f1f3f4;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+.confirm-info .label { font-size: 11px; color: #5f6368; margin-bottom: 2px; }
+.confirm-info .value { font-size: 16px; font-weight: 600; color: #202124; }
+.confirm-info .value.blue { color: #1a73e8; }
+.confirm-days { color: #1a73e8; font-weight: 700; font-size: 1.3em; }
+.confirm-days-strong { color: #1a73e8; font-weight: 800; font-size: 1.43em; }
+.confirm-loading { color: #5f6368; font-size: 14px; padding: 8px 0; }
+.confirm-not-found { color: #d93025; font-size: 14px; padding: 8px 0; }
+
+@media (max-width: 640px) {
+  .toolbar {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .toolbar button {
+    padding: 10px 10px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+  .date-display {
+    padding: 10px 12px !important;
+    font-size: 16px !important;
+    min-width: 140px;
+  }
+  .event {
+    font-size: 13px;
+    padding: 4px 5px 6px;
+  }
+  .event-time {
+    font-size: 11px;
+  }
+  .event-resize {
+    height: 14px;
+  }
+  .h {
+    padding: 10px 4px;
+    font-size: 12px;
+  }
+  .time {
+    font-size: 12px;
+    padding: 0 6px;
+  }
+  .ctx-menu button {
+    padding: 12px 14px;
+    font-size: 15px;
+  }
+}
+.touch-clone {
+  position: fixed !important;
+  pointer-events: none !important;
+  z-index: 1000 !important;
+  opacity: 0.75;
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(0,0,0,.35) !important;
+  border-radius: 4px;
+}
+
+/* シフトパネル */
+.shift-panel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 16px;
+  background: #f0f4ff;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 13px;
+  flex-wrap: wrap;
+  min-height: 34px;
+}
+.shift-label {
+  font-size: 11px;
+  color: #5f6368;
+  font-weight: 600;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.shift-chips { display: flex; gap: 10px; flex-wrap: wrap; }
+.shift-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  white-space: nowrap;
+}
+.shift-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.shift-msg {
+  font-size: 12px;
+  color: #999;
+  font-style: italic;
+}
+.shift-gear {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #5f6368;
+  font-size: 15px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.shift-gear:hover { background: #e8eaed; }
+
+/* ===== 患者検索 ===== */
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f3f4;
+  border-radius: 24px;
+  padding: 5px 12px;
+  min-width: 160px;
+  max-width: 260px;
+  flex: 1;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.search-box:focus-within { background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,0.2); }
+.search-box .search-icon { color: #5f6368; font-size: 14px; flex-shrink: 0; background: none; border: none; padding: 0; cursor: pointer; }
+.search-box input { border: none; background: transparent; outline: none; font-size: 14px; width: 100%; min-width: 0; }
+.search-clear-btn { background: none; border: none; cursor: pointer; color: #5f6368; font-size: 16px; padding: 0 2px; line-height: 1; flex-shrink: 0; }
+.search-overlay { position: fixed; inset: 0; top: 56px; background: rgba(0,0,0,0.25); z-index: 50; }
+.search-panel {
+  background: #fff;
+  max-height: 85vh;
+  overflow-y: auto;
+  margin: 8px 16px;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+.search-date-group { border-bottom: 1px solid #f1f3f4; }
+.search-date-header { display: flex; align-items: baseline; gap: 6px; padding: 10px 16px 4px; }
+.search-date-big {
+  font-size: 22px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.search-date-big.today { color: #1a73e8; }
+.search-date-label { font-size: 12px; color: #5f6368; }
+.search-event-row { display: flex; align-items: center; gap: 8px; padding: 5px 16px; cursor: pointer; transition: background 0.1s; }
+.search-event-row:hover { background: #f8f9fa; }
+.search-time { font-size: 13px; color: #5f6368; min-width: 100px; flex-shrink: 0; }
+.search-title { font-size: 13px; margin-right: 4px; }
+.search-title mark { background: #fbbc04; border-radius: 2px; padding: 0 1px; font-style: normal; }
+.search-addr { font-size: 12px; color: #9aa0a6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-status { padding: 20px; text-align: center; color: #5f6368; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<button class="toolbar-expand" id="toolbar-expand" onclick="toggleToolbar()" title="ツールバーを表示">▼</button>
+<button class="solo-back" id="solo-back" onclick="clearSolo()" style="display:none">← 全員に戻る</button>
+
+<div class="toolbar">
+  <button class="tb-collapse" onclick="toggleToolbar()" title="ツールバーを隠す">▲</button>
+  <button onclick="shiftDate(-1)">‹ 前日</button>
+  <button onclick="goToday()">今日</button>
+  <button onclick="shiftDate(1)">翌日 ›</button>
+  <button class="date-display" id="date-display" onclick="openDatePicker()">―</button>
+  <input type="date" id="date-hidden" tabindex="-1">
+  <button class="primary" onclick="load()">更新</button>
+  <button id="undo-btn" disabled onclick="undo()" title="取り消し (Ctrl+Z)">↶ 取り消し</button>
+  <button id="reflect-btn" class="primary" style="display:none" disabled onclick="applyChanges()">📤 反映</button>
+  <!-- 仮担当（一時機能）：不要になったらこのボタンごと削除してよい -->
+  <button id="karitanto-btn" onclick="openKaritantoModal()" title="表示中の日の予定に「仮担当：氏名」をメモ欄へ追記します">🧑‍⚕️ 仮担当を確定する</button>
+  <span class="status" id="status"></span>
+  <div class="search-box">
+    <button class="search-icon" id="search-go-btn" onclick="onSearchGo()">🔍</button>
+    <input type="text" id="search-input" placeholder="患者名を検索…" autocomplete="off" oninput="onSearchInputChange()" onkeydown="if(event.key==='Enter')onSearchGo()">
+    <button class="search-clear-btn" id="search-clear-btn" style="display:none" onclick="clearSearch()">✕</button>
+  </div>
+</div>
+
+<div class="search-overlay" id="search-overlay" style="display:none" onclick="if(event.target===this)clearSearch()">
+  <div class="search-panel" id="search-panel"></div>
+</div>
+
+<div class="dry-run-banner" id="dry-run-banner">
+  【DRY_RUN 中】カレンダーへの書き込みはすべてスキップされています
+</div>
+
+<!-- シフト出勤者パネル -->
+<div class="shift-panel" id="shift-panel">
+  <span class="shift-label">外勤</span>
+  <div class="shift-chips" id="shift-chips"><span class="shift-msg">読み込み中…</span></div>
+  <button class="shift-gear" onclick="openShiftSettings()" title="シフト設定">⚙</button>
+</div>
+
+<!-- 次回確認モーダル -->
+<div class="modal-overlay" id="confirm-modal" onclick="if(event.target.id==='confirm-modal') closeConfirmModal()">
+  <div class="modal" style="max-width:360px;">
+    <div class="modal-header">
+      <h2 class="modal-title">👌 次回確認</h2>
+      <button class="modal-close" onclick="closeConfirmModal()">×</button>
+    </div>
+    <div class="modal-body" id="confirm-modal-body"></div>
+  </div>
+</div>
+
+<div class="grid-wrap" id="grid-wrap">
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- 詳細モーダル -->
+<div class="modal-overlay" id="modal" onclick="closeModalIfBg(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-color" id="modal-color"></div>
+      <h2 class="modal-title" id="modal-title"></h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- 日付変更モーダル -->
+<div class="modal-overlay" id="date-modal" onclick="if(event.target.id==='date-modal') closeDateModal()">
+  <div class="modal" style="max-width: 320px;">
+    <div class="modal-header">
+      <h2 class="modal-title">日付を変更</h2>
+      <button class="modal-close" onclick="closeDateModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="cal-container"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 名前編集モーダル -->
+<div class="modal-overlay" id="name-modal" onclick="if(event.target.id==='name-modal') closeNameModal()">
+  <div class="modal" style="max-width: 380px;">
+    <div class="modal-header">
+      <div class="modal-color" id="name-modal-color"></div>
+      <h2 class="modal-title">担当者の名前について</h2>
+      <button class="modal-close" onclick="closeNameModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="name-meta">
+        <span class="name-meta-dot" id="name-meta-dot"></span>
+        <span id="name-meta-color-label"></span>
+      </div>
+      <p style="font-size:13px;color:#5f6368;line-height:1.8;margin:0 0 16px;">
+        担当者の名前と色は <b>Googleカレンダーのラベル設定</b> で管理しています。<br>
+        変更するときは、Googleカレンダー側でラベル名を書き換えてください。<br>
+        <span style="color:#80868b;">※このアプリには最大1時間で反映されます。</span>
+      </p>
+      <div class="modal-actions">
+        <button class="primary" onclick="closeNameModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 単発イベント追加モーダル -->
+<div class="modal-overlay" id="add-modal" onclick="if(event.target.id==='add-modal') closeAddModal()">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <h2 class="modal-title">予定を追加</h2>
+      <button class="modal-close" onclick="closeAddModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <label>患者名</label>
+        <input type="text" id="add-title" style="flex:1;">
+      </div>
+      <div class="field-row" style="align-items:center;">
+        <label style="width:auto;">
+          <input type="checkbox" id="add-rinji" style="margin-right:4px;">【臨時】を付ける
+        </label>
+      </div>
+      <div class="field-row">
+        <label>担当</label>
+        <select id="add-color" style="flex:1;"></select>
+      </div>
+      <div class="field-row">
+        <label>時間</label>
+        <select id="add-start" style="flex:1;"></select>
+        <span class="field-sep">〜</span>
+        <select id="add-end" style="flex:1;"></select>
+      </div>
+      <div class="field-row">
+        <label>住所</label>
+        <input type="text" id="add-location" style="flex:1;">
+      </div>
+      <div class="field-row">
+        <label>メモ</label>
+        <input type="text" id="add-desc" style="flex:1;">
+      </div>
+      <div class="modal-actions">
+        <button onclick="closeAddModal()">キャンセル</button>
+        <button class="primary" onclick="submitAddEvent()">追加</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- シフト設定モーダル -->
+<div class="modal-overlay" id="shift-modal" onclick="if(event.target.id==='shift-modal') closeShiftModal()">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <h2 class="modal-title">シフト設定</h2>
+      <button class="modal-close" onclick="closeShiftModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:#5f6368;margin:0 0 14px;">シフト表スプレッドシートのIDを貼り付けてください。<br>スプレッドシートのURLの <code>/d/</code> と <code>/edit</code> の間の部分です。</p>
+      <input type="text" id="shift-ss-id" class="name-input" placeholder="スプレッドシートID">
+      <div class="modal-actions">
+        <button onclick="closeShiftModal()">キャンセル</button>
+        <button class="primary" onclick="saveShiftSettings()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 仮担当確定モーダル（一時機能：期間終了後はこのブロックごと削除してよい） -->
+<div class="modal-overlay" id="karitanto-modal" onclick="if(event.target.id==='karitanto-modal') closeKaritantoModal()">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h2 class="modal-title">仮担当を確定 <span id="karitanto-date" style="color:#5f6368;font-weight:400;font-size:14px;"></span></h2>
+      <button class="modal-close" onclick="closeKaritantoModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:#5f6368;margin:0 0 12px;">
+        チェックした予定のメモ欄の先頭に「仮担当：〇〇」を追記します。〇〇は<b>過去半年で最も多く訪問している担当者</b>（実績が無い場合は本日の担当）です。<br>
+        提案する担当者が誰もいない予定は一覧に出ません。
+      </p>
+      <div id="karitanto-list" style="display:flex;flex-direction:column;max-height:50vh;overflow-y:auto;"></div>
+      <div class="modal-actions">
+        <button onclick="closeKaritantoModal()">キャンセル</button>
+        <button class="primary" onclick="confirmKaritanto()">確定</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- コンテキストメニュー -->
+<div class="ctx-menu" id="ctx-menu" style="display:none"></div>
+
+<script>
+// 旧11色のHEX。シフトパネル（シフト表由来の色ID）で今も使うので残す
+const LEGACY_COLOR_HEX = {
+  '1':'#7986cb','2':'#33b679','3':'#8e24aa','4':'#e67c73','5':'#c49b00',
+  '6':'#f4511e','7':'#039be5','8':'#616161','9':'#3f51b5','10':'#0b8043','11':'#d50000','0':'#888'
+};
+// 実際に参照する色マップ。render() のたびに担当者一覧（新ラベルの色）を上書きマージする
+let COLOR_HEX = Object.assign({}, LEGACY_COLOR_HEX);
+const HOUR_START = 5;
+const HOUR_END = 22;
+const SNAP_MIN = 15;
+const CELL_HEIGHT = 60;
+const PX_PER_MIN = CELL_HEIGHT / 60;
+const MAX_DISPLAY_MIN = 180; // 3時間超のイベントは高さ・重複検出をキャップ
+const UNASSIGNED_W = 90;
+const PHARMACIST_W = window.innerWidth <= 640 ? 'minmax(100px, 1fr)' : 'minmax(140px, 1fr)';
+const WEEKDAYS = ['日','月','火','水','木','金','土'];
+
+let pharmacists = [];
+let allPharmacists = [];
+let currentEvents = [];
+let nowLineTimer = null;
+let isDryRun = false;
+let pendingChanges = [];
+let currentDateStr = '';
+let dropIndicator = null;
+let currentDragData = null;
+let lastLoadAt = 0;
+const FOCUS_RELOAD_MIN_INTERVAL_MS = 5 * 60 * 1000;
+
+const undoStack = [];
+const UNDO_MAX = 30;
+
+let _touchSt = null;
+let _evTouched = false; // イベントをタッチ操作したか（合成クリック抑制用）
+let _lastTapTime = 0, _lastTapEl = null, _pendingTapTimer = null; // タッチのシングル/ダブルタップ判定
+let _memoPlainBaseline = ''; // メモ整形後の元テキスト（保存時の変更判定用）
+let soloColor = null; // スマホ：1人だけ表示中の色（null=全員）
+let lastPayload = null; // 直近のrender用データ（ソロ表示の再描画に使う）
+
+function isMobileView() { return window.matchMedia('(max-width: 640px)').matches; }
+
+// Googleカレンダーの書式付きメモ（HTML）を読みやすいプレーンテキストに変換
+function htmlToPlain(s) {
+  if (!s) return '';
+  if (!/[<&]/.test(s)) return s; // タグもエンティティも無ければそのまま
+  let t = s
+    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/\s*(div|p|li|tr)\s*>/gi, '\n')
+    .replace(/<[^>]+>/g, '');
+  const ta = document.createElement('textarea'); // エンティティ復号（実行はされない）
+  ta.innerHTML = t;
+  t = ta.value;
+  return t.replace(/\n{3,}/g, '\n\n').replace(/[ \t]+\n/g, '\n').trim();
+}
+let wasResizing = false;
+let addrLookupTimer = null;
+let addrLookupListener = null;
+let _scrolledToDefault = false;
+
+let _resetModalDrag = null;
+
+function initDraggableModal() {
+  const overlay = document.getElementById('modal');
+  const modal = overlay.querySelector('.modal');
+  const handle = overlay.querySelector('.modal-header');
+  let dragging = false, startX, startY, tx = 0, ty = 0;
+
+  const onStart = (cx, cy) => { dragging = true; startX = cx - tx; startY = cy - ty; };
+  const onMove  = (cx, cy) => {
+    if (!dragging) return;
+    tx = cx - startX; ty = cy - startY;
+    modal.style.transform = 'translate(' + tx + 'px,' + ty + 'px)';
+  };
+  const onEnd = () => { dragging = false; };
+
+  const touchHandle = overlay.querySelector('.modal-header');
+
+  // マウス：モーダル全体からドラッグ可
+  modal.addEventListener('mousedown', e => {
+    if (e.target.closest('button,input,select,textarea,a,[contenteditable="true"]')) return;
+    e.preventDefault();
+    onStart(e.clientX, e.clientY);
+  });
+  document.addEventListener('mousemove', e => { if (dragging) onMove(e.clientX, e.clientY); });
+  document.addEventListener('mouseup', onEnd);
+
+  // タッチ：ヘッダーのみ（スクロールとの競合を避けるため）
+  touchHandle.addEventListener('touchstart', e => {
+    if (e.target.closest('button,input,select,textarea,[contenteditable="true"]')) return;
+    onStart(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  touchHandle.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    e.preventDefault();
+    onMove(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+  touchHandle.addEventListener('touchend', onEnd);
+
+  _resetModalDrag = () => { tx = 0; ty = 0; modal.style.transform = ''; };
+}
+
+function init() {
+  const t = new Date();
+  setDate(ymd(t));
+  document.getElementById('date-hidden').addEventListener('change', e => {
+    setDate(e.target.value);
+    load();
+  });
+  initDraggableModal();
+  document.getElementById('modal-title').addEventListener('input', syncNarcoticsCheckboxFromTitle_);
+  load();
+}
+
+function ymd(d) {
+  return d.getFullYear() + '-' +
+         String(d.getMonth() + 1).padStart(2, '0') + '-' +
+         String(d.getDate()).padStart(2, '0');
+}
+
+function setDate(dateStr) {
+  currentDateStr = dateStr;
+  document.getElementById('date-hidden').value = dateStr;
+  updateDateDisplay();
+  updateReflectBtn();
+}
+
+function updateDateDisplay() {
+  if (!currentDateStr) return;
+  const d = new Date(currentDateStr);
+  const w = d.getDay();
+  const wdClass = w === 0 ? 'sun' : w === 6 ? 'sat' : '';
+  const text = (d.getMonth() + 1) + '月' + d.getDate() + '日' +
+               '<span class="wd ' + wdClass + '">(' + WEEKDAYS[w] + ')</span>';
+  document.getElementById('date-display').innerHTML = text;
+}
+
+function openDatePicker() {
+  // ツールバーの日付クリック：日付ナビゲーション用にカレンダーモーダルを開く
+  document.querySelector('#date-modal .modal-title').textContent = '日付を選択';
+  const cur = new Date(currentDateStr);
+  renderCalendarPicker(new Date(cur.getFullYear(), cur.getMonth(), 1), currentDateStr);
+  document.getElementById('date-modal').classList.add('show');
+}
+
+function toggleToolbar() {
+  document.body.classList.toggle('tb-collapsed');
+}
+
+function clearSolo() {
+  soloColor = null;
+  if (lastPayload) render(lastPayload);
+}
+
+function updateSoloButton() {
+  const b = document.getElementById('solo-back');
+  if (b) b.style.display = (soloColor && isMobileView()) ? 'block' : 'none';
+}
+
+function shiftDate(delta) {
+  const d = new Date(currentDateStr);
+  d.setDate(d.getDate() + delta);
+  setDate(ymd(d));
+  load();
+}
+
+function goToday() {
+  setDate(ymd(new Date()));
+  load();
+}
+
+let _nextVisitMap = {};
+let _nextVisitMapDate = '';
+let _nextVisitMapReady = false;
+
+function cleanTitleJs(t) {
+  return (t || '').replace(/^👌\s*/, '').replace(/【次回[^】]*】$/, '').trim();
+}
+
+// タグ不一致警告用：cleanTitle済みの文字列から【】タグを全て取り出して連結する。無ければ空文字
+// ※サーバー側 extractTag_（コード.js）と同一の挙動に保つこと
+function extractTagJs(cleanTitle) {
+  const m = (cleanTitle || '').match(/【[^】]*】/g);
+  return m ? m.join('') : '';
+}
+
+// 麻薬加算リマインド：患者名（イベントタイトル）に㋮が入っていれば対象
+function hasNarcoticsMark_(title) {
+  return (title || '').indexOf('㋮') !== -1;
+}
+// 編集モーダルのチェックボックス操作 → 👌の直後（👌が無ければ先頭）に㋮を付け外し
+function setNarcoticsMarkInTitle_(hasMark) {
+  const titleEl = document.getElementById('modal-title');
+  const base = (titleEl.innerText || '').replace(/㋮/g, '').trim();
+  if (!hasMark) { titleEl.innerText = base; return; }
+  const m = base.match(/^👌\s*/);
+  const prefix = m ? m[0] : '';
+  titleEl.innerText = prefix + '㋮' + base.slice(prefix.length);
+}
+
+// タイトルを直接編集（手打ちで㋮を付け外し）→ チェックボックスの表示を追従させる
+function syncNarcoticsCheckboxFromTitle_() {
+  const cb = document.getElementById('edit-narcotics');
+  if (!cb) return;
+  cb.checked = hasNarcoticsMark_(document.getElementById('modal-title').innerText);
+}
+
+
+// サーバー側 NAME_VARIANTS（コード.js）と同一内容に保つこと
+const NAME_VARIANTS_JS = {
+  '栁':'柳','髙':'高','﨑':'崎','濵':'浜','濱':'浜','嶋':'島','嶌':'島',
+  '齋':'斎','齊':'斉','邉':'辺','邊':'辺','澤':'沢','瀨':'瀬','眞':'真',
+  '德':'徳','惠':'恵','國':'国','寳':'宝','舘':'館','桒':'桑','曻':'昇',
+};
+function normNameJs(s) {
+  const t = String(s || '').replace(/[\s　]/g, '');
+  return Array.from(t).map(ch => NAME_VARIANTS_JS[ch] || ch).join('');
+}
+
+function matchKeyJs(t) {
+  return normNameJs(cleanTitleJs(t).replace(/【[^】]*】/g, ''));
+}
+
+function startNextVisitPrefetch() {
+  _nextVisitMap = {};
+  _nextVisitMapReady = false;
+  _nextVisitMapDate = currentDateStr;
+  const items = currentEvents.map(e => ({ id: e.id, title: e.title }));
+  google.script.run
+    .withSuccessHandler(map => {
+      if (_nextVisitMapDate === currentDateStr) {
+        _nextVisitMap = map || {};
+        _nextVisitMapReady = true;
+      }
+    })
+    .withFailureHandler(() => { _nextVisitMapReady = true; })
+    .getNextVisitMapForDate(currentDateStr, items);
+}
+
+function _loadFromCache(dateStr) {
+  try {
+    const raw = localStorage.getItem('sched_v2_' + dateStr);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    render(data.schedule);
+    renderShiftPanel(data.shift);
+    if (!_scrolledToDefault) { _scrolledToDefault = true; scrollToDefaultTime(); }
+    return true;
+  } catch (e) { return false; }
+}
+
+function load() {
+  document.getElementById('status').textContent = '読み込み中…';
+  const hasCached = _loadFromCache(currentDateStr);
+  if (hasCached) {
+    // キャッシュ表示の患者リストで一括先読みをスケジュール本体の取得と並行して始める
+    startNextVisitPrefetch();
+  } else {
+    document.getElementById('shift-chips').innerHTML = '<span class="shift-msg">読み込み中…</span>';
+  }
+  google.script.run
+    .withSuccessHandler(data => {
+      lastLoadAt = Date.now();
+      render(data.schedule);
+      renderShiftPanel(data.shift);
+      if (!_scrolledToDefault) { _scrolledToDefault = true; scrollToDefaultTime(); }
+      if (!hasCached) startNextVisitPrefetch();
+      try { localStorage.setItem('sched_v2_' + currentDateStr, JSON.stringify(data)); } catch (e) {}
+    })
+    .withFailureHandler(e => {
+      document.getElementById('status').textContent = 'エラー: ' + e.message;
+    })
+    .getInitialData(currentDateStr);
+}
+
+function scrollToDefaultTime() {
+  const wrap = document.getElementById('grid-wrap');
+  if (!wrap) return;
+  const scrollTop = (9 - HOUR_START) * CELL_HEIGHT - 60;
+  wrap.scrollTop = Math.max(0, scrollTop);
+}
+
+function render(payload) {
+  lastPayload = payload;
+  pharmacists = payload.pharmacists || [];
+  allPharmacists = payload.allPharmacists || pharmacists;
+  currentEvents = payload.events || [];
+  const events = currentEvents;
+
+  // 色マップを組み直す（担当者はカレンダーのラベル、シフトパネルは旧色IDを使うため両方持つ）
+  COLOR_HEX = Object.assign({}, LEGACY_COLOR_HEX);
+  allPharmacists.forEach(p => { if (p.hex) COLOR_HEX[p.color] = p.hex; });
+  pharmacists.forEach(p => { if (p.hex) COLOR_HEX[p.color] = p.hex; });
+
+  // スマホ：ソロ表示中はその薬剤師の列だけに絞る
+  if (soloColor && isMobileView()) {
+    const filtered = pharmacists.filter(p => p.color === soloColor);
+    if (filtered.length) pharmacists = filtered;
+    else soloColor = null; // その日に居なければ解除
+  }
+  updateSoloButton();
+
+  isDryRun = !!payload.dryRun;
+  const banner = document.getElementById('dry-run-banner');
+  if (banner) banner.classList.toggle('show', isDryRun);
+  const reflectBtn = document.getElementById('reflect-btn');
+  if (reflectBtn) reflectBtn.style.display = isDryRun ? '' : 'none';
+  updateReflectBtn();
+
+  const grid = document.getElementById('grid');
+
+  const hasUnassigned = pharmacists.length > 0 && pharmacists[0].isUnassigned;
+  const otherCount = pharmacists.length - (hasUnassigned ? 1 : 0);
+  let template = '60px';
+  if (hasUnassigned) template += ' ' + UNASSIGNED_W + 'px';
+  if (otherCount > 0) template += ' repeat(' + otherCount + ', ' + PHARMACIST_W + ')';
+  if (pharmacists.length === 0) template += ' 1fr';
+  grid.style.gridTemplateColumns = template;
+  grid.innerHTML = '';
+
+  const corner = el('div', 'h corner');
+  corner.textContent = '時刻';
+  grid.appendChild(corner);
+
+  const eventCountByColor = {};
+  events.forEach(ev => {
+    eventCountByColor[ev.color] = (eventCountByColor[ev.color] || 0) + 1;
+  });
+
+  if (pharmacists.length === 0) {
+    const ph = el('div', 'h');
+    ph.textContent = '（該当日に予定なし）';
+    grid.appendChild(ph);
+  } else {
+    pharmacists.forEach(p => {
+      const h = el('div', 'h');
+      if (p.isUnassigned) h.classList.add('unassigned');
+      h.style.borderTop = '4px solid ' + (COLOR_HEX[p.color] || '#888');
+      const name = el('div', 'h-name');
+      name.dataset.color = p.color;
+      name.dataset.defaultName = p.name;
+      const customName = localStorage.getItem('pharmName_' + currentDateStr + '_' + p.color);
+      name.textContent = customName || p.name;
+      const cnt = eventCountByColor[p.color] || 0;
+      if (cnt > 0) {
+        const badge = el('span', 'h-count');
+        badge.textContent = cnt + '件';
+        name.appendChild(badge);
+      }
+      // スマホ：名前をダブルタップでその人だけ表示／もう一度で全員に戻す
+      let _hdrTap = 0;
+      name.addEventListener('touchend', te => {
+        if (!isMobileView() || p.isUnassigned) return;
+        const now = Date.now();
+        if (now - _hdrTap < 350) {
+          te.preventDefault();
+          soloColor = (soloColor === p.color) ? null : p.color;
+          render(lastPayload);
+          return;
+        }
+        _hdrTap = now;
+      }, { passive: false });
+      name.addEventListener('dblclick', e => {
+        if (isMobileView()) return; // スマホはダブルタップ＝ソロ表示に使うため名前編集はしない
+        e.stopPropagation();
+        const badge = name.querySelector('.h-count');
+        const savedText = name.childNodes[0] ? name.childNodes[0].textContent : '';
+        name.innerHTML = '';
+        name.contentEditable = 'true';
+        name.textContent = savedText;
+        name.focus();
+        const range = document.createRange();
+        range.selectNodeContents(name);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        const finish = () => {
+          name.contentEditable = 'false';
+          const newName = name.textContent.trim();
+          if (newName && newName !== p.name) {
+            localStorage.setItem('pharmName_' + currentDateStr + '_' + p.color, newName);
+          } else {
+            localStorage.removeItem('pharmName_' + currentDateStr + '_' + p.color);
+          }
+          name.textContent = newName || p.name;
+          if (cnt > 0) {
+            const b = el('span', 'h-count');
+            b.textContent = cnt + '件';
+            name.appendChild(b);
+          }
+        };
+        name.addEventListener('blur', finish, { once: true });
+        name.addEventListener('keydown', e2 => {
+          if (e2.key === 'Enter') { e2.preventDefault(); name.blur(); }
+          if (e2.key === 'Escape') { name.textContent = savedText; name.blur(); }
+        }, { once: true });
+      });
+      h.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        showCtxMenu(e.pageX, e.pageY, p);
+      });
+      h.appendChild(name);
+      grid.appendChild(h);
+    });
+  }
+
+  for (let h = HOUR_START; h < HOUR_END; h++) {
+    const t = el('div', 'time');
+    const tSpan = el('span'); tSpan.textContent = h + ':00';
+    t.appendChild(tSpan);
+    grid.appendChild(t);
+    if (pharmacists.length === 0) {
+      grid.appendChild(el('div', 'cell'));
+      continue;
+    }
+    pharmacists.forEach(p => {
+      const c = el('div', 'cell');
+      c.dataset.pharm = p.color;
+      c.dataset.hour = h;
+      attachDropTarget(c);
+      grid.appendChild(c);
+    });
+  }
+
+  // 短時間イベントのみ重複検出（長時間イベントは全幅で別配置）
+  const isLong = ev => (new Date(ev.end) - new Date(ev.start)) / 60000 > MAX_DISPLAY_MIN;
+  const shortEvs = events.filter(ev => !isLong(ev));
+  const longEvs  = events.filter(ev =>  isLong(ev));
+  const items = shortEvs.map(ev => ({
+    ev: ev,
+    key: ev.color,
+    start: new Date(ev.start).getTime(),
+    end: new Date(ev.end).getTime(),
+  }));
+  const overlapInfo = calcOverlapInfo(items);
+  items.forEach(it => {
+    const info = overlapInfo.get(it) || { index: 0, total: 1 };
+    placeEvent(it.ev, info.index, info.total);
+  });
+  longEvs.forEach(ev => placeEvent(ev, 0, 1));
+  document.getElementById('status').textContent = events.length + ' 件';
+
+  updateNowLine();
+}
+
+function placeEvent(ev, overlapIndex, overlapTotal) {
+  overlapIndex = overlapIndex || 0;
+  overlapTotal = overlapTotal || 1;
+
+  const start = new Date(ev.start);
+  const end = new Date(ev.end);
+  const sh = start.getHours();
+  if (sh < HOUR_START || sh >= HOUR_END) return;
+
+  const target = document.querySelector(
+    '.cell[data-pharm="' + ev.color + '"][data-hour="' + sh + '"]'
+  );
+  if (!target) return;
+
+  const durMin = (end - start) / 60000;
+  const displayMin = Math.min(durMin, MAX_DISPLAY_MIN);
+  const top = start.getMinutes() * PX_PER_MIN;
+  const height = Math.max(20, displayMin * PX_PER_MIN - 2);
+
+  const e = el('div', 'event');
+  e.draggable = true;
+  e.dataset.eventId = ev.id;
+  e.dataset.color = ev.color;
+  e.dataset.startIso = ev.start;
+  e.dataset.endIso = ev.end;
+  e.dataset.durationMin = durMin;
+  e.dataset.title = ev.title || '';
+  e.dataset.location = ev.location || '';
+  e.dataset.description = ev.description || '';
+  e.style.top = top + 'px';
+  e.style.height = height + 'px';
+  e.style.background = COLOR_HEX[ev.color] || '#888';
+  // 横位置（同時刻横並び）
+  const widthPct = 100 / overlapTotal;
+  const leftPct = overlapIndex * widthPct;
+  e.style.left = 'calc(' + leftPct + '% + 4px)';
+  e.style.width = 'calc(' + widthPct + '% - 8px)';
+  renderEventInner(e, ev.title, start, end, ev.location);
+
+  // ===== ドラッグ移動 =====
+  let dragHandled = false;
+  let _evLongTimer = null, _evLongSX = 0, _evLongSY = 0;
+  e.addEventListener('dragstart', de => {
+    dragHandled = true;
+    if (_evLongTimer) { clearTimeout(_evLongTimer); _evLongTimer = null; } // D&D開始＝長押し👌は中止
+    const eRect = e.getBoundingClientRect();
+    const dragOffsetY = de.clientY - eRect.top;
+    const payload = {
+      eventId: ev.id,
+      currentColor: e.dataset.color,
+      currentStartIso: e.dataset.startIso,
+      durationMin: parseFloat(e.dataset.durationMin),
+      title: e.dataset.title,
+      location: e.dataset.location,
+      dragOffsetY: dragOffsetY,
+    };
+    currentDragData = payload;
+    de.dataTransfer.setData('text/plain', JSON.stringify(payload));
+    de.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => e.classList.add('dragging'), 0);
+  });
+  e.addEventListener('dragend', () => {
+    e.classList.remove('dragging');
+    removeDropIndicator();
+    currentDragData = null;
+  });
+  e.addEventListener('mousedown', () => { dragHandled = false; });
+  e.addEventListener('click', ev => {
+    ev.stopPropagation();
+    if (_evTouched) { _evTouched = false; return; } // タッチ由来の合成クリックは無視
+    if (wasResizing) return;
+    if (!dragHandled) openModal(getEventDataFromEl(e));
+  });
+  // 右クリックで新規イベント作成（タッチ長押し由来のcontextmenuは無視）
+  e.addEventListener('contextmenu', cm => {
+    cm.preventDefault();
+    cm.stopPropagation();
+    if (_touchSt) return;
+    const cell = e.closest('.cell');
+    if (!cell) return;
+    const rect = cell.getBoundingClientRect();
+    let rawMin = Math.round((cm.clientY - rect.top) / PX_PER_MIN / SNAP_MIN) * SNAP_MIN;
+    if (rawMin < 0) rawMin = 0;
+    if (rawMin >= 60) rawMin = 60 - SNAP_MIN;
+    openAddModal(cell.dataset.pharm, parseInt(cell.dataset.hour, 10), rawMin);
+  });
+
+  // マウス長押し（400ms）で次回確認
+  e.addEventListener('mousedown', md => {
+    if (md.button !== 0) return;
+    _evLongSX = md.clientX; _evLongSY = md.clientY;
+    _evLongTimer = setTimeout(() => { _evLongTimer = null; dragHandled = true; openConfirmNextVisit(e); }, 400);
+  });
+  e.addEventListener('mousemove', mm => {
+    if (!_evLongTimer) return;
+    if (Math.abs(mm.clientX - _evLongSX) > 8 || Math.abs(mm.clientY - _evLongSY) > 8) {
+      clearTimeout(_evLongTimer); _evLongTimer = null;
+    }
+  });
+  e.addEventListener('mouseup', () => { if (_evLongTimer) { clearTimeout(_evLongTimer); _evLongTimer = null; } });
+  e.addEventListener('mouseleave', () => { if (_evLongTimer) { clearTimeout(_evLongTimer); _evLongTimer = null; } });
+
+  // タッチD&D（イベント上のタッチはセルに伝播させない＝セルの新規追加を起こさない）
+  e.addEventListener('touchstart', ts => { ts.stopPropagation(); _evTouched = true; _touchStart(ts, e, ev); }, { passive: true });
+
+  // ===== リサイズハンドル =====
+  const handle = el('div', 'event-resize');
+  handle.addEventListener('mousedown', md => {
+    md.preventDefault();
+    md.stopPropagation();
+    wasResizing = true;
+    e.draggable = false;
+    e.classList.add('resizing');
+
+    const startY = md.clientY;
+    const startHeight = e.offsetHeight;
+    const evStart = new Date(e.dataset.startIso);
+
+    const onMove = mm => {
+      const dy = mm.clientY - startY;
+      let totalMin = (startHeight + dy) / PX_PER_MIN;
+      totalMin = Math.max(SNAP_MIN, Math.round(totalMin / SNAP_MIN) * SNAP_MIN);
+      const newHeight = totalMin * PX_PER_MIN - 2;
+      e.style.height = Math.max(20, newHeight) + 'px';
+      const newEnd = new Date(evStart.getTime() + totalMin * 60000);
+      const t = e.querySelector('.event-time');
+      if (t) t.textContent = fmt(evStart) + '〜' + fmt(newEnd);
+    };
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      e.draggable = true;
+      e.classList.remove('resizing');
+      setTimeout(() => { wasResizing = false; }, 50);
+
+      const finalMin = Math.max(SNAP_MIN, Math.round(((parseFloat(e.style.height) + 2) / PX_PER_MIN) / SNAP_MIN) * SNAP_MIN);
+      const oldEnd = new Date(e.dataset.endIso);
+      const newEnd = new Date(evStart.getTime() + finalMin * 60000);
+      if (newEnd.getTime() === oldEnd.getTime()) return;
+
+      // Undo用
+      pushUndo({
+        type: 'event',
+        eventId: ev.id,
+        beforeColor: null,
+        beforeStart: evStart.toISOString(),
+        beforeEnd: oldEnd.toISOString(),
+        dateForUndo: currentDateStr,
+      });
+
+      e.dataset.endIso = newEnd.toISOString();
+      e.dataset.durationMin = finalMin;
+      const resizeEvData = currentEvents.find(ev2 => ev2.id === ev.id);
+      if (resizeEvData) resizeEvData.end = newEnd.toISOString();
+      recomputeOverlaps();
+      renderEventInner(e, e.dataset.title, evStart, newEnd, e.dataset.location);
+      e.classList.add('pending');
+      document.getElementById('status').textContent = '保存中…';
+      gasMutate('moveEvent', [ev.id, null, null, newEnd.toISOString(), currentDateStr],
+        () => { e.classList.remove('pending'); document.getElementById('status').textContent = '保存済み'; },
+        err => { document.getElementById('status').textContent = 'エラー: ' + err.message; load(); }
+      );
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // タッチリサイズ
+  handle.addEventListener('touchstart', ts => {
+    ts.stopPropagation();
+    if (_touchSt) { clearTimeout(_touchSt.longTimer); _touchSt = null; }
+    const touch = ts.touches[0];
+    const startY = touch.clientY;
+    const startHeight = e.offsetHeight;
+    const evStart = new Date(e.dataset.startIso);
+    let resizeReady = false, resizeStarted = false;
+    const cleanupResize = () => {
+      clearTimeout(resizeReadyTimer);
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+      if (!resizeStarted) e.classList.remove('resizing');
+    };
+    // 400ms長押しでリサイズ準備完了
+    const resizeReadyTimer = setTimeout(() => {
+      resizeReady = true;
+      e.classList.add('resizing');
+    }, 400);
+    const onTouchMove = tm => {
+      const t = tm.touches[0];
+      const dy = t.clientY - startY;
+      if (!resizeReady) {
+        if (Math.abs(dy) > 8) cleanupResize(); // 長押し前に動いた → スクロール
+        return;
+      }
+      if (!resizeStarted) { resizeStarted = true; e.draggable = false; }
+      tm.preventDefault();
+      let totalMin = (startHeight + dy) / PX_PER_MIN;
+      totalMin = Math.max(SNAP_MIN, Math.round(totalMin / SNAP_MIN) * SNAP_MIN);
+      e.style.height = Math.max(20, totalMin * PX_PER_MIN - 2) + 'px';
+      const newEnd = new Date(evStart.getTime() + totalMin * 60000);
+      const tEl = e.querySelector('.event-time');
+      if (tEl) tEl.textContent = fmt(evStart) + '〜' + fmt(newEnd);
+    };
+    const onTouchEnd = () => {
+      cleanupResize();
+      if (!resizeStarted) return;
+      e.draggable = true;
+      e.classList.remove('resizing');
+      const finalMin = Math.max(SNAP_MIN, Math.round(((parseFloat(e.style.height) + 2) / PX_PER_MIN) / SNAP_MIN) * SNAP_MIN);
+      const oldEnd = new Date(e.dataset.endIso);
+      const newEnd = new Date(evStart.getTime() + finalMin * 60000);
+      if (newEnd.getTime() === oldEnd.getTime()) return;
+      pushUndo({
+        type: 'event', eventId: ev.id,
+        beforeColor: null,
+        beforeStart: evStart.toISOString(),
+        beforeEnd: oldEnd.toISOString(),
+        dateForUndo: currentDateStr,
+      });
+      e.dataset.endIso = newEnd.toISOString();
+      e.dataset.durationMin = finalMin;
+      const touchResizeEvData = currentEvents.find(ev2 => ev2.id === ev.id);
+      if (touchResizeEvData) touchResizeEvData.end = newEnd.toISOString();
+      recomputeOverlaps();
+      renderEventInner(e, e.dataset.title, evStart, newEnd, e.dataset.location);
+      e.classList.add('pending');
+      document.getElementById('status').textContent = '保存中…';
+      gasMutate('moveEvent', [ev.id, null, null, newEnd.toISOString(), currentDateStr],
+        () => { e.classList.remove('pending'); document.getElementById('status').textContent = '保存済み'; },
+        err => { document.getElementById('status').textContent = 'エラー: ' + err.message; load(); }
+      );
+    };
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+  }, { passive: true });
+
+  e.appendChild(handle);
+
+  target.appendChild(e);
+}
+
+function getEventDataFromEl(el) {
+  return {
+    id: el.dataset.eventId,
+    title: el.dataset.title || '',
+    location: el.dataset.location || '',
+    description: el.dataset.description || '',
+    start: el.dataset.startIso,
+    end: el.dataset.endIso,
+    color: el.dataset.color,
+  };
+}
+
+function abbreviateAddress(addr) {
+  if (!addr) return '';
+  const normalized = addr
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[－ー]/g, '-');
+  const m = normalized.match(/.*(?:区|市)([^\d]*\d+)/);
+  return m ? m[1] : '';
+}
+
+function renderEventInner(e, title, start, end, location) {
+  const handle = e.querySelector('.event-resize');
+  const addr = abbreviateAddress(location);
+  e.innerHTML =
+    '<div class="event-title">' + esc(title) + '</div>' +
+    (addr ? '<span class="event-addr">' + esc(addr) + '</span>' : '') +
+    '<div class="event-time">' + fmt(start) + '〜' + fmt(end) + '</div>';
+  if (handle) e.appendChild(handle);
+}
+
+function computeDropTarget(cell, clientY, dragOffsetY) {
+  let targetHour = parseInt(cell.dataset.hour, 10);
+  const targetColor = cell.dataset.pharm;
+  const rect = cell.getBoundingClientRect();
+  const eventTopRelativeToCell = (clientY - rect.top) - (dragOffsetY || 0);
+  let minute = eventTopRelativeToCell / PX_PER_MIN;
+
+  while (minute < 0) { targetHour--; minute += 60; }
+  while (minute >= 60) { targetHour++; minute -= 60; }
+
+  minute = Math.round(minute / SNAP_MIN) * SNAP_MIN;
+  if (minute >= 60) { minute -= 60; targetHour++; }
+
+  if (targetHour < HOUR_START) { targetHour = HOUR_START; minute = 0; }
+  if (targetHour >= HOUR_END) { targetHour = HOUR_END - 1; minute = 60 - SNAP_MIN; }
+
+  return { targetColor: targetColor, targetHour: targetHour, minute: minute };
+}
+
+function showDropIndicator(cell, de) {
+  const data = currentDragData;
+  if (!data) return;
+  const t = computeDropTarget(cell, de.clientY, data.dragOffsetY);
+  const targetCell = document.querySelector(
+    '.cell[data-pharm="' + cssEsc(t.targetColor) + '"][data-hour="' + t.targetHour + '"]'
+  );
+  if (!targetCell) return;
+
+  if (!dropIndicator) dropIndicator = el('div', 'drop-indicator');
+  if (dropIndicator.parentElement !== targetCell) targetCell.appendChild(dropIndicator);
+
+  const top = t.minute * PX_PER_MIN;
+  const height = Math.max(20, data.durationMin * PX_PER_MIN - 2);
+  dropIndicator.style.top = top + 'px';
+  dropIndicator.style.height = height + 'px';
+  dropIndicator.style.background = COLOR_HEX[t.targetColor] || '#888';
+}
+
+function removeDropIndicator() {
+  if (dropIndicator) {
+    dropIndicator.remove();
+    dropIndicator = null;
+  }
+}
+
+function attachDropTarget(cell) {
+  // タッチ：長押し（400ms）で追加モーダルを開く
+  let _cellTimer = null, _cellTouchSX = 0, _cellTouchSY = 0, _cellAddData = null;
+  cell.addEventListener('touchstart', ts => {
+    if (ts.touches.length !== 1) return;
+    if (_touchSt) return;
+    if (ts.target.closest('.event')) return;
+    _evTouched = false; // 空セルを直接タッチ＝前回のイベント操作の残りをクリア
+    const touch = ts.touches[0];
+    _cellTouchSX = touch.clientX; _cellTouchSY = touch.clientY;
+    const rect = cell.getBoundingClientRect();
+    const relY = touch.clientY - rect.top;
+    let rawMin = Math.round(relY / PX_PER_MIN / SNAP_MIN) * SNAP_MIN;
+    if (rawMin < 0) rawMin = 0;
+    if (rawMin >= 60) rawMin = 60 - SNAP_MIN;
+    _cellAddData = { color: cell.dataset.pharm, hour: parseInt(cell.dataset.hour, 10), min: rawMin };
+    _cellTimer = setTimeout(() => {
+      _cellTimer = null;
+      if (_touchSt || _evTouched) return; // イベント上のタッチが進行中なら新規追加しない
+      openAddModal(_cellAddData.color, _cellAddData.hour, _cellAddData.min);
+    }, 400);
+  }, { passive: true });
+  cell.addEventListener('touchmove', tm => {
+    if (!_cellTimer) return;
+    const t = tm.touches[0];
+    if (Math.abs(t.clientX - _cellTouchSX) > 8 || Math.abs(t.clientY - _cellTouchSY) > 8) {
+      clearTimeout(_cellTimer); _cellTimer = null;
+    }
+  }, { passive: true });
+  cell.addEventListener('touchend', () => { if (_cellTimer) { clearTimeout(_cellTimer); _cellTimer = null; } });
+  // 右クリックで新規イベント作成
+  cell.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    const rect = cell.getBoundingClientRect();
+    let rawMin = Math.round((e.clientY - rect.top) / PX_PER_MIN / SNAP_MIN) * SNAP_MIN;
+    if (rawMin < 0) rawMin = 0;
+    if (rawMin >= 60) rawMin = 60 - SNAP_MIN;
+    openAddModal(cell.dataset.pharm, parseInt(cell.dataset.hour, 10), rawMin);
+  });
+  cell.addEventListener('dragover', de => {
+    de.preventDefault();
+    de.dataTransfer.dropEffect = 'move';
+    showDropIndicator(cell, de);
+  });
+  cell.addEventListener('drop', de => {
+    de.preventDefault();
+    removeDropIndicator();
+    let data;
+    try { data = JSON.parse(de.dataTransfer.getData('text/plain')); }
+    catch (err) { return; }
+
+    const t = computeDropTarget(cell, de.clientY, data.dragOffsetY);
+    const targetColor = t.targetColor;
+    const targetHour = t.targetHour;
+    const minute = t.minute;
+
+    const newStart = new Date(currentDateStr);
+    newStart.setHours(targetHour, minute, 0, 0);
+    const newStartIso = newStart.toISOString();
+
+    if (data.currentColor === targetColor && data.currentStartIso === newStartIso) return;
+
+    const newEnd = new Date(newStart.getTime() + data.durationMin * 60000);
+
+    // ローカルデータを更新
+    const evData = currentEvents.find(e => e.id === data.eventId);
+    const prevColor = evData ? evData.color : data.currentColor;
+    const prevStart = evData ? evData.start : data.currentStartIso;
+    const prevEnd = evData ? evData.end : new Date(new Date(data.currentStartIso).getTime() + data.durationMin * 60000).toISOString();
+    if (evData) { evData.color = targetColor; evData.start = newStartIso; evData.end = newEnd.toISOString(); }
+
+    // 担当変更を伴う場合はローカル再描画（列の追加・削除）
+    if (data.currentColor !== targetColor) {
+      rerenderLocal();
+    } else {
+      const draggedEl = document.querySelector('.event[data-event-id="' + cssEsc(data.eventId) + '"]');
+      if (draggedEl) {
+        draggedEl.style.top = (minute * PX_PER_MIN) + 'px';
+        draggedEl.dataset.startIso = newStartIso;
+        draggedEl.dataset.endIso = newEnd.toISOString();
+        renderEventInner(draggedEl, data.title, newStart, newEnd, data.location);
+        draggedEl.classList.add('pending');
+        const newCell = document.querySelector(
+          '.cell[data-pharm="' + cssEsc(targetColor) + '"][data-hour="' + targetHour + '"]'
+        );
+        if (newCell) newCell.appendChild(draggedEl);
+        recomputeOverlaps();
+      }
+    }
+
+    // Undo用
+    const oldDuration = data.durationMin * 60000;
+    const oldStartTime = new Date(data.currentStartIso);
+    const oldEndIso = new Date(oldStartTime.getTime() + oldDuration).toISOString();
+    pushUndo({
+      type: 'event',
+      eventId: data.eventId,
+      beforeColor: data.currentColor,
+      beforeStart: data.currentStartIso,
+      beforeEnd: oldEndIso,
+      dateForUndo: currentDateStr,
+    });
+
+    document.getElementById('status').textContent = '保存中…';
+    gasMutate('moveEvent', [data.eventId, targetColor, newStartIso, null, currentDateStr],
+      () => {
+        document.getElementById('status').textContent = '保存済み';
+        const el2 = document.querySelector('.event[data-event-id="' + cssEsc(data.eventId) + '"]');
+        if (el2) el2.classList.remove('pending');
+      },
+      err => {
+        document.getElementById('status').textContent = 'エラー: ' + err.message;
+        if (evData) { evData.color = prevColor; evData.start = prevStart; evData.end = prevEnd; }
+        rerenderLocal();
+      }
+    );
+  });
+}
+
+function cssEsc(s) {
+  return (s || '').replace(/(["\\])/g, '\\$1');
+}
+
+// 時間帯がオーバーラップするイベントをクラスタリング → 各イベントの (col, totalCols) を返す
+// items: [{ key, start(ms), end(ms) }, ...] / key=カラム識別子（色）
+// 戻り値: Map(item -> { index, total })
+function calcOverlapInfo(items) {
+  const byKey = {};
+  items.forEach(it => {
+    if (!byKey[it.key]) byKey[it.key] = [];
+    byKey[it.key].push(it);
+  });
+  const info = new Map();
+  Object.values(byKey).forEach(list => {
+    list.sort((a, b) => a.start - b.start);
+    let cluster = [];
+    let clusterEnd = 0;
+    const finalize = () => {
+      if (!cluster.length) return;
+      const columns = []; // 各コラムが「次に空く時刻」
+      cluster.forEach(it => {
+        let placed = false;
+        for (let i = 0; i < columns.length; i++) {
+          if (it.start >= columns[i]) {
+            columns[i] = it.end;
+            it._col = i;
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) { it._col = columns.length; columns.push(it.end); }
+      });
+      const total = columns.length;
+      cluster.forEach(it => {
+        info.set(it, { index: it._col, total: total });
+        delete it._col;
+      });
+    };
+    list.forEach(it => {
+      if (!cluster.length || it.start >= clusterEnd) {
+        finalize();
+        cluster = [it];
+        clusterEnd = it.end;
+      } else {
+        cluster.push(it);
+        clusterEnd = Math.max(clusterEnd, it.end);
+      }
+    });
+    finalize();
+  });
+  return info;
+}
+
+// 現在画面のDOMから重複情報を再計算して left/width を更新
+function recomputeOverlaps() {
+  const allEls = Array.from(document.querySelectorAll('.event'));
+  const shortEls = allEls.filter(el => parseFloat(el.dataset.durationMin) <= MAX_DISPLAY_MIN);
+  const longEls  = allEls.filter(el => parseFloat(el.dataset.durationMin) >  MAX_DISPLAY_MIN);
+  const items = shortEls.map(el => ({
+    el: el,
+    key: el.dataset.color,
+    start: new Date(el.dataset.startIso).getTime(),
+    end: new Date(el.dataset.endIso).getTime(),
+  }));
+  const info = calcOverlapInfo(items);
+  items.forEach(it => {
+    const i = info.get(it) || { index: 0, total: 1 };
+    const widthPct = 100 / i.total;
+    const leftPct = i.index * widthPct;
+    it.el.style.left = 'calc(' + leftPct + '% + 4px)';
+    it.el.style.width = 'calc(' + widthPct + '% - 8px)';
+  });
+  longEls.forEach(el => {
+    el.style.left = 'calc(0% + 4px)';
+    el.style.width = 'calc(100% - 8px)';
+  });
+}
+
+function openModal(ev) {
+  modalEditingEv = ev;
+  const start = new Date(ev.start);
+  const end = new Date(ev.end);
+  const pharm = pharmacists.find(p => p.color === ev.color);
+
+  document.getElementById('modal-color').style.background = COLOR_HEX[ev.color] || '#888';
+  const modalTitleEl = document.getElementById('modal-title');
+  modalTitleEl.textContent = ev.title || '(無題)';
+  modalTitleEl.contentEditable = 'true';
+
+  const body = document.getElementById('modal-body');
+  body.innerHTML = '';
+
+  // 日付＋時間（同一行）
+  let editDateVal = ymd(start);
+  const dRow = el('div', 'field-row'); dRow.style.flexWrap = 'wrap'; dRow.style.alignItems = 'flex-start'; dRow.style.gap = '6px';
+  const dLbl = el('label'); dLbl.textContent = '日付'; dLbl.style.paddingTop = '8px';
+  const dBtn = el('button');
+  dBtn.type = 'button';
+  dBtn.style.cssText = 'text-align:left;padding:7px 10px;border:1px solid #dadce0;border-radius:4px;font-size:14px;background:#fff;cursor:pointer;color:#202124;white-space:nowrap;';
+  dBtn.textContent = formatDateJa(editDateVal);
+  const dHid = el('input'); dHid.type = 'hidden'; dHid.id = 'edit-date'; dHid.value = editDateVal;
+  const dCalDiv = el('div'); dCalDiv.style.cssText = 'width:100%;flex-basis:100%;';
+  let editCalShown = false;
+  dBtn.onclick = () => {
+    editCalShown = !editCalShown;
+    if (editCalShown) {
+      const d = new Date(editDateVal + 'T00:00:00');
+      renderCalendarPickerInto(dCalDiv, new Date(d.getFullYear(), d.getMonth(), 1), editDateVal, nd => {
+        editDateVal = nd; dHid.value = nd;
+        dBtn.textContent = formatDateJa(nd);
+        dCalDiv.innerHTML = ''; editCalShown = false;
+      });
+    } else {
+      dCalDiv.innerHTML = '';
+    }
+  };
+  const makeTimeSel = (id, d) => {
+    const sel = el('select'); sel.id = id; sel.style.flex = '0 0 auto';
+    const snapped = snapTime15(timeFmt(d));
+    for (let h = 5; h <= 22; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        const val = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+        const opt = document.createElement('option');
+        opt.value = val; opt.textContent = val;
+        if (val === snapped) opt.selected = true;
+        sel.appendChild(opt);
+      }
+    }
+    return sel;
+  };
+  const tmLbl = el('label'); tmLbl.textContent = '時間'; tmLbl.style.cssText = 'width:auto;flex-shrink:0;';
+  const stSel = makeTimeSel('edit-start-time', start);
+  const tmSep = el('span', 'field-sep'); tmSep.textContent = '〜';
+  const etSel = makeTimeSel('edit-end-time', end);
+  const tmGroup = el('div'); tmGroup.style.cssText = 'display:flex;align-items:center;gap:6px;margin-left:12px;';
+  tmGroup.appendChild(tmLbl); tmGroup.appendChild(stSel); tmGroup.appendChild(tmSep); tmGroup.appendChild(etSel);
+  dRow.appendChild(dLbl); dRow.appendChild(dBtn); dRow.appendChild(dHid);
+  dRow.appendChild(tmGroup);
+  dRow.appendChild(dCalDiv);
+  body.appendChild(dRow);
+
+  // 担当（色ドット付きカスタムドロップダウン）
+  const pharmRow = el('div', 'field-row');
+  const pharmLbl = el('label'); pharmLbl.textContent = '担当';
+  const pharmWrap = el('div'); pharmWrap.style.cssText = 'flex:1;position:relative;';
+  const pharmHid = el('input'); pharmHid.type = 'hidden'; pharmHid.id = 'edit-pharm'; pharmHid.value = ev.color;
+  const pharmBtn = el('button'); pharmBtn.type = 'button';
+  pharmBtn.style.cssText = 'width:100%;display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #dadce0;border-radius:4px;font-size:14px;background:#fff;cursor:pointer;color:#202124;';
+  // 見た目はCSSの .pharm-menu 側で決めている（列数の調整はそちら）
+  const pharmMenu = el('div', 'pharm-menu');
+  const makePharmDot = color => { const d = el('span'); d.style.cssText = 'width:12px;height:12px;border-radius:50%;flex-shrink:0;background:' + (COLOR_HEX[color] || '#888') + ';'; return d; };
+  const updatePharmBtn = (color, name) => {
+    pharmBtn.innerHTML = ''; pharmHid.value = color;
+    pharmBtn.appendChild(makePharmDot(color));
+    const lbl = el('span'); lbl.textContent = name; pharmBtn.appendChild(lbl);
+  };
+  const curP = allPharmacists.find(p => p.color === ev.color);
+  updatePharmBtn(ev.color, curP ? curP.name : ev.color);
+  allPharmacists.filter(p => !p.isUnassigned).forEach(p => {
+    // 色付けはCSSの :hover に任せる（JSだとマウスを速く動かしたとき色が残る）
+    const opt = el('button', 'pharm-opt'); opt.type = 'button';
+    if (p.color === ev.color) opt.classList.add('is-current');
+    opt.appendChild(makePharmDot(p.color));
+    const nm = el('span'); nm.textContent = p.name; opt.appendChild(nm);
+    opt.addEventListener('click', e => { e.stopPropagation(); updatePharmBtn(p.color, p.name); pharmMenu.classList.remove('open'); });
+    pharmMenu.appendChild(opt);
+  });
+  pharmBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const opened = pharmMenu.classList.toggle('open');
+    // 下にはみ出していたらモーダルを少しスクロールして全部見せる
+    if (opened) setTimeout(() => pharmMenu.scrollIntoView({ block: 'nearest' }), 0);
+  });
+  document.addEventListener('click', () => { pharmMenu.classList.remove('open'); });
+  pharmWrap.appendChild(pharmHid); pharmWrap.appendChild(pharmBtn); pharmWrap.appendChild(pharmMenu);
+  pharmRow.appendChild(pharmLbl); pharmRow.appendChild(pharmWrap);
+  body.appendChild(pharmRow);
+
+// 麻薬管理対象チェック（ON/OFFでタイトル末尾の㋮を自動付け外し。タイトルを手打ちで直しても追従する）
+const narcRow = el('div'); narcRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:18px;padding:8px 10px;background:#f8f9fa;border-radius:6px;cursor:pointer;';
+const narcCb = el('input'); narcCb.type = 'checkbox'; narcCb.id = 'edit-narcotics';
+narcCb.style.cssText = 'width:17px;height:17px;flex-shrink:0;';
+narcCb.checked = hasNarcoticsMark_(ev.title);
+narcCb.addEventListener('change', () => setNarcoticsMarkInTitle_(narcCb.checked));
+const narcText = el('span', 'narc-text');
+narcText.textContent = '麻薬加算対象';
+const narcLabel = el('label'); narcLabel.style.cssText = 'display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;';
+narcLabel.appendChild(narcCb); narcLabel.appendChild(narcText);
+narcRow.appendChild(narcLabel);
+body.appendChild(narcRow);
+
+  // 住所（読み取り専用・太字で強調）
+  if (ev.location) {
+    const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(ev.location);
+    const locRow = el('div', 'field-row'); locRow.style.alignItems = 'center';
+    const locLbl = el('label'); locLbl.textContent = '住所';
+    const locDiv = el('div'); locDiv.style.cssText = 'flex:1;font-weight:700;font-size:15px;';
+    locDiv.innerHTML = '📍 <a href="' + mapsUrl + '" target="_blank" rel="noopener" style="font-weight:700;">' + esc(ev.location) + '</a>';
+    locRow.appendChild(locLbl); locRow.appendChild(locDiv);
+    body.appendChild(locRow);
+  }
+
+  // メモのHTML書式をプレーンテキストに整形（表示・電話検出用）
+  const plainDesc = htmlToPlain(ev.description || '');
+  _memoPlainBaseline = plainDesc;
+
+  // メモ内の電話番号をタップ発信リンクに（住所の直下・複数対応・重複除外）
+  const phoneSeen = new Set();
+  const phoneList = [];
+  plainDesc.replace(/0\d{1,4}[-‐ー－( ]?\d{1,4}[-‐ー－) ]?\d{3,4}/g, m => {
+    const digits = m.replace(/[^\d]/g, '');
+    if (digits.length >= 10 && digits.length <= 11 && !phoneSeen.has(digits)) {
+      phoneSeen.add(digits);
+      phoneList.push({ disp: m.trim(), digits });
+    }
+    return m;
+  });
+  if (phoneList.length) {
+    const telRow = el('div', 'field-row'); telRow.style.alignItems = 'flex-start';
+    const telLbl = el('label'); telLbl.textContent = '電話'; telLbl.style.paddingTop = '4px';
+    const telDiv = el('div'); telDiv.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:8px;';
+    phoneList.forEach(p => {
+      const a = el('a'); a.href = 'tel:' + p.digits;
+      a.innerHTML = '📞 ' + esc(p.disp);
+      a.style.cssText = 'font-size:16px;color:#1a73e8;text-decoration:none;padding:6px 0;';
+      telDiv.appendChild(a);
+    });
+    telRow.appendChild(telLbl); telRow.appendChild(telDiv);
+    body.appendChild(telRow);
+  }
+
+  // メモ
+  const mRow = el('div', 'field-row'); mRow.style.alignItems = 'flex-start';
+  const mLbl = el('label'); mLbl.textContent = 'メモ'; mLbl.style.paddingTop = '8px';
+  const mTa = el('textarea'); mTa.id = 'edit-memo';
+  mTa.value = plainDesc;
+  const autoGrowMemo = () => { mTa.style.height = 'auto'; mTa.style.height = mTa.scrollHeight + 'px'; };
+  mTa.addEventListener('input', autoGrowMemo);
+  mRow.appendChild(mLbl); mRow.appendChild(mTa);
+  body.appendChild(mRow);
+
+  // アクション
+  const acts = el('div', 'modal-actions'); acts.style.justifyContent = 'space-between';
+  const delBtn = el('button');
+  delBtn.textContent = '🗑 このイベントを削除';
+  delBtn.style.cssText = 'padding:8px 16px;border:1px solid #d93025;border-radius:4px;background:#fff;color:#d93025;cursor:pointer;font-size:14px;';
+  delBtn.onclick = () => { closeModal(); showDeleteConfirmDialog(ev); };
+  const rightBtns = el('div'); rightBtns.style.cssText = 'display:flex;gap:8px;';
+  const cancelBtn = el('button'); cancelBtn.textContent = 'キャンセル'; cancelBtn.onclick = closeModal;
+  const saveBtn = el('button'); saveBtn.className = 'primary'; saveBtn.textContent = '保存';
+  saveBtn.onclick = saveModalEdits;
+  rightBtns.appendChild(cancelBtn); rightBtns.appendChild(saveBtn);
+  acts.appendChild(delBtn); acts.appendChild(rightBtns);
+  body.appendChild(acts);
+
+  document.getElementById('modal').classList.add('show');
+  setTimeout(() => { autoGrowMemo(); }, 50);
+}
+
+function timeFmt(d) {
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+  const titleEl = document.getElementById('modal-title');
+  if (titleEl) titleEl.contentEditable = 'false';
+  modalEditingEv = null;
+  if (_resetModalDrag) _resetModalDrag();
+}
+function closeModalIfBg(e) { if (e.target.id === 'modal') closeModal(); }
+
+function saveModalEdits() {
+  if (!modalEditingEv) return;
+  const ev = modalEditingEv;
+  const newTitle = (document.getElementById('modal-title').innerText || '').trim();
+  const newDate = document.getElementById('edit-date').value;
+  const newStartTime = snapTime15(document.getElementById('edit-start-time').value);
+  const newEndTime = snapTime15(document.getElementById('edit-end-time').value);
+  const newMemo = document.getElementById('edit-memo').value;
+
+  const params = {};
+  if (newTitle && newTitle !== ev.title) params.title = newTitle;
+
+  const newStartIso = new Date(newDate + 'T' + newStartTime + ':00').toISOString();
+  const newEndIso = new Date(newDate + 'T' + newEndTime + ':00').toISOString();
+  if (newStartIso !== ev.start || newEndIso !== ev.end) {
+    params.startIso = newStartIso;
+    params.endIso = newEndIso;
+  }
+
+  // メモを触っていなければ（整形後テキストと一致）元のHTMLを保持。書き換えた時だけプレーンで保存
+  const memoChanged = newMemo !== _memoPlainBaseline;
+  if (memoChanged) params.memo = newMemo;
+
+  const pharmSel = document.getElementById('edit-pharm');
+  const newColor = pharmSel ? pharmSel.value : ev.color;
+  if (newColor !== ev.color) params.color = newColor;
+
+  if (Object.keys(params).length === 0) { closeModal(); return; }
+
+  closeModal();
+
+  if (memoChanged) {
+    showMemoScopeDialog(ev, params);
+  } else {
+    applyEventEdits(ev, params, false);
+  }
+}
+
+function showMemoScopeDialog(ev, params) {
+  const body = document.getElementById('confirm-modal-body');
+  body.innerHTML = '';
+  document.querySelector('#confirm-modal .modal-title').textContent = 'メモの反映範囲';
+
+  const msg = el('div');
+  msg.style.cssText = 'font-size:15px;color:#202124;margin-bottom:16px;';
+  msg.textContent = 'メモの変更をどこまで反映しますか？';
+  body.appendChild(msg);
+
+  const opts = el('div');
+  opts.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+
+  const makeOpt = (label, onClick) => {
+    const b = el('button');
+    b.style.cssText = 'padding:10px 16px;border:1px solid #dadce0;border-radius:4px;background:#fff;color:#202124;cursor:pointer;font-size:14px;text-align:left;';
+    b.textContent = label;
+    b.onclick = onClick;
+    return b;
+  };
+
+  opts.appendChild(makeOpt('この日のみ変更', () => {
+    closeConfirmModal();
+    applyEventEdits(ev, params, false);
+  }));
+  opts.appendChild(makeOpt('以降すべての繰り返しに反映', () => {
+    closeConfirmModal();
+    applyEventEdits(ev, params, true);
+  }));
+  opts.appendChild(makeOpt('メモは変更しない', () => {
+    closeConfirmModal();
+    const p2 = Object.assign({}, params);
+    delete p2.memo;
+    if (Object.keys(p2).length > 0) applyEventEdits(ev, p2, false);
+  }));
+
+  body.appendChild(opts);
+  document.getElementById('confirm-modal').classList.add('show');
+}
+
+function applyEventEdits(ev, params, memoFuture) {
+  const findDate = params.startIso ? ymd(new Date(params.startIso)) : currentDateStr;
+  pushUndo({
+    type: 'eventUpdate',
+    eventId: ev.id,
+    findDate: findDate,
+    params: {
+      title: ev.title,
+      startIso: ev.start,
+      endIso: ev.end,
+      memo: ev.description || '',
+      color: ev.color,
+    },
+  });
+
+  const localEv = currentEvents.find(e => e.id === ev.id);
+  if (localEv) {
+    if (params.title !== undefined) localEv.title = params.title;
+    if (params.color) localEv.color = params.color;
+    if (params.startIso) { localEv.start = params.startIso; localEv.end = params.endIso; }
+    if (params.memo !== undefined) localEv.description = params.memo;
+    if (params.startIso && ymd(new Date(params.startIso)) !== currentDateStr) {
+      const idx = currentEvents.findIndex(e => e.id === ev.id);
+      if (idx !== -1) currentEvents.splice(idx, 1);
+    }
+  }
+  rerenderLocal();
+
+  document.getElementById('status').textContent = '保存中…';
+  gasMutate('updateEventFull', [ev.id, currentDateStr, params, memoFuture],
+    () => { document.getElementById('status').textContent = '保存済み'; },
+    err => { document.getElementById('status').textContent = 'エラー: ' + err.message; load(); }
+  );
+}
+
+// ===== 仮担当（一時機能：期間終了後はこの関数群とツールバーの#karitanto-btn、
+// モーダルの#karitanto-modalを削除すればよい）=====
+function pharmacistNameForColor_(color) {
+  const custom = localStorage.getItem('pharmName_' + currentDateStr + '_' + color);
+  if (custom) return custom;
+  const p = allPharmacists.find(x => x.color === color);
+  return p ? p.name : '';
+}
+
+function isUnassignedColor_(color) {
+  const p = allPharmacists.find(x => x.color === color);
+  return !p || !!p.isUnassigned;
+}
+
+function openKaritantoModal() {
+  const dateLabel = currentDateStr
+    ? (new Date(currentDateStr).getMonth() + 1) + '/' + new Date(currentDateStr).getDate()
+    : '';
+  document.getElementById('karitanto-date').textContent = dateLabel;
+
+  const list = document.getElementById('karitanto-list');
+  list.innerHTML = '';
+  const loading = el('div');
+  loading.style.cssText = 'color:#80868b;font-size:13px;padding:12px 4px;';
+  loading.textContent = '過去半年の訪問実績を集計中…';
+  list.appendChild(loading);
+  document.getElementById('karitanto-modal').classList.add('show');
+
+  google.script.run
+    .withSuccessHandler(renderKaritantoList_)
+    .withFailureHandler(err => {
+      list.innerHTML = '';
+      const errEl = el('div');
+      errEl.style.cssText = 'color:#d93025;font-size:13px;padding:12px 4px;';
+      errEl.textContent = '集計に失敗しました: ' + err.message;
+      list.appendChild(errEl);
+    })
+    .getKaritantoSuggestions(currentDateStr);
+}
+
+// サーバーから届いた「患者ごとの過去半年ランキング」を一覧に描画する。
+// ランキングが無い（履歴なし）場合は本日の担当を代わりに提案する。
+function renderKaritantoList_(res) {
+  const list = document.getElementById('karitanto-list');
+  list.innerHTML = '';
+  const ranking = (res && res.ranking) || {};
+
+  const targets = currentEvents
+    .map(ev => {
+      const rank = ranking[ev.id] || [];
+      const fallback = isUnassignedColor_(ev.color) ? '' : pharmacistNameForColor_(ev.color);
+      return { ev: ev, rank: rank, suggestedName: rank.length ? rank[0].name : fallback };
+    })
+    .filter(t => t.suggestedName)
+    .sort((a, b) => new Date(a.ev.start) - new Date(b.ev.start));
+
+  if (!targets.length) {
+    const empty = el('div');
+    empty.style.cssText = 'color:#80868b;font-size:13px;padding:12px 4px;';
+    empty.textContent = '対象になる予定がありません。';
+    list.appendChild(empty);
+    return;
+  }
+
+  targets.forEach(t => {
+    const row = el('label');
+    row.style.cssText = 'display:flex;align-items:flex-start;gap:8px;padding:7px 4px;border-bottom:1px solid #f1f3f4;font-size:14px;';
+    const cb = el('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.style.marginTop = '3px';
+    cb.dataset.eventId = t.ev.id;
+    cb.dataset.suggestedName = t.suggestedName;
+
+    const main = el('div');
+    main.style.cssText = 'flex:1;';
+    const nameRow = el('div');
+    nameRow.style.cssText = 'display:flex;justify-content:space-between;gap:8px;';
+    const name = el('span');
+    name.textContent = cleanTitleJs(t.ev.title);
+    const pharm = el('span');
+    const topColor = t.rank.length ? t.rank[0].color : t.ev.color;
+    pharm.style.cssText = 'color:' + (COLOR_HEX[topColor] || '#1a73e8') + ';font-weight:600;white-space:nowrap;';
+    pharm.textContent = t.suggestedName;
+    nameRow.appendChild(name); nameRow.appendChild(pharm);
+
+    const sub = el('div');
+    sub.style.cssText = 'font-size:11px;color:#80868b;margin-top:2px;';
+    sub.textContent = t.rank.length
+      ? '過去半年: ' + t.rank.slice(0, 3).map(r => r.name + r.count + '回').join('・')
+      : '過去半年の訪問実績なし（本日の担当を表示）';
+
+    main.appendChild(nameRow);
+    main.appendChild(sub);
+    row.appendChild(cb);
+    row.appendChild(main);
+    list.appendChild(row);
+  });
+}
+
+function closeKaritantoModal() {
+  document.getElementById('karitanto-modal').classList.remove('show');
+}
+
+function confirmKaritanto() {
+  const checked = Array.from(document.querySelectorAll('#karitanto-list input[type=checkbox]:checked'));
+  closeKaritantoModal();
+  if (!checked.length) return;
+
+  let count = 0;
+  checked.forEach(cb => {
+    const ev = currentEvents.find(e => e.id === cb.dataset.eventId);
+    const name = cb.dataset.suggestedName;
+    if (!ev || !name) return;
+    // 既に付いている「仮担当：」行は付け直し（二重に積み重ならないようにする）
+    const plain = htmlToPlain(ev.description || '').replace(/^仮担当：[^\n]*\n?/, '');
+    const newMemo = '仮担当：' + name + (plain ? '\n' + plain : '');
+    applyEventEdits(ev, { memo: newMemo }, false);
+    count++;
+  });
+
+  document.getElementById('status').textContent = '仮担当を' + count + '件に設定しました';
+}
+
+function showCtxMenu(x, y, pharmacist) {
+  const menu = document.getElementById('ctx-menu');
+  menu.innerHTML = '';
+  const btn = el('button');
+  btn.textContent = '名前について';
+  btn.onclick = () => { hideCtxMenu(); openNameEditor(pharmacist); };
+  menu.appendChild(btn);
+  positionCtxMenu(menu, x, y);
+}
+
+function closeDateModal() {
+  document.getElementById('date-modal').classList.remove('show');
+}
+
+function renderCalendarPicker(monthDate, selectedDateStr) {
+  const container = document.getElementById('cal-container');
+  container.innerHTML = '';
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+
+  // ヘッダー
+  const header = el('div', 'cal-header');
+  const prev = el('button', 'cal-nav');
+  prev.textContent = '‹';
+  prev.onclick = () => renderCalendarPicker(new Date(year, month - 1, 1), selectedDateStr);
+  const monthLabel = el('div', 'cal-month');
+  monthLabel.textContent = year + '年 ' + (month + 1) + '月';
+  const next = el('button', 'cal-nav');
+  next.textContent = '›';
+  next.onclick = () => renderCalendarPicker(new Date(year, month + 1, 1), selectedDateStr);
+  header.appendChild(prev);
+  header.appendChild(monthLabel);
+  header.appendChild(next);
+  container.appendChild(header);
+
+  // グリッド
+  const grid = el('div', 'cal-grid');
+  const wdLabels = ['日', '月', '火', '水', '木', '金', '土'];
+  wdLabels.forEach((wd, i) => {
+    const c = el('div', 'cal-cell cal-wd-header');
+    if (i === 0) c.classList.add('sun');
+    if (i === 6) c.classList.add('sat');
+    c.textContent = wd;
+    grid.appendChild(c);
+  });
+
+  const today = ymd(new Date());
+  const startDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const prevMonthDays = new Date(year, month, 0).getDate();
+
+  // 前月分
+  for (let i = startDay - 1; i >= 0; i--) {
+    const dayNum = prevMonthDays - i;
+    const pd = new Date(year, month - 1, dayNum);
+    const ds = ymd(pd);
+    const c = el('div', 'cal-cell cal-other');
+    c.textContent = dayNum;
+    if (ds === today) c.classList.add('cal-today');
+    if (ds === selectedDateStr) c.classList.add('cal-selected');
+    c.onclick = () => onCalendarPickerSelect(ds);
+    grid.appendChild(c);
+  }
+  // 今月
+  for (let day = 1; day <= daysInMonth; day++) {
+    const c = el('div', 'cal-cell');
+    c.textContent = day;
+    const ds = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+    if (ds === today) c.classList.add('cal-today');
+    if (ds === selectedDateStr) c.classList.add('cal-selected');
+    c.onclick = () => onCalendarPickerSelect(ds);
+    grid.appendChild(c);
+  }
+  // 次月分（6行=42セル埋まるまで）
+  const filled = 7 + startDay + daysInMonth; // weekdayHeader(7) + prev fill + current
+  const remaining = 42 + 7 - filled; // 42日分 + ヘッダ7 = 49
+  for (let day = 1; day <= remaining && day <= 14; day++) {
+    const nd = new Date(year, month + 1, day);
+    const ds = ymd(nd);
+    const c = el('div', 'cal-cell cal-other');
+    c.textContent = day;
+    if (ds === today) c.classList.add('cal-today');
+    if (ds === selectedDateStr) c.classList.add('cal-selected');
+    c.onclick = () => onCalendarPickerSelect(ds);
+    grid.appendChild(c);
+  }
+
+  container.appendChild(grid);
+}
+
+function onCalendarPickerSelect(dateStr) {
+  closeDateModal();
+  if (!dateStr) return;
+  // 表示日を変更する（ナビゲーション）
+  if (dateStr === currentDateStr) return;
+  setDate(dateStr);
+  load();
+}
+
+function positionCtxMenu(menu, x, y) {
+  document.body.appendChild(menu);
+  menu.style.display = 'block';
+  const mw = menu.offsetWidth;
+  const mh = menu.offsetHeight;
+  menu.style.left = Math.min(x, window.innerWidth - mw - 8) + 'px';
+  menu.style.top = Math.min(y, window.innerHeight - mh - 8) + 'px';
+}
+
+function hideCtxMenu() { document.getElementById('ctx-menu').style.display = 'none'; }
+document.addEventListener('click', hideCtxMenu);
+
+function buildPharmacists_(events) {
+  const usedColors = new Set(events.map(e => e.color));
+  return allPharmacists.filter(p => usedColors.has(p.color));
+}
+
+function rerenderLocal() {
+  pharmacists = buildPharmacists_(currentEvents);
+  render({ events: currentEvents, pharmacists, allPharmacists, dryRun: isDryRun });
+}
+
+function openNameEditor(pharm) {
+  const hex = COLOR_HEX[pharm.color] || '#888';
+  document.getElementById('name-modal-color').style.background = hex;
+  document.getElementById('name-meta-dot').style.background = hex;
+  document.getElementById('name-meta-color-label').textContent = pharm.name;
+  document.getElementById('name-modal').classList.add('show');
+}
+function closeNameModal() {
+  document.getElementById('name-modal').classList.remove('show');
+}
+function confirmNameEdit() {
+  closeNameModal();
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeNameModal(); closeDateModal(); closeConfirmModal(); closeAddModal(); closeShiftModal(); closeKaritantoModal(); hideCtxMenu(); clearSearch(); }
+  if (e.key === 'Enter') {
+    if (document.getElementById('name-modal').classList.contains('show')) {
+      e.preventDefault();
+      confirmNameEdit();
+    }
+    if (document.getElementById('add-modal').classList.contains('show')) {
+      e.preventDefault();
+      submitAddEvent();
+    }
+  }
+  // Ctrl+Z（Mac は Cmd+Z） で Undo。モーダルやinput内では発動しない
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+    const tag = (document.activeElement && document.activeElement.tagName) || '';
+    const inInput = tag === 'INPUT' || tag === 'TEXTAREA';
+    const inModal = document.getElementById('name-modal').classList.contains('show') ||
+                    document.getElementById('date-modal').classList.contains('show');
+    if (!inInput && !inModal) {
+      e.preventDefault();
+      undo();
+    }
+  }
+});
+
+function updateNowLine() {
+  let line = document.getElementById('now-line');
+  if (line) line.remove();
+
+  const today = ymd(new Date());
+  if (currentDateStr !== today) {
+    if (nowLineTimer) { clearInterval(nowLineTimer); nowLineTimer = null; }
+    return;
+  }
+
+  const now = new Date();
+  const hour = now.getHours();
+  const min = now.getMinutes();
+  if (hour < HOUR_START || hour >= HOUR_END) return;
+
+  const firstCell = document.querySelector('.cell[data-hour="' + HOUR_START + '"]');
+  if (!firstCell) return;
+  const gridRect = document.getElementById('grid').getBoundingClientRect();
+  const cellRect = firstCell.getBoundingClientRect();
+  const offsetTop = cellRect.top - gridRect.top + ((hour - HOUR_START) * 60) + min * PX_PER_MIN;
+
+  const newLine = el('div', 'now-line');
+  newLine.id = 'now-line';
+  newLine.style.top = offsetTop + 'px';
+  document.getElementById('grid').appendChild(newLine);
+
+  if (!nowLineTimer) nowLineTimer = setInterval(updateNowLine, 60000);
+}
+
+// ===== Undo =====
+function pushUndo(entry) {
+  undoStack.push(entry);
+  while (undoStack.length > UNDO_MAX) undoStack.shift();
+  updateUndoButton();
+}
+function updateUndoButton() {
+  const btn = document.getElementById('undo-btn');
+  if (btn) btn.disabled = undoStack.length === 0;
+}
+function undo() {
+  if (!undoStack.length) return;
+  const op = undoStack.pop();
+  updateUndoButton();
+  document.getElementById('status').textContent = '取り消し中…';
+
+  if (op.type === 'event') {
+    google.script.run
+      .withSuccessHandler(() => {
+        document.getElementById('status').textContent = '取り消し完了';
+        load();
+      })
+      .withFailureHandler(err => {
+        document.getElementById('status').textContent = 'エラー: ' + err.message;
+        // 失敗したら戻す
+        undoStack.push(op);
+        updateUndoButton();
+        load();
+      })
+      .moveEvent(op.eventId, op.beforeColor, op.beforeStart, op.beforeEnd, op.dateForUndo);
+  } else if (op.type === 'eventUpdate') {
+    google.script.run
+      .withSuccessHandler(() => {
+        document.getElementById('status').textContent = '取り消し完了';
+        load();
+      })
+      .withFailureHandler(err => {
+        document.getElementById('status').textContent = 'エラー: ' + err.message;
+        undoStack.push(op);
+        updateUndoButton();
+        load();
+      })
+      .updateEventFull(op.eventId, op.findDate, op.params, false);
+  } else if (op.type === 'addEvent') {
+    google.script.run
+      .withSuccessHandler(() => {
+        document.getElementById('status').textContent = '取り消し完了';
+        load();
+      })
+      .withFailureHandler(err => {
+        document.getElementById('status').textContent = 'エラー: ' + err.message;
+        undoStack.push(op);
+        updateUndoButton();
+        load();
+      })
+      .deleteEvent(op.eventId, op.dateStr);
+  } else if (op.type === 'deleteEvent') {
+    google.script.run
+      .withSuccessHandler(result => {
+        document.getElementById('status').textContent = '取り消し完了';
+        if (result.id) {
+          currentEvents.push({ id: result.id, title: op.title, start: op.start, end: op.end, color: op.color, location: op.location, description: op.description });
+          rerenderLocal();
+        } else {
+          load();
+        }
+      })
+      .withFailureHandler(err => {
+        document.getElementById('status').textContent = 'エラー: ' + err.message;
+        undoStack.push(op);
+        updateUndoButton();
+      })
+      .addSingleEvent(op.color, op.title, op.start, op.end, op.location, op.description);
+  }
+}
+
+// ===== タッチD&D =====
+function _touchStart(ts, e, ev) {
+  if (_touchSt) {
+    clearTimeout(_touchSt.longTimer);
+    if (_touchSt.clone) _touchSt.clone.remove();
+    _touchSt.el.classList.remove('dragging');
+    document.removeEventListener('touchmove', _touchMove);
+    document.removeEventListener('touchend', _touchEndDoc);
+    document.removeEventListener('touchcancel', _touchEndDoc);
+    _touchSt = null;
+    currentDragData = null;
+    removeDropIndicator();
+  }
+  const touch = ts.touches[0];
+  const eRect = e.getBoundingClientRect();
+  _touchSt = {
+    el: e, ev: ev,
+    startX: touch.clientX, startY: touch.clientY,
+    offsetY: touch.clientY - eRect.top,
+    started: false, clone: null, dragReady: false,
+    longTimer: setTimeout(() => {
+      if (_touchSt && !_touchSt.started) {
+        _touchSt.dragReady = true;
+      }
+    }, 400),
+  };
+  document.addEventListener('touchmove', _touchMove, { passive: false });
+  document.addEventListener('touchend', _touchEndDoc);
+  document.addEventListener('touchcancel', _touchEndDoc);
+}
+
+function _touchMove(tm) {
+  if (!_touchSt) return;
+  const touch = tm.touches[0];
+  const dx = touch.clientX - _touchSt.startX;
+  const dy = touch.clientY - _touchSt.startY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (!_touchSt.started) {
+    if (!_touchSt.dragReady) {
+      if (dist > 14) {
+        // 長押し前に動いた → スクロール判定。追跡を中断してスクロールに任せる
+        clearTimeout(_touchSt.longTimer);
+        document.removeEventListener('touchmove', _touchMove);
+        document.removeEventListener('touchend', _touchEndDoc);
+        document.removeEventListener('touchcancel', _touchEndDoc);
+        _touchSt = null;
+        currentDragData = null;
+      }
+      return;
+    }
+    if (dist < 4) return;
+    clearTimeout(_touchSt.longTimer);
+    _touchSt.started = true;
+    _touchSt.el.classList.add('dragging');
+    const src = _touchSt.el;
+    const clone = src.cloneNode(true);
+    clone.classList.add('touch-clone');
+    clone.style.width = src.offsetWidth + 'px';
+    clone.style.height = src.offsetHeight + 'px';
+    document.body.appendChild(clone);
+    _touchSt.clone = clone;
+    currentDragData = {
+      eventId: _touchSt.ev.id,
+      currentColor: _touchSt.el.dataset.color,
+      currentStartIso: _touchSt.el.dataset.startIso,
+      durationMin: parseFloat(_touchSt.el.dataset.durationMin),
+      title: _touchSt.el.dataset.title,
+      location: _touchSt.el.dataset.location,
+      dragOffsetY: _touchSt.offsetY,
+    };
+  }
+  tm.preventDefault();
+  const clone = _touchSt.clone;
+  if (clone) {
+    clone.style.left = (touch.clientX - clone.offsetWidth / 2) + 'px';
+    clone.style.top = (touch.clientY - _touchSt.offsetY) + 'px';
+  }
+  if (clone) clone.style.visibility = 'hidden';
+  const below = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (clone) clone.style.visibility = '';
+  const cell = below && (below.classList.contains('cell') ? below : below.closest && below.closest('.cell'));
+  if (cell && currentDragData) {
+    const t = computeDropTarget(cell, touch.clientY, currentDragData.dragOffsetY);
+    const targetCell = document.querySelector(
+      '.cell[data-pharm="' + cssEsc(t.targetColor) + '"][data-hour="' + t.targetHour + '"]'
+    );
+    if (targetCell) {
+      if (!dropIndicator) dropIndicator = el('div', 'drop-indicator');
+      if (dropIndicator.parentElement !== targetCell) targetCell.appendChild(dropIndicator);
+      dropIndicator.style.top = (t.minute * PX_PER_MIN) + 'px';
+      dropIndicator.style.height = Math.max(20, currentDragData.durationMin * PX_PER_MIN - 2) + 'px';
+      dropIndicator.style.background = COLOR_HEX[t.targetColor] || '#888';
+    }
+  } else {
+    removeDropIndicator();
+  }
+}
+
+function _touchEndDoc(te) {
+  te.preventDefault();
+  document.removeEventListener('touchmove', _touchMove);
+  document.removeEventListener('touchend', _touchEndDoc);
+  document.removeEventListener('touchcancel', _touchEndDoc);
+  if (!_touchSt) return;
+  clearTimeout(_touchSt.longTimer);
+  if (!_touchSt.started) {
+    const st = _touchSt;
+    _touchSt = null;
+    currentDragData = null;
+    if (st.dragReady) {
+      // 長押しして動かさず離した → 何もしない（長押しはD&D専用。誤発火を防ぐ）
+      return;
+    }
+    // 短いタップ：ダブルタップ＝👌／シングルタップ＝編集（300ms待って判定）
+    const now = Date.now();
+    if (_lastTapEl === st.el && now - _lastTapTime < 300) {
+      _lastTapTime = 0; _lastTapEl = null;
+      if (_pendingTapTimer) { clearTimeout(_pendingTapTimer); _pendingTapTimer = null; }
+      openConfirmNextVisit(st.el);
+    } else {
+      _lastTapTime = now; _lastTapEl = st.el;
+      const elRef = st.el;
+      if (_pendingTapTimer) clearTimeout(_pendingTapTimer);
+      _pendingTapTimer = setTimeout(() => {
+        _pendingTapTimer = null; _lastTapTime = 0; _lastTapEl = null;
+        openModal(getEventDataFromEl(elRef));
+      }, 300);
+    }
+    return;
+  }
+  const touch = te.changedTouches[0];
+  if (_touchSt.clone) { _touchSt.clone.remove(); _touchSt.clone = null; }
+  _touchSt.el.classList.remove('dragging');
+  removeDropIndicator();
+  if (!currentDragData) { _touchSt = null; return; }
+  const below = document.elementFromPoint(touch.clientX, touch.clientY);
+  const cell = below && (below.classList.contains('cell') ? below : below.closest && below.closest('.cell'));
+  if (cell) {
+    const data = currentDragData;
+    const t = computeDropTarget(cell, touch.clientY, data.dragOffsetY);
+    const newStart = new Date(currentDateStr);
+    newStart.setHours(t.targetHour, t.minute, 0, 0);
+    const newStartIso = newStart.toISOString();
+    if (data.currentColor !== t.targetColor || data.currentStartIso !== newStartIso) {
+      const draggedEl = _touchSt.el;
+      const newEnd = new Date(newStart.getTime() + data.durationMin * 60000);
+
+      // ローカルデータを更新
+      const evData = currentEvents.find(e => e.id === data.eventId);
+      const prevColor = evData ? evData.color : data.currentColor;
+      const prevStart2 = evData ? evData.start : data.currentStartIso;
+      const prevEnd2 = evData ? evData.end : new Date(new Date(data.currentStartIso).getTime() + data.durationMin * 60000).toISOString();
+      if (evData) { evData.color = t.targetColor; evData.start = newStartIso; evData.end = newEnd.toISOString(); }
+
+      // 担当変更を伴う場合はローカル再描画
+      if (data.currentColor !== t.targetColor) {
+        rerenderLocal();
+      } else {
+        draggedEl.style.top = (t.minute * PX_PER_MIN) + 'px';
+        draggedEl.dataset.startIso = newStartIso;
+        draggedEl.dataset.endIso = newEnd.toISOString();
+        renderEventInner(draggedEl, data.title, newStart, newEnd, data.location);
+        draggedEl.classList.add('pending');
+        const newCell = document.querySelector(
+          '.cell[data-pharm="' + cssEsc(t.targetColor) + '"][data-hour="' + t.targetHour + '"]'
+        );
+        if (newCell) newCell.appendChild(draggedEl);
+        recomputeOverlaps();
+      }
+
+      const oldStartTime = new Date(data.currentStartIso);
+      pushUndo({
+        type: 'event', eventId: data.eventId,
+        beforeColor: data.currentColor,
+        beforeStart: data.currentStartIso,
+        beforeEnd: new Date(oldStartTime.getTime() + data.durationMin * 60000).toISOString(),
+        dateForUndo: currentDateStr,
+      });
+      document.getElementById('status').textContent = '保存中…';
+      gasMutate('moveEvent', [data.eventId, t.targetColor, newStartIso, null, currentDateStr],
+        () => {
+          document.getElementById('status').textContent = '保存済み';
+          const el2 = document.querySelector('.event[data-event-id="' + cssEsc(data.eventId) + '"]');
+          if (el2) el2.classList.remove('pending');
+        },
+        err => {
+          document.getElementById('status').textContent = 'エラー: ' + err.message;
+          if (evData) { evData.color = prevColor; evData.start = prevStart2; evData.end = prevEnd2; }
+          rerenderLocal();
+        }
+      );
+    }
+  }
+  _touchSt = null;
+  currentDragData = null;
+}
+
+// ===== イベント削除 =====
+function showDeleteConfirmDialog(ev) {
+  const body = document.getElementById('confirm-modal-body');
+  body.innerHTML = '';
+  document.querySelector('#confirm-modal .modal-title').textContent = 'イベントの削除';
+
+  const info = el('div', 'confirm-info');
+  const lbl = el('div', 'label'); lbl.textContent = '削除するイベント';
+  const val = el('div', 'value'); val.textContent = ev.title;
+  info.appendChild(lbl); info.appendChild(val);
+  body.appendChild(info);
+
+  const msg = el('div');
+  msg.style.cssText = 'font-size:13px;color:#5f6368;margin-bottom:20px;';
+  msg.textContent = 'この日の予定のみ削除されます。繰り返しシリーズの他の予定はそのまま残ります。';
+  body.appendChild(msg);
+
+  const acts = el('div', 'modal-actions');
+  const cancelBtn = el('button'); cancelBtn.textContent = 'キャンセル'; cancelBtn.onclick = closeConfirmModal;
+  const confirmBtn = el('button');
+  confirmBtn.textContent = 'この予定を削除';
+  confirmBtn.style.cssText = 'padding:8px 16px;border:1px solid #d93025;border-radius:4px;background:#d93025;color:#fff;cursor:pointer;font-size:14px;';
+  confirmBtn.onclick = () => { closeConfirmModal(); executeDeleteEvent(ev); };
+  acts.appendChild(cancelBtn); acts.appendChild(confirmBtn);
+  body.appendChild(acts);
+
+  document.getElementById('confirm-modal').classList.add('show');
+}
+
+function executeDeleteEvent(ev) {
+  pushUndo({
+    type: 'deleteEvent',
+    color: ev.color,
+    title: ev.title,
+    start: ev.start,
+    end: ev.end,
+    location: ev.location || '',
+    description: ev.description || '',
+  });
+
+  const idx = currentEvents.findIndex(e => e.id === ev.id);
+  if (idx !== -1) currentEvents.splice(idx, 1);
+  rerenderLocal();
+
+  document.getElementById('status').textContent = '削除中…';
+  gasMutate('deleteEvent', [ev.id, currentDateStr],
+    () => { document.getElementById('status').textContent = '削除しました（↶ で取り消し可）'; },
+    err => { document.getElementById('status').textContent = 'エラー: ' + err.message; load(); }
+  );
+}
+
+// ===== 次回確認 =====
+let confirmEventEl = null;
+let confirmNextDateStr = null;
+let _lastConfirmInfo = null;
+
+function openConfirmNextVisit(eventEl) {
+  confirmEventEl = eventEl;
+  confirmNextDateStr = null;
+  const body = document.getElementById('confirm-modal-body');
+  document.getElementById('confirm-modal').classList.add('show');
+
+  const rawTitle = cleanTitleJs(eventEl.dataset.title);
+  const eventId = eventEl.dataset.eventId;
+
+  // 待っている間にモーダルを閉じて別の予定を開かれることがある。
+  // その場合、後から届いた古い検索結果で画面を上書きしないようにする
+  const stillOpen = () => confirmEventEl === eventEl;
+
+  // 一括プリフェッチ（getNextVisitMapForDate）は35日先までしか探していない。
+  // そこに無い患者（月1・不定）は取りこぼしになるので、個別検索（42日）へ回す
+  const fallbackToServer = () => {
+    body.innerHTML = '<div class="confirm-loading">次回予定を検索中…</div>';
+    google.script.run
+      .withSuccessHandler(info => { if (stillOpen()) renderConfirmDialog(info); })
+      .withFailureHandler(err => {
+        if (!stillOpen()) return;
+        body.innerHTML = '<div class="confirm-not-found">エラー: ' + esc(err.message) + '</div>';
+      })
+      .getNextVisitInfo(eventId, currentDateStr, eventEl.dataset.title);
+  };
+
+  const showFromEntry = () => {
+    const entry = _nextVisitMap[eventId];
+    if (entry) renderConfirmDialog(Object.assign({ found: true, rawTitle }, entry));
+    else fallbackToServer();
+  };
+
+  // 一括プリフェッチのキャッシュが利用可能なら即座に表示
+  if (_nextVisitMapReady && _nextVisitMapDate === currentDateStr) {
+    showFromEntry();
+    return;
+  }
+
+  // プリフェッチが進行中、またはまだ始まっていない（日付切り替え直後など）→ 完了を待って表示。
+  // ここで即座に個別検索へ逃がすと、プリフェッチが始まる前に押した人だけ毎回一番遅いルートを
+  // 踏むことになるので、先に始まっている・いないに関わらず一旦待つ。
+  // ただし何らかの理由で先読みがいつまでも終わらない場合の保険として、8秒でタイムアウトして
+  // 個別検索に回す
+  body.innerHTML = '<div class="confirm-loading">次回予定を検索中…</div>';
+  const waitStartedAt = Date.now();
+  const poll = setInterval(() => {
+    if (!stillOpen()) { clearInterval(poll); return; }
+    if (_nextVisitMapReady && _nextVisitMapDate === currentDateStr) {
+      clearInterval(poll);
+      showFromEntry();
+      return;
+    }
+    if (Date.now() - waitStartedAt > 8000) {
+      clearInterval(poll);
+      fallbackToServer();
+    }
+  }, 100);
+}
+
+function renderConfirmDialog(info) {
+  const body = document.getElementById('confirm-modal-body');
+  body.innerHTML = '';
+
+  const rawTitle = info.rawTitle || cleanTitleJs(confirmEventEl.dataset.title);
+
+  const patientInfo = el('div', 'confirm-info');
+  const pLabel = el('div', 'label'); pLabel.textContent = '患者';
+  const pValue = el('div', 'value'); pValue.textContent = rawTitle;
+  patientInfo.appendChild(pLabel); patientInfo.appendChild(pValue);
+  body.appendChild(patientInfo);
+
+  if (!info.found) {
+    const notFound = el('div', 'confirm-not-found');
+    // searchedWeeks はサーバー（getNextVisitInfo）が返す。既定値は NEXT_FALLBACK_DAYS の週数
+    notFound.textContent = '次回予定が見つかりませんでした（'
+      + (info.searchedWeeks || 6) + '週先まで検索）';
+    body.appendChild(notFound);
+    const closeBtn = el('button');
+    closeBtn.className = 'modal-actions';
+    closeBtn.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:16px;';
+    const cb = el('button');
+    cb.textContent = '閉じる';
+    cb.style.cssText = 'padding:8px 16px;border:1px solid #dadce0;border-radius:4px;background:#fff;color:#1a73e8;cursor:pointer;font-size:14px;';
+    cb.onclick = closeConfirmModal;
+    closeBtn.appendChild(cb);
+    body.appendChild(closeBtn);
+    return;
+  }
+
+  // 繰り返しシリーズの次回候補より前に、同名の臨時イベントが見つかった場合は先に確認を挟む
+  if (info.rinjiFound) {
+    renderRinjiPriorityDialog(info, rawTitle);
+    return;
+  }
+
+  confirmNextDateStr = info.nextDate;
+  _lastConfirmInfo = info;
+  const nextInfo = el('div', 'confirm-info');
+  nextInfo.id = 'confirm-next-info';
+  const nLabel = el('div', 'label'); nLabel.textContent = '次回予定';
+  const nValue = el('div', 'value');
+  nValue.style.fontWeight = 'normal';
+  const nDays = daysBetween(currentDateStr, info.nextDate);
+  nValue.innerHTML = '次は<strong class="confirm-days-strong">' + nDays + '日後</strong>の' + formatDateShort(info.nextDate) + ' 予定です';
+  nextInfo.appendChild(nLabel); nextInfo.appendChild(nValue);
+  body.appendChild(nextInfo);
+
+  const actions = el('div');
+  actions.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:4px;';
+
+  const btnConfirm = el('button');
+  btnConfirm.className = 'primary';
+  btnConfirm.style.cssText = 'padding:10px 16px;border:1px solid #1a73e8;border-radius:4px;background:#1a73e8;color:#fff;cursor:pointer;font-size:14px;text-align:center;';
+  btnConfirm.textContent = 'このまま 👌';
+  btnConfirm.onclick = () => executeConfirmNextVisit(null);
+  actions.appendChild(btnConfirm);
+
+  const btnChange = el('button');
+  btnChange.style.cssText = 'padding:10px 16px;border:1px solid #dadce0;border-radius:4px;background:#fff;color:#1a73e8;cursor:pointer;font-size:14px;text-align:center;';
+  btnChange.textContent = '日程を変更して 👌';
+  btnChange.onclick = () => openConfirmDatePicker(info.nextDate);
+  actions.appendChild(btnChange);
+
+  const btnCancel = el('button');
+  btnCancel.style.cssText = 'padding:10px 16px;border:1px solid #dadce0;border-radius:4px;background:#fff;color:#5f6368;cursor:pointer;font-size:14px;text-align:center;';
+  btnCancel.textContent = 'キャンセル';
+  btnCancel.onclick = closeConfirmModal;
+  actions.appendChild(btnCancel);
+
+  body.appendChild(actions);
+}
+
+function renderRinjiPriorityDialog(info, rawTitle) {
+  const body = document.getElementById('confirm-modal-body');
+  body.innerHTML = '';
+
+  const patientInfo = el('div', 'confirm-info');
+  const pLabel = el('div', 'label'); pLabel.textContent = '患者';
+  const pValue = el('div', 'value'); pValue.textContent = rawTitle;
+  patientInfo.appendChild(pLabel); patientInfo.appendChild(pValue);
+  body.appendChild(patientInfo);
+
+  const warnInfo = el('div', 'confirm-info');
+  const wLabel = el('div', 'label'); wLabel.textContent = '確認';
+  const wValue = el('div', 'value');
+  wValue.textContent = '次回候補（' + formatDateJa(info.nextDate) + '）よりも前の ' +
+    formatDateJa(info.rinjiDate) + ' にイベントを発見しました。👌はそちらに付けてよいですか？';
+  warnInfo.appendChild(wLabel); warnInfo.appendChild(wValue);
+  body.appendChild(warnInfo);
+
+  const actions = el('div');
+  actions.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:4px;';
+
+  const btnYes = el('button');
+  btnYes.className = 'primary';
+  btnYes.style.cssText = 'padding:10px 16px;border:1px solid #1a73e8;border-radius:4px;background:#1a73e8;color:#fff;cursor:pointer;font-size:14px;text-align:center;';
+  btnYes.textContent = 'はい';
+  btnYes.onclick = () => {
+    if (hasNarcoticsMark_(rawTitle)) {
+      renderNarcoticsCheckDialog(rawTitle,
+        () => executeConfirmNextVisitOnRinji(info.rinjiEventId, info.rinjiDate),
+        () => renderRinjiPriorityDialog(info, rawTitle)
+      );
+      return;
+    }
+    executeConfirmNextVisitOnRinji(info.rinjiEventId, info.rinjiDate);
+  };
+  actions.appendChild(btnYes);
+
+  const btnNo = el('button');
+  btnNo.style.cssText = 'padding:10px 16px;border:1px solid #dadce0;border-radius:4px;background:#fff;color:#1a73e8;cursor:pointer;font-size:14px;text-align:center;';
+  btnNo.textContent = 'いいえ（繰り返しイベントを調整）';
+  btnNo.onclick = () => renderConfirmDialog(Object.assign({}, info, { rinjiFound: false }));
+  actions.appendChild(btnNo);
+
+  const btnCancel = el('button');
+  btnCancel.style.cssText = 'padding:10px 16px;border:1px solid #dadce0;border-radius:4px;background:#fff;color:#5f6368;cursor:pointer;font-size:14px;text-align:center;';
+  btnCancel.textContent = 'キャンセル';
+  btnCancel.onclick = closeConfirmModal;
+  actions.appendChild(btnCancel);
+
+  body.appendChild(actions);
+}
+
+function openConfirmDatePicker(currentNextDate) {
+  const body = document.getElementById('confirm-modal-body');
+  const oldWrap = document.getElementById('confirm-cal-wrap') || document.getElementById('confirm-date-step');
+  if (oldWrap && oldWrap.parentElement === body) oldWrap.remove();
+  else if (body.lastElementChild) body.lastElementChild.remove();
+
+  // 日程変更フローに入ったら「次回予定」ボックスは不要（変更確認メッセージに情報を統合する）
+  const nextInfoEl = document.getElementById('confirm-next-info');
+  if (nextInfoEl) nextInfoEl.remove();
+
+  const pickerWrap = el('div');
+  pickerWrap.id = 'confirm-cal-wrap';
+
+  // 臨時チェックボックス
+  const rinjiRow = el('div');
+  rinjiRow.style.cssText = 'display:flex;align-items:flex-start;gap:8px;margin-bottom:14px;padding:10px 12px;background:#fff8e1;border-radius:6px;border:1px solid #ffe082;cursor:pointer;';
+  const rinjiChk = el('input');
+  rinjiChk.type = 'checkbox';
+  rinjiChk.id = 'confirm-rinji';
+  rinjiChk.style.cssText = 'margin-top:3px;flex-shrink:0;';
+  const rinjiLbl = el('label');
+  rinjiLbl.htmlFor = 'confirm-rinji';
+  rinjiLbl.style.cssText = 'cursor:pointer;font-size:13px;';
+  rinjiLbl.innerHTML = '<strong>臨時訪問</strong><span style="display:block;font-size:11px;color:#5f6368;margin-top:2px;">新しい単発予定「👌【臨時】〇〇」を作成。繰り返しシリーズはそのまま。</span>';
+  rinjiRow.appendChild(rinjiChk);
+  rinjiRow.appendChild(rinjiLbl);
+  rinjiRow.onclick = e => { if (e.target !== rinjiChk) rinjiChk.checked = !rinjiChk.checked; };
+  pickerWrap.appendChild(rinjiRow);
+
+  const calContainer = el('div');
+  pickerWrap.appendChild(calContainer);
+  body.appendChild(pickerWrap);
+
+  const d = new Date(currentNextDate);
+  renderCalendarPickerInto(calContainer, new Date(d.getFullYear(), d.getMonth(), 1), currentNextDate, newDate => {
+    const rinjiEl = document.getElementById('confirm-rinji');
+    const isRinji = rinjiEl ? rinjiEl.checked : false;
+    showConfirmDateStep(newDate, isRinji, currentNextDate);
+  });
+}
+
+function showConfirmDateStep(newDate, isRinji, fallbackDate) {
+  const body = document.getElementById('confirm-modal-body');
+  const wrap = document.getElementById('confirm-cal-wrap');
+  if (wrap) wrap.remove();
+
+  const confDiv = el('div');
+  confDiv.id = 'confirm-date-step';
+
+  const msg = el('div');
+  msg.style.cssText = 'font-size:16px;line-height:1.75;text-align:center;color:#202124;background:#f1f3f4;border-radius:8px;padding:16px 8px;margin-left:-12px;margin-right:-12px;';
+  const dDays = daysBetween(currentDateStr, newDate);
+  const oldDays = daysBetween(currentDateStr, fallbackDate);
+  msg.innerHTML = '次は <strong class="confirm-days-strong">' + oldDays + '日後</strong> の ' + formatDateShort(fallbackDate) + ' <span style="white-space:nowrap;">の予定でしたが、</span>'
+    + '<span style="display:block;margin-top:16px;">'
+    + '<strong class="confirm-days-strong">' + dDays + '日後</strong> の <strong class="confirm-days-strong">' + formatDateShort(newDate) + '</strong> への変更で<span style="white-space:nowrap;">よろしいですか？</span>'
+    + '</span>';
+  confDiv.appendChild(msg);
+
+  if (isRinji) {
+    const note = el('div');
+    note.style.cssText = 'font-size:12px;color:#f57c00;text-align:center;margin-top:4px;';
+    note.textContent = '（臨時訪問として追加）';
+    confDiv.appendChild(note);
+  }
+
+  const acts = el('div');
+  acts.style.cssText = 'display:flex;gap:8px;margin-top:16px;';
+
+  const backBtn = el('button');
+  backBtn.style.cssText = 'flex:1;padding:10px;border:1px solid #dadce0;border-radius:4px;background:#fff;color:#1a73e8;cursor:pointer;font-size:14px;';
+  backBtn.textContent = 'いいえ';
+  backBtn.onclick = () => { confDiv.remove(); openConfirmDatePicker(fallbackDate); };
+
+  const execBtn = el('button');
+  execBtn.style.cssText = 'flex:1;padding:10px;border:1px solid #1a73e8;border-radius:4px;background:#1a73e8;color:#fff;cursor:pointer;font-size:14px;';
+  execBtn.textContent = 'はい';
+  execBtn.onclick = () => executeConfirmNextVisit(newDate, isRinji);
+
+  acts.appendChild(backBtn);
+  acts.appendChild(execBtn);
+  confDiv.appendChild(acts);
+  body.appendChild(confDiv);
+}
+
+function renderCalendarPickerInto(container, monthDate, selectedDateStr, onSelect) {
+  container.innerHTML = '';
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+
+  const header = el('div', 'cal-header');
+  const prev = el('button', 'cal-nav'); prev.textContent = '‹';
+  prev.onclick = () => renderCalendarPickerInto(container, new Date(year, month - 1, 1), selectedDateStr, onSelect);
+  const monthLabel = el('div', 'cal-month');
+  monthLabel.textContent = year + '年 ' + (month + 1) + '月';
+  const next = el('button', 'cal-nav'); next.textContent = '›';
+  next.onclick = () => renderCalendarPickerInto(container, new Date(year, month + 1, 1), selectedDateStr, onSelect);
+  header.appendChild(prev); header.appendChild(monthLabel); header.appendChild(next);
+  container.appendChild(header);
+
+  const grid = el('div', 'cal-grid');
+  ['日','月','火','水','木','金','土'].forEach((wd, i) => {
+    const c = el('div', 'cal-cell cal-wd-header');
+    if (i === 0) c.classList.add('sun');
+    if (i === 6) c.classList.add('sat');
+    c.textContent = wd; grid.appendChild(c);
+  });
+  const today = ymd(new Date());
+  const startDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const prevMonthDays = new Date(year, month, 0).getDate();
+  for (let i = startDay - 1; i >= 0; i--) {
+    const dayNum = prevMonthDays - i;
+    const pd = new Date(year, month - 1, dayNum);
+    const ds = ymd(pd);
+    const c = el('div', 'cal-cell cal-other');
+    c.textContent = dayNum;
+    if (ds === today) c.classList.add('cal-today');
+    if (ds === selectedDateStr) c.classList.add('cal-selected');
+    c.onclick = () => onSelect(ds);
+    grid.appendChild(c);
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    const c = el('div', 'cal-cell');
+    c.textContent = day;
+    const ds = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+    if (ds === today) c.classList.add('cal-today');
+    if (ds === selectedDateStr) c.classList.add('cal-selected');
+    c.onclick = () => onSelect(ds);
+    grid.appendChild(c);
+  }
+  const filled = 7 + startDay + daysInMonth;
+  const remaining = 42 + 7 - filled;
+  for (let day = 1; day <= remaining && day <= 14; day++) {
+    const nd = new Date(year, month + 1, day);
+    const ds = ymd(nd);
+    const c = el('div', 'cal-cell cal-other');
+    c.textContent = day;
+    if (ds === today) c.classList.add('cal-today');
+    if (ds === selectedDateStr) c.classList.add('cal-selected');
+    c.onclick = () => onSelect(ds);
+    grid.appendChild(c);
+  }
+  container.appendChild(grid);
+}
+
+function executeConfirmNextVisit(newDateStr, isRinji) {
+  if (!confirmEventEl) return;
+
+  const rawTitle = cleanTitleJs(confirmEventEl.dataset.title);
+  if (hasNarcoticsMark_(rawTitle)) {
+    renderNarcoticsCheckDialog(rawTitle,
+      () => proceedConfirmNextVisit_(newDateStr, isRinji),
+      () => renderConfirmDialog(_lastConfirmInfo)
+    );
+    return;
+  }
+  proceedConfirmNextVisit_(newDateStr, isRinji);
+}
+
+function proceedConfirmNextVisit_(newDateStr, isRinji) {
+  // 臨時新規作成はタグ判定の対象外（従来通り固定書式）
+  if (!isRinji && _lastConfirmInfo && _lastConfirmInfo.nextEvTag !== undefined) {
+    const curTag = extractTagJs(cleanTitleJs(confirmEventEl.dataset.title));
+    const nextTag = _lastConfirmInfo.nextEvTag;
+    if (curTag !== nextTag) {
+      renderTagMismatchDialog(curTag, nextTag,
+        () => runConfirmNextVisit(newDateStr, isRinji, null),
+        () => runConfirmNextVisit(newDateStr, isRinji, 'keep_next')
+      );
+      return;
+    }
+  }
+  runConfirmNextVisit(newDateStr, isRinji, null);
+}
+
+// 麻薬加算リマインド：㋮が付いた患者だけ、👌確定の直前にこの3択を挟む
+function renderNarcoticsCheckDialog(rawTitle, onProceed, onBack) {
+  const body = document.getElementById('confirm-modal-body');
+  body.innerHTML = '';
+
+  const patientInfo = el('div', 'confirm-info');
+  const pLabel = el('div', 'label'); pLabel.textContent = '患者';
+  const pValue = el('div', 'value'); pValue.textContent = rawTitle;
+  patientInfo.appendChild(pLabel); patientInfo.appendChild(pValue);
+  body.appendChild(patientInfo);
+
+  const box = el('div');
+  box.style.cssText = 'display:flex;gap:8px;background:#fff8e1;border:1px solid #f2b400;border-radius:6px;padding:10px 12px;margin-top:12px;font-size:13px;color:#7a5900;line-height:1.6;';
+  box.innerHTML = '<span>💊</span><span>麻薬加算の算定はされていますか？</span>';
+  body.appendChild(box);
+
+  const actions = el('div');
+  actions.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:14px;';
+
+  const btnDone = el('button');
+  btnDone.className = 'primary';
+  btnDone.style.cssText = 'padding:10px 16px;border:1px solid #1a73e8;border-radius:4px;background:#1a73e8;color:#fff;cursor:pointer;font-size:14px;text-align:center;';
+  btnDone.textContent = '算定済';
+  btnDone.onclick = onProceed;
+  actions.appendChild(btnDone);
+
+  const btnSkip = el('button');
+  btnSkip.style.cssText = 'padding:10px 16px;border:1px solid #dadce0;border-radius:4px;background:#fff;color:#1a73e8;cursor:pointer;font-size:14px;text-align:center;';
+  btnSkip.textContent = '今回は算定しません';
+  btnSkip.onclick = onProceed;
+  actions.appendChild(btnSkip);
+
+  const btnBack = el('button');
+  btnBack.style.cssText = 'padding:10px 16px;border:1px solid #dadce0;border-radius:4px;background:#fff;color:#5f6368;cursor:pointer;font-size:14px;text-align:center;';
+  btnBack.textContent = '確認します';
+  btnBack.onclick = onBack;
+  actions.appendChild(btnBack);
+
+  body.appendChild(actions);
+}
+
+function renderTagMismatchDialog(curTag, nextTag, onKeepCurrent, onKeepNext) {
+  const body = document.getElementById('confirm-modal-body');
+  body.innerHTML = '';
+
+  const rawTitle = cleanTitleJs(confirmEventEl.dataset.title);
+  const patientInfo = el('div', 'confirm-info');
+  const pLabel = el('div', 'label'); pLabel.textContent = '患者';
+  const pValue = el('div', 'value'); pValue.textContent = rawTitle;
+  patientInfo.appendChild(pLabel); patientInfo.appendChild(pValue);
+  body.appendChild(patientInfo);
+
+  const warnInfo = el('div', 'confirm-info');
+  const wLabel = el('div', 'label'); wLabel.textContent = 'タグ確認';
+  const wValue = el('div', 'value');
+
+  let msg, buttons;
+  if (curTag && !nextTag) {
+    msg = '今回の' + curTag + 'を次回にも引き継ぎますか？';
+    buttons = [
+      { label: 'はい', handler: onKeepCurrent },
+      { label: 'いいえ', handler: onKeepNext },
+    ];
+  } else {
+    msg = '次回には既に' + nextTag + 'が入っています。';
+    buttons = [
+      { label: '次回の' + nextTag + 'のまま👌', handler: onKeepNext },
+      { label: curTag ? ('今回の' + curTag + 'に置換し👌') : 'タグを外して👌', handler: onKeepCurrent },
+    ];
+  }
+  wValue.textContent = msg;
+  warnInfo.appendChild(wLabel); warnInfo.appendChild(wValue);
+  body.appendChild(warnInfo);
+
+  const actions = el('div');
+  actions.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:4px;';
+
+  buttons.forEach((b, i) => {
+    const btn = el('button');
+    if (i === 0) {
+      btn.className = 'primary';
+      btn.style.cssText = 'padding:10px 16px;border:1px solid #1a73e8;border-radius:4px;background:#1a73e8;color:#fff;cursor:pointer;font-size:14px;text-align:center;';
+    } else {
+      btn.style.cssText = 'padding:10px 16px;border:1px solid #dadce0;border-radius:4px;background:#fff;color:#1a73e8;cursor:pointer;font-size:14px;text-align:center;';
+    }
+    btn.textContent = b.label;
+    btn.onclick = b.handler;
+    actions.appendChild(btn);
+  });
+
+  const btnCancel = el('button');
+  btnCancel.style.cssText = 'padding:10px 16px;border:1px solid #dadce0;border-radius:4px;background:#fff;color:#5f6368;cursor:pointer;font-size:14px;text-align:center;';
+  btnCancel.textContent = 'キャンセル';
+  btnCancel.onclick = closeConfirmModal;
+  actions.appendChild(btnCancel);
+
+  body.appendChild(actions);
+}
+
+function runConfirmNextVisit(newDateStr, isRinji, tagChoice) {
+  const finalNewDate = (newDateStr && newDateStr !== confirmNextDateStr) ? newDateStr : null;
+  const eventId = confirmEventEl.dataset.eventId;
+  const patientName = cleanTitleJs(confirmEventEl.dataset.title);
+
+  closeConfirmModal();
+  document.getElementById('status').textContent = '次回確認を保存中…';
+
+  gasMutate('confirmNextVisit', [eventId, currentDateStr, finalNewDate, isRinji || false, tagChoice || null],
+    result => {
+      if (result.dryRun) {
+        document.getElementById('status').textContent = '次回確認を保留中';
+      } else if (result.rinji) {
+        document.getElementById('status').textContent = '👌【臨時】' + formatDateJa(result.newDate) + ' に作成しました';
+      } else if (finalNewDate) {
+        document.getElementById('status').textContent = '👌 ' + formatDateJa(result.newDate) + ' に変更・確認（' + result.shifted + '件シフト）';
+      } else {
+        document.getElementById('status').textContent = '👌 ' + formatDateJa(result.newDate) + ' に確認済みを付けました';
+      }
+      if (result.currentTitle) {
+        const localEv = currentEvents.find(e => e.id === eventId);
+        if (localEv) { localEv.title = result.currentTitle; rerenderLocal(); }
+      }
+      if (result.keikakusho) {
+        handleKeikakushoResult(result.keikakusho, patientName,
+          result.keikakushoNextDate || finalNewDate || newDateStr);
+      }
+    },
+    err => { document.getElementById('status').textContent = 'エラー: ' + err.message; }
+  );
+}
+
+function executeConfirmNextVisitOnRinji(rinjiEventId, rinjiDateStr) {
+  if (!confirmEventEl) return;
+
+  const eventId = confirmEventEl.dataset.eventId;
+  const patientName = cleanTitleJs(confirmEventEl.dataset.title);
+
+  closeConfirmModal();
+  document.getElementById('status').textContent = '次回確認を保存中…';
+
+  gasMutate('confirmNextVisitOnRinji', [eventId, currentDateStr, rinjiEventId, rinjiDateStr],
+    result => {
+      if (result.dryRun) {
+        document.getElementById('status').textContent = '次回確認を保留中';
+      } else {
+        document.getElementById('status').textContent = '👌 ' + formatDateJa(result.newDate) + ' に確認済みを付けました';
+      }
+      if (result.currentTitle) {
+        const localEv = currentEvents.find(e => e.id === eventId);
+        if (localEv) { localEv.title = result.currentTitle; rerenderLocal(); }
+      }
+      if (result.keikakusho) {
+        handleKeikakushoResult(result.keikakusho, patientName, result.keikakushoNextDate || rinjiDateStr);
+      }
+    },
+    err => { document.getElementById('status').textContent = 'エラー: ' + err.message; }
+  );
+}
+
+function closeConfirmModal() {
+  document.getElementById('confirm-modal').classList.remove('show');
+  document.querySelector('#confirm-modal .modal-title').textContent = '👌 次回確認';
+  confirmEventEl = null;
+  confirmNextDateStr = null;
+  _lastConfirmInfo = null;
+}
+
+// ===== 薬学的管理指導計画書 =====
+
+function handleKeikakushoResult(keikakusho, patientName, nextDateStr) {
+  const status = keikakusho.status;
+  const statusEl = document.getElementById('status');
+
+  if (status === 'same_month') return;
+
+  if (status === 'no_reports') {
+    statusEl.textContent = 'MUSUBIで計画表を作成してください';
+    return;
+  }
+
+  if (status === 'exists') {
+    const nextDate = new Date((nextDateStr || '').replace(/-/g, '/'));
+    const mo = isNaN(nextDate) ? '' : (nextDate.getMonth() + 1) + '月';
+    statusEl.innerHTML = '✅ ' + mo + '分の計画書は作成済みです' +
+      (keikakusho.url ? ' <a href="' + keikakusho.url + '" target="_blank" style="color:#1a73e8">↗</a>' : '');
+    return;
+  }
+
+  if (status === 'needs_creation') {
+    // ボタンなしで即座に裏で実行
+    statusEl.textContent = '📋 計画書を作成中…';
+    google.script.run
+      .withSuccessHandler(result => {
+        if (result.dryRun) { statusEl.textContent = '📋 計画書（DRY_RUN）'; return; }
+        if (result.needsManualInput) {
+          statusEl.textContent = 'MUSUBIで計画表を作成してください';
+          return;
+        }
+        if (!result.ok) {
+          statusEl.textContent = '計画書の作成に失敗: ' + (result.message || '');
+          return;
+        }
+        statusEl.textContent = '';
+      })
+      .withFailureHandler(err => {
+        statusEl.textContent = '計画書の作成に失敗: ' + err.message;
+      })
+      .createKeikakusho(patientName, nextDateStr);
+    return;
+  }
+
+  if (status === 'error') {
+    statusEl.textContent = '❌ 計画書チェックでエラー: ' + (keikakusho.message || '');
+  }
+}
+
+let modalEditingEv = null;
+
+// ===== 単発イベント追加 =====
+function openAddModal(pharmColor, startHour, startMin) {
+  // 時間セレクトを構築
+  const buildTimeSel = id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = '';
+    for (let h = 5; h <= 22; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        if (h === 22 && m > 0) break;
+        const val = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+        const opt = document.createElement('option');
+        opt.value = val; opt.textContent = val;
+        sel.appendChild(opt);
+      }
+    }
+  };
+  buildTimeSel('add-start');
+  buildTimeSel('add-end');
+
+  // デフォルト時刻（引数指定 or 09:00〜09:45）
+  const defH = (startHour !== undefined) ? startHour : 9;
+  const defM = (startMin !== undefined) ? startMin : 0;
+  const startVal = String(defH).padStart(2, '0') + ':' + String(defM).padStart(2, '0');
+  const endTotal = defH * 60 + defM + 45;
+  const endH = Math.min(22, Math.floor(endTotal / 60));
+  const endM = (endH === 22) ? 0 : endTotal % 60;
+  const endVal = String(endH).padStart(2, '0') + ':' + String(endM).padStart(2, '0');
+  document.getElementById('add-start').value = startVal;
+  document.getElementById('add-end').value = endVal;
+
+  // 担当セレクト（未登録は除外）
+  const sel = document.getElementById('add-color');
+  sel.innerHTML = '';
+  allPharmacists.filter(p => !p.isUnassigned).forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.color;
+    opt.textContent = p.name;
+    sel.appendChild(opt);
+  });
+  if (pharmColor) {
+    sel.value = pharmColor;
+  } else if (pharmacists.length > 0 && !pharmacists[0].isUnassigned) {
+    sel.value = pharmacists[0].color;
+  }
+
+  document.getElementById('add-title').value = '';
+  document.getElementById('add-rinji').checked = false;
+  document.getElementById('add-location').value = '';
+  document.getElementById('add-desc').value = '';
+  document.getElementById('add-modal').classList.add('show');
+  setTimeout(() => document.getElementById('add-title').focus(), 50);
+
+  // 患者名から住所を自動補完
+  const titleEl = document.getElementById('add-title');
+  addrLookupListener = () => {
+    clearTimeout(addrLookupTimer);
+    const name = titleEl.value.trim();
+    if (name.length < 2) return;
+    addrLookupTimer = setTimeout(() => {
+      google.script.run
+        .withSuccessHandler(result => {
+          const locEl = document.getElementById('add-location');
+          if (result.found && result.address && locEl && !locEl.value) {
+            locEl.value = result.address;
+          }
+        })
+        .lookupPatientAddress(name);
+    }, 600);
+  };
+  titleEl.addEventListener('input', addrLookupListener);
+}
+
+function closeAddModal() {
+  document.getElementById('add-modal').classList.remove('show');
+  const titleEl = document.getElementById('add-title');
+  if (addrLookupListener) { titleEl.removeEventListener('input', addrLookupListener); addrLookupListener = null; }
+  clearTimeout(addrLookupTimer);
+}
+
+function submitAddEvent() {
+  const name = document.getElementById('add-title').value.trim();
+  if (!name) { document.getElementById('add-title').focus(); return; }
+  const rinji = document.getElementById('add-rinji').checked;
+  const title = rinji ? '【臨時】' + name : name;
+  const colorId = document.getElementById('add-color').value;
+  const startTime = document.getElementById('add-start').value;
+  const endTime = document.getElementById('add-end').value;
+  const location = document.getElementById('add-location').value.trim();
+  const desc = document.getElementById('add-desc').value.trim();
+
+  if (!startTime || !endTime || startTime >= endTime) {
+    document.getElementById('status').textContent = '時間の指定が正しくありません';
+    return;
+  }
+
+  const startIso = new Date(currentDateStr + 'T' + startTime + ':00').toISOString();
+  const endIso = new Date(currentDateStr + 'T' + endTime + ':00').toISOString();
+
+  closeAddModal();
+  document.getElementById('status').textContent = '追加中…';
+
+  gasMutate('addSingleEvent', [colorId, title, startIso, endIso, location, desc],
+    result => {
+      if (result.dryRun) {
+        document.getElementById('status').textContent = title + ' を保留中（反映ボタンでカレンダーに送信）';
+      } else {
+        currentEvents.push({ id: result.id, title, start: startIso, end: endIso, color: colorId, location, description: desc });
+        rerenderLocal();
+        pushUndo({ type: 'addEvent', eventId: result.id, dateStr: currentDateStr });
+        document.getElementById('status').textContent = title + ' を追加しました';
+      }
+    },
+    err => { document.getElementById('status').textContent = 'エラー: ' + err.message; }
+  );
+}
+
+function gasMutate(fn, args, onSuccess, onFail) {
+  if (isDryRun) {
+    pendingChanges.push({ date: currentDateStr, fn, args });
+    updateReflectBtn();
+    if (onSuccess) onSuccess({ ok: true, dryRun: true });
+    return;
+  }
+  // サーバーが「担当だけ書けなかった」と返してきたら必ず画面に出す。
+  // 黙って成功扱いにすると、更新したときに元の担当へ戻って見える。
+  const wrapped = res => {
+    if (res && res.labelOk === false) {
+      alert('担当をカレンダーに保存できませんでした。\n\n' + (res.labelError || '原因不明') +
+            '\n\n画面を更新すると元の担当に戻ります。');
+      document.getElementById('status').textContent = '担当の保存に失敗: ' + (res.labelError || '原因不明');
+    }
+    if (onSuccess) onSuccess(res);
+  };
+  const runner = google.script.run
+    .withSuccessHandler(wrapped)
+    .withFailureHandler(onFail || (e => {
+      document.getElementById('status').textContent = 'エラー: ' + e.message;
+    }));
+  runner[fn](...args);
+}
+
+function updateReflectBtn() {
+  const btn = document.getElementById('reflect-btn');
+  if (!btn) return;
+  const count = pendingChanges.filter(c => c.date === currentDateStr).length;
+  btn.disabled = count === 0;
+  const md = currentDateStr ? currentDateStr.slice(5).replace('-', '/') : '';
+  btn.textContent = count === 0
+    ? '📤 反映'
+    : '📤 ' + md + ' を反映 (' + count + '件)';
+}
+
+function applyChanges() {
+  const toApply = pendingChanges.filter(c => c.date === currentDateStr);
+  if (!toApply.length) return;
+  document.getElementById('status').textContent = 'カレンダーに反映中…';
+  document.getElementById('reflect-btn').disabled = true;
+  google.script.run
+    .withSuccessHandler(result => {
+      pendingChanges = pendingChanges.filter(c => c.date !== currentDateStr);
+      updateReflectBtn();
+      const errCount = (result.errors || []).length;
+      document.getElementById('status').textContent = errCount
+        ? '一部エラーあり (' + errCount + '件失敗)'
+        : currentDateStr.slice(5).replace('-', '/') + ' をカレンダーに反映しました';
+      load();
+    })
+    .withFailureHandler(e => {
+      document.getElementById('status').textContent = 'エラー: ' + e.message;
+      updateReflectBtn();
+    })
+    .applyPendingChanges(toApply);
+}
+
+// ===== 患者検索 =====
+let _lastSearchQuery = '';
+
+function onSearchInputChange() {
+  const q = document.getElementById('search-input').value;
+  document.getElementById('search-clear-btn').style.display = q ? '' : 'none';
+  if (!q.trim()) closeSearch();
+}
+
+function onSearchGo() {
+  const q = document.getElementById('search-input').value.trim();
+  if (!q) return;
+  doSearch(q);
+}
+
+function doSearch(q) {
+  if (q === _lastSearchQuery) return;
+  _lastSearchQuery = q;
+  document.getElementById('search-overlay').style.display = '';
+  document.getElementById('search-panel').innerHTML = '<div class="search-status">検索中…</div>';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (q !== _lastSearchQuery) return;
+      renderSearchResults(res, q, true);
+      // まず今日から未来21日だけ検索して即座に表示し、続けて前後42日まで範囲を広げて再検索する
+      google.script.run
+        .withSuccessHandler(res2 => {
+          if (q !== _lastSearchQuery) return;
+          renderSearchResults(res2, q, false);
+        })
+        .withFailureHandler(() => {})
+        .searchPatients(q, currentDateStr, 42, 42);
+    })
+    .withFailureHandler(() => {
+      document.getElementById('search-panel').innerHTML = '<div class="search-status">検索エラー</div>';
+    })
+    .searchPatients(q, currentDateStr, 0, 21);
+}
+
+function renderSearchResults(res, q, expanding) {
+  const panel = document.getElementById('search-panel');
+  if (!res.ok || !res.results.length) {
+    panel.innerHTML = '<div class="search-status">「' + escHtml(q) + '」に一致する患者は見つかりませんでした'
+      + (expanding ? '<br><span style="font-size:12px;color:#9aa0a6;">さらに広い範囲で検索中…</span>' : '')
+      + '</div>';
+    return;
+  }
+  const today = res.today;
+  const WDAYS = '日月火水木金土';
+  panel.innerHTML = '';
+  res.results.forEach(group => {
+    const d = new Date(group.date + 'T00:00:00');
+    const isToday = group.date === today;
+    const groupEl = el('div', 'search-date-group');
+    const header = el('div', 'search-date-header');
+    const big = el('div', 'search-date-big' + (isToday ? ' today' : ''));
+    big.textContent = (d.getMonth() + 1) + '/' + d.getDate() + '（' + WDAYS[d.getDay()] + '）';
+    const lbl = el('div', 'search-date-label');
+    lbl.textContent = d.getFullYear() + '年';
+    header.append(big, lbl);
+    groupEl.appendChild(header);
+    group.events.forEach(ev => {
+      const row = el('div', 'search-event-row');
+      row.addEventListener('click', () => { setDate(group.date); clearSearch(); load(); });
+      const timeEl = el('div', 'search-time');
+      timeEl.textContent = ev.start + '〜' + ev.end;
+      const titleEl = el('div', 'search-title');
+      const raw = ev.title;
+      const clean = raw.replace(/^👌\s*/, '');
+      titleEl.innerHTML = (raw !== clean ? '👌 ' : '') + markMatch(clean, q);
+      const addrEl = el('div', 'search-addr');
+      addrEl.textContent = ev.location;
+      row.append(timeEl, titleEl, addrEl);
+      groupEl.appendChild(row);
+    });
+    panel.appendChild(groupEl);
+  });
+}
+
+function markMatch(text, q) {
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return escHtml(text);
+  return escHtml(text.slice(0, idx)) + '<mark>' + escHtml(text.slice(idx, idx + q.length)) + '</mark>' + escHtml(text.slice(idx + q.length));
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-clear-btn').style.display = 'none';
+  closeSearch();
+}
+
+function closeSearch() {
+  document.getElementById('search-overlay').style.display = 'none';
+  _lastSearchQuery = '';
+}
+
+// ===== シフト表連携 =====
+function renderShiftPanel(result) {
+  const chips = document.getElementById('shift-chips');
+  chips.innerHTML = '';
+  if (!result.ok) {
+    const msg = el('span', 'shift-msg');
+    // reason はサーバー（getShiftAttendance）が返す値と揃えること
+    if (result.reason === 'not_configured') {
+      msg.textContent = '未設定（⚙ から設定）';
+    } else if (result.reason === 'sheet_not_found') {
+      msg.textContent = 'シートが見つかりません: ' + (result.sheetName || '');
+    } else if (result.reason === 'header_not_found') {
+      msg.textContent = '見出し行が見つかりません: ' + (result.sheetName || '');
+    } else {
+      msg.textContent = result.error || '読み込みエラー';
+    }
+    chips.appendChild(msg);
+    return;
+  }
+  if (!result.attendance || result.attendance.length === 0) {
+    const msg = el('span', 'shift-msg'); msg.textContent = '外勤なし';
+    chips.appendChild(msg);
+    return;
+  }
+  result.attendance.forEach(staff => {
+    const chip = el('div', 'shift-chip');
+    const dot = el('div', 'shift-chip-dot');
+    dot.style.background = COLOR_HEX[staff.color] || '#888';
+    chip.appendChild(dot);
+    chip.appendChild(document.createTextNode(staff.name));
+    chips.appendChild(chip);
+  });
+}
+
+function openShiftSettings() {
+  document.getElementById('shift-ss-id').value = '';
+  document.getElementById('shift-modal').classList.add('show');
+  google.script.run
+    .withSuccessHandler(id => {
+      if (id) document.getElementById('shift-ss-id').value = id;
+      setTimeout(() => {
+        const inp = document.getElementById('shift-ss-id');
+        if (inp) { inp.focus(); inp.select(); }
+      }, 50);
+    })
+    .getShiftSpreadsheetId();
+}
+
+function closeShiftModal() {
+  document.getElementById('shift-modal').classList.remove('show');
+}
+
+function saveShiftSettings() {
+  const id = document.getElementById('shift-ss-id').value.trim();
+  if (!id) { closeShiftModal(); return; }
+  closeShiftModal();
+  document.getElementById('status').textContent = 'シフト設定を保存中…';
+  google.script.run
+    .withSuccessHandler(() => {
+      document.getElementById('status').textContent = 'シフト設定を保存しました';
+      load();
+    })
+    .withFailureHandler(e => {
+      document.getElementById('status').textContent = 'シフト設定エラー: ' + e.message;
+    })
+    .setShiftSpreadsheetId(id);
+}
+
+function snapTime15(timeStr) {
+  if (!timeStr) return timeStr;
+  const [h, m] = timeStr.split(':').map(Number);
+  const total = h * 60 + Math.round(m / 15) * 15;
+  return String(Math.floor(total / 60) % 24).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+}
+
+function formatDateJa(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const wd = ['日','月','火','水','木','金','土'][d.getDay()];
+  return (d.getMonth() + 1) + '月' + d.getDate() + '日(' + wd + ')';
+}
+function formatDateShort(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const wd = ['日','月','火','水','木','金','土'][d.getDay()];
+  return (d.getMonth() + 1) + '/' + d.getDate() + '(' + wd + ')';
+}
+function daysBetween(fromStr, toStr) {
+  return Math.round((new Date(toStr) - new Date(fromStr)) / 86400000);
+}
+
+function el(tag, cls) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  return e;
+}
+function fmt(d) { return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); }
+function esc(s) { return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// タブにフォーカスが戻った時に再読み込み（5分以上空いた時のみ）
+window.addEventListener('focus', () => {
+  if (currentDateStr && Date.now() - lastLoadAt > FOCUS_RELOAD_MIN_INTERVAL_MS) {
+    load();
+  }
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🗓️</text></svg>`;
+  const link = document.createElement('link');
+  link.rel = 'icon';
+  link.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+  document.head.appendChild(link);
+  init();
+});
+</script>
+
+</body>
+</html>
