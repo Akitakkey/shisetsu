@@ -345,6 +345,9 @@ async function callProxy(payload) {
 
 let facilities   = [];
 let currentFacId = null;
+// 完了分は訪問日ごとに保持する。'YYYY-MM-DD' -> 記録配列。
+// todayVisits は選択中の訪問日の配列への「参照」なので、push/splice等はそのまま保存対象に反映される。
+let visitStore   = {};
 let todayVisits  = [];
 const inputState = {}; // room -> {s, o, points, output, noChange}
 let visitDate    = new Date();
@@ -406,6 +409,12 @@ window.addEventListener('DOMContentLoaded', () => {
   updateSettingsStatus();
 });
 
+// 見出し用。訪問日が今日でないときは日付を出して取り違えを防ぐ
+function visitLabel() {
+  return fmtDate(visitDate) === fmtDate(new Date())
+    ? '本日' : `${visitDate.getMonth() + 1}/${visitDate.getDate()}`;
+}
+
 function updateNavDate() {
   const today = new Date();
   const isToday = fmtDate(visitDate) === fmtDate(today);
@@ -423,7 +432,10 @@ function applyVisitDate(val) {
   if (!val) return;
   const [y, m, d] = val.split('-').map(Number);
   visitDate = new Date(y, m - 1, d);
+  // 完了分は訪問日ごとに別管理。日付を切り替えるとその日のリストに入れ替わる
+  useVisitDateList();
   updateNavDate();
+  renderApp();
 }
 
 function showVisitDateModal() {
@@ -599,9 +611,52 @@ function parsePointsLabel(label) {
   return out;
 }
 
+// 選択中の訪問日の完了リストに切り替える（無ければ新規作成）
+function useVisitDateList() {
+  const key = fmtISO(visitDate);
+  if (!Array.isArray(visitStore[key])) visitStore[key] = [];
+  todayVisits = visitStore[key];
+}
+
+// 全訪問日の完了リストを破棄する（施設切替・施設削除時）
+function clearAllVisitLists() {
+  visitStore = {};
+  useVisitDateList();
+}
+
+function totalVisitRecords() {
+  return Object.values(visitStore).reduce((n, a) => n + (Array.isArray(a) ? a.length : 0), 0);
+}
+
+// 際限なく溜まらないよう、空の日・30日より古い日・不正なキーを捨てる（keepKeyは残す）
+function pruneVisitStore(keepKey) {
+  const limit = new Date();
+  limit.setDate(limit.getDate() - 30);
+  const limitIso = fmtISO(limit);
+  Object.keys(visitStore).forEach(k => {
+    if (k === keepKey) return;
+    const arr = visitStore[k];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !Array.isArray(arr) || arr.length === 0 || k < limitIso) {
+      delete visitStore[k];
+    }
+  });
+}
+
 function load() {
   try { facilities  = JSON.parse(localStorage.getItem(LS_FAC)   || '[]'); } catch { facilities = []; }
-  try { todayVisits = JSON.parse(localStorage.getItem(LS_TODAY)  || '[]'); } catch { todayVisits = []; }
+  // 完了分の読み込み（旧形式＝単一配列なら訪問日キー形式へ移行）
+  try {
+    const raw = JSON.parse(localStorage.getItem(LS_TODAY) || '{}');
+    if (Array.isArray(raw)) {
+      const old = localStorage.getItem(LS_TDATE) || '';           // fmtDate形式 YYYY/MM/DD
+      const key = /^\d{4}\/\d{2}\/\d{2}$/.test(old) ? old.replace(/\//g, '-') : fmtISO(new Date());
+      visitStore = raw.length ? { [key]: raw } : {};
+    } else {
+      visitStore = (raw && typeof raw === 'object') ? raw : {};
+    }
+  } catch { visitStore = {}; }
+  pruneVisitStore();
+  useVisitDateList();
   // 旧方式でfacility内に平文保存されていたSlack Botトークンを除去（GAS Proxy側のScript Propertiesに移行済み）
   let hadSlackToken = false;
   facilities.forEach(f => { if (f.slackToken) { hadSlackToken = true; delete f.slackToken; } });
@@ -626,16 +681,12 @@ function load() {
   if (migrated) localStorage.setItem(LS_FAC, JSON.stringify(facilities));
   currentFacId = localStorage.getItem(LS_CUR) || null;
   if (currentFacId && !facilities.find(f => f.id === currentFacId)) currentFacId = null;
-  // 日付が変わっていたら本日完了分をリセット
-  if (localStorage.getItem(LS_TDATE) !== fmtDate(new Date())) {
-    todayVisits = [];
-    localStorage.removeItem(LS_TODAY);
-  }
+  // 完了分は訪問日ごとに分かれているため、日付が変わったときの一括リセットは不要
 }
 
 function save() {
   localStorage.setItem(LS_FAC,   JSON.stringify(facilities));
-  localStorage.setItem(LS_TODAY, JSON.stringify(todayVisits));
+  localStorage.setItem(LS_TODAY, JSON.stringify(visitStore));
   localStorage.setItem(LS_TDATE, fmtDate(new Date()));
   if (currentFacId) localStorage.setItem(LS_CUR, currentFacId);
 }
@@ -661,7 +712,7 @@ function renderApp() {
     const pct = Math.round(done / total * 100);
     html += `<div class="prog-wrap">
       <div class="prog-text">
-        <span>本日の進捗　<span style="font-weight:600">${done} / ${total}名</span></span>
+        <span>${visitLabel()}の進捗　<span style="font-weight:600">${done} / ${total}名</span></span>
         <div class="flex-c gap-8">
           <button class="btn btn-secondary btn-sm" onclick="showBulkSOInput()">📋 S/O一括入力</button>
           <button class="btn btn-secondary btn-sm" onclick="showDeliveryImport()">💊 配薬済取込</button>
@@ -714,7 +765,7 @@ function renderApp() {
 
   // Today completed
   if (done > 0) {
-    html += `<span class="sec-label" style="margin-top:4px">本日完了分</span>`;
+    html += `<span class="sec-label" style="margin-top:4px">${visitLabel()}完了分</span>`;
     todayVisits.forEach((v, i) => {
       html += `<div class="today-card">
         <div class="today-hd" onclick="toggleToday(${i})">
@@ -2415,12 +2466,12 @@ function _closeFacOutside(e) {
 
 function selectFacility(id) {
   if (id === currentFacId) { closeFacDropdown(); return; }
-  if (todayVisits.length &&
-      !confirm('施設を切り替えると本日完了分の一覧が消えます。よろしいですか？')) {
+  if (totalVisitRecords() &&
+      !confirm('施設を切り替えると完了分の一覧（全訪問日分）が消えます。よろしいですか？')) {
     return;
   }
   currentFacId = id;
-  todayVisits  = [];
+  clearAllVisitLists();
   Object.keys(inputState).forEach(k => delete inputState[k]);
   save();
   closeFacDropdown();
@@ -2585,8 +2636,8 @@ function showSettings() {
     </div>
     <hr>
     <button class="btn btn-danger w100"
-      onclick="if(confirm('本日の記録をすべてリセットしますか？'))resetToday()">
-      本日の記録をリセット</button>
+      onclick="if(confirm('${visitLabel()}の記録をすべてリセットしますか？'))resetToday()">
+      ${visitLabel()}の記録をリセット</button>
     <button class="btn btn-danger w100" style="margin-top:8px"
       onclick="if(confirm('この施設を削除しますか？'))deleteFacility()">
       この施設を削除</button>
@@ -2672,13 +2723,15 @@ function saveSettings() {
 }
 
 function resetToday() {
-  todayVisits = []; save(); closeModal(); renderApp();
+  // 表示中の訪問日の分だけをリセット（他の訪問日の完了分は残す）
+  todayVisits.length = 0;
+  save(); closeModal(); renderApp();
 }
 
 function deleteFacility() {
   facilities = facilities.filter(f => f.id !== currentFacId);
   currentFacId = facilities[0]?.id || null;
-  todayVisits = [];
+  clearAllVisitLists();
   save(); closeModal(); renderApp();
 }
 
