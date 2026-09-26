@@ -1,0 +1,2646 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>eFAX送信支援</title>
+<style>
+/* ---- tokens ------------------------------------------------------------ */
+:root{
+  --ground:#f1f2f6;
+  --card:#ffffff;
+  --raised:#fafafc;
+  --ink-1:#1a1a1f;
+  --ink-2:#5f6068;
+  --ink-3:#a8a9b3;
+  --sep:rgba(50,52,70,.13);
+  --hair:rgba(50,52,70,.08);
+  --accent:#0a66d0;
+  --accent-soft:rgba(10,102,208,.08);
+  --accent-ink:#0a66d0;
+  --pin:#d59200;
+  --caution:#9a4a05;
+  --caution-bg:rgba(214,138,23,.14);
+  --danger:#c62f27;
+  --danger-soft:rgba(198,47,39,.10);
+  --paper-edge:rgba(50,52,70,.18);
+  --hit:rgba(214,138,23,.30);
+  --band:#e9ebf3;                 /* 区分見出しの帯 */
+  --zebra:rgba(50,52,70,.032);    /* 1行おきの下地 */
+  --shadow-1:0 1px 2px rgba(26,26,31,.06),0 1px 3px rgba(26,26,31,.05);
+  --shadow-2:0 2px 6px rgba(26,26,31,.07),0 8px 24px rgba(26,26,31,.07);
+  --shadow-3:0 18px 48px rgba(26,26,31,.18),0 4px 14px rgba(26,26,31,.10);
+  --r:14px; --r-sm:9px;
+  /* PC操作前提の横幅。本文欄に等幅94桁が折り返さず収まる広さを取ってある */
+  --wrap-w:1360px;
+  /* 英数字はSegoe UI、日本語は同フォントに字形がないためMeiryoへ自動的に落ちる */
+  --ui:'Segoe UI',Meiryo,'メイリオ',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+  --mono:'MS Gothic','ＭＳ ゴシック','Osaka-Mono','Noto Sans Mono CJK JP','Courier New',monospace;
+}
+:root:not([data-theme="light"]){
+  @media (prefers-color-scheme: dark){
+    --ground:#0e0f13; --card:#191a20; --raised:#202129;
+    --ink-1:#eceef4; --ink-2:#9b9daa; --ink-3:#63656f;
+    --sep:rgba(255,255,255,.13); --hair:rgba(255,255,255,.07);
+    --accent:#5aa4ff; --accent-soft:rgba(90,164,255,.13); --accent-ink:#8cc0ff;
+    --pin:#f0b93f; --caution:#f0b463; --caution-bg:rgba(214,138,23,.16);
+    --danger:#ff6b60; --danger-soft:rgba(255,107,96,.14);
+    --paper-edge:rgba(0,0,0,.6); --hit:rgba(240,180,99,.28);
+    --band:#262832; --zebra:rgba(255,255,255,.032);
+    --shadow-1:0 1px 2px rgba(0,0,0,.5);
+    --shadow-2:0 2px 6px rgba(0,0,0,.45),0 10px 28px rgba(0,0,0,.4);
+    --shadow-3:0 18px 48px rgba(0,0,0,.6),0 4px 14px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0e0f13; --card:#191a20; --raised:#202129;
+  --ink-1:#eceef4; --ink-2:#9b9daa; --ink-3:#63656f;
+  --sep:rgba(255,255,255,.13); --hair:rgba(255,255,255,.07);
+  --accent:#5aa4ff; --accent-soft:rgba(90,164,255,.13); --accent-ink:#8cc0ff;
+  --pin:#f0b93f; --caution:#f0b463; --caution-bg:rgba(214,138,23,.16);
+  --danger:#ff6b60; --danger-soft:rgba(255,107,96,.14);
+  --paper-edge:rgba(0,0,0,.6); --hit:rgba(240,180,99,.28);
+  --band:#262832; --zebra:rgba(255,255,255,.032);
+  --shadow-1:0 1px 2px rgba(0,0,0,.5);
+  --shadow-2:0 2px 6px rgba(0,0,0,.45),0 10px 28px rgba(0,0,0,.4);
+  --shadow-3:0 18px 48px rgba(0,0,0,.6),0 4px 14px rgba(0,0,0,.5);
+}
+
+*{box-sizing:border-box;}
+/* hidden属性は既定だと display 指定（.notice の flex 等）に負けて表示されてしまうため、必ず隠す */
+[hidden]{display:none!important;}
+body{margin:0;background:var(--ground);color:var(--ink-1);
+  font-family:var(--ui);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px;}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important;}}
+
+/* ---- chrome ------------------------------------------------------------ */
+.topbar{position:sticky;top:0;z-index:40;
+  background:color-mix(in srgb,var(--ground) 86%,transparent);
+  backdrop-filter:saturate(180%) blur(18px);-webkit-backdrop-filter:saturate(180%) blur(18px);
+  border-bottom:1px solid var(--hair);}
+.topbar-in{max-width:var(--wrap-w);margin:0 auto;padding:0 18px;height:54px;display:flex;align-items:center;gap:10px;}
+.mark{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;
+  background:var(--accent);color:#fff;font-size:14px;flex:none;}
+.topbar h1{font-size:16px;font-weight:650;letter-spacing:-.2px;margin:0;}
+.topbar .from{margin-left:auto;font-size:12px;color:var(--ink-2);}
+.step{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-3);}
+.step b{font-weight:650;color:var(--accent-ink);}
+.step span{color:var(--ink-3);}
+
+.wrap{max-width:var(--wrap-w);margin:0 auto;padding-block:18px 132px;padding-left:18px;padding-right:18px;}
+
+.notice{display:flex;gap:10px;align-items:flex-start;background:var(--caution-bg);color:var(--caution);
+  border-radius:var(--r-sm);padding:11px 13px;font-size:12.5px;line-height:1.65;margin-bottom:18px;}
+.notice b{font-weight:650;}
+
+/* ---- cards ------------------------------------------------------------- */
+/* ---- 入力画面の2段組み（PC操作前提。狭いと1列に戻る） ------------------ */
+.cols{display:flex;gap:18px;align-items:flex-start;}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0;}
+/* 送信先・発信元・送信内容は常に目に入れておきたいので、本文側だけをスクロールさせる */
+.col-side{flex:0 0 368px;position:sticky;top:66px;
+  max-height:calc(100vh - 80px);overflow-y:auto;overscroll-behavior-y:contain;padding:4px;margin:-4px;}
+.col-main{flex:1;}
+@media (max-width:1040px){
+  .cols{flex-direction:column;}
+  .col-side{flex:none;width:100%;position:static;max-height:none;overflow:visible;padding:0;margin:0;}
+}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-1);padding:16px 16px 17px;}
+.card > .eyebrow{margin-bottom:12px;}
+.eyebrow{display:block;font-size:10.5px;font-weight:700;letter-spacing:.09em;color:var(--ink-2);text-transform:uppercase;}
+.row{display:flex;gap:8px;flex-wrap:wrap;}
+.hint{font-size:11.5px;color:var(--ink-2);line-height:1.6;margin-top:8px;}
+
+/* ---- controls ---------------------------------------------------------- */
+.btn{font:inherit;font-size:13.5px;font-weight:550;letter-spacing:-.05px;
+  padding:8px 15px;border-radius:var(--r-sm);border:1px solid transparent;cursor:pointer;
+  transition:background .15s,color .15s,transform .12s,opacity .15s;}
+.btn:active{transform:scale(.975);}
+.btn-quiet{background:var(--raised);color:var(--ink-1);border-color:var(--sep);}
+.btn-quiet:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink);}
+.btn-solid{background:var(--accent);color:#fff;}
+.btn-solid:hover{filter:brightness(1.07);}
+.btn-solid:disabled{background:var(--ink-3);color:var(--card);cursor:not-allowed;transform:none;}
+.btn-text{background:none;border:none;color:var(--accent-ink);padding:6px 8px;}
+.btn-text:hover{background:var(--accent-soft);}
+.btn-warn{background:none;border:none;color:var(--danger);padding:6px 8px;border-radius:var(--r-sm);}
+.btn-warn:hover{background:var(--danger-soft);}
+.btn-lg{padding:11px 18px;font-size:15px;font-weight:650;border-radius:12px;line-height:1.35;}
+.btn-lg .b-main{display:block;}
+.btn-lg .b-sub{display:block;font-size:11px;font-weight:500;opacity:.8;letter-spacing:0;}
+
+input[type=text],input[type=search],input[type=datetime-local],textarea{
+  font:inherit;width:100%;color:var(--ink-1);background:var(--raised);
+  border:1px solid var(--sep);border-radius:var(--r-sm);padding:10px 12px;
+  outline:none;transition:border-color .15s,box-shadow .15s;}
+input:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+label.field{display:block;font-size:11.5px;font-weight:600;color:var(--ink-2);margin-bottom:5px;}
+.field-group{margin-bottom:13px;}
+
+select{font:inherit;width:100%;color:var(--ink-1);background:var(--raised);
+  border:1px solid var(--sep);border-radius:var(--r-sm);padding:10px 9px;
+  outline:none;transition:border-color .15s,box-shadow .15s;}
+select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+/* ---- 発信元 ------------------------------------------------------------ */
+.from-row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;}
+.from-name{flex:1 1 160px;min-width:0;font-size:16px;font-weight:650;letter-spacing:-.2px;padding-bottom:9px;}
+.from-staff{flex:0 1 190px;min-width:150px;}
+
+#bodyText{font-family:var(--mono);font-size:13px;line-height:1.75;
+  white-space:pre;overflow-wrap:normal;overflow-x:auto;resize:vertical;min-height:230px;tab-size:4;}
+/* 2段組みのときは縦の余白が余るので、本文を深くしてスクロールを減らす */
+@media (min-width:1041px){ #bodyText{min-height:344px;} }
+
+.flag{font-size:12px;line-height:1.6;border-radius:var(--r-sm);
+  padding:9px 12px;margin-top:11px;background:var(--caution-bg);color:var(--caution);}
+
+/* ---- 送信先トリガー ----------------------------------------------------- */
+.trigger{width:100%;display:flex;align-items:center;gap:12px;text-align:left;font:inherit;
+  background:var(--raised);border:1px solid var(--sep);border-radius:var(--r-sm);
+  padding:12px 13px;cursor:pointer;color:var(--ink-1);transition:border-color .15s,background .15s;}
+.trigger:hover{border-color:var(--accent);background:var(--accent-soft);}
+.trigger .tg-body{flex:1;min-width:0;}
+.trigger .tg-name{display:block;font-size:15px;font-weight:650;letter-spacing:-.2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.trigger .tg-sub{display:block;font-size:12px;color:var(--ink-2);margin-top:2px;font-variant-numeric:tabular-nums;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.trigger .tg-cta{font-size:12.5px;font-weight:600;color:var(--accent-ink);flex:none;}
+.trigger.is-empty .tg-name{color:var(--ink-3);font-weight:550;}
+
+/* ---- 検索ピッカー ------------------------------------------------------- */
+.pick-hd{padding:13px 14px;border-bottom:1px solid var(--sep);display:flex;gap:9px;align-items:center;}
+.pick-hd input{flex:1;}
+.pick-scroll{flex:1;overflow-y:auto;overscroll-behavior:contain;}
+/* 見出しは自分のセクション内にだけ貼り付く。区分の境目が常に見えるようにする */
+.pick-sec{position:relative;}
+.pick-group{position:sticky;top:0;z-index:2;display:flex;width:100%;align-items:center;
+  justify-content:space-between;gap:8px;padding:9px 16px;font-size:12.5px;font-weight:700;
+  letter-spacing:.01em;color:var(--ink-1);background:var(--band);
+  border-top:1px solid var(--sep);border-bottom:1px solid var(--sep);}
+.pick-sec:first-child .pick-group{border-top:none;}
+button.pick-group{font-family:inherit;cursor:pointer;text-align:left;}
+button.pick-group:hover{background:var(--accent-soft);color:var(--accent-ink);}
+button.pick-group:hover .pg-count{color:var(--accent-ink);}
+.pg-meta{display:flex;align-items:center;gap:9px;flex:none;}
+.pg-count{font-size:11.5px;font-weight:600;color:var(--ink-2);font-variant-numeric:tabular-nums;}
+.pg-caret{font-size:9px;display:inline-block;transition:transform .16s;}
+.pg-caret.is-open{transform:rotate(180deg);}
+@media (prefers-reduced-motion:reduce){.pg-caret{transition:none;}}
+.pick-row{display:flex;align-items:stretch;border-bottom:1px solid var(--hair);}
+.pick-row:last-child{border-bottom:none;}
+/* 1行おきに薄く敷いて、名前とFAX番号の組が視覚的に1件ずつまとまるようにする */
+.pick-body .pick-row:nth-child(even){background:var(--zebra);}
+.pi-main{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left;font:inherit;
+  background:none;border:none;cursor:pointer;color:var(--ink-1);padding:11px 6px 11px 16px;}
+.pick-row.is-active .pi-main,.pi-main:hover{background:var(--accent-soft);}
+.pick-row.is-current{box-shadow:inset 3px 0 0 var(--accent);}
+.pick-row.is-current .pi-name{color:var(--accent-ink);}
+.pi-body{flex:1;min-width:0;}
+.pi-name{display:block;font-size:14.5px;font-weight:600;letter-spacing:-.15px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pi-sub{display:block;font-size:12px;color:var(--ink-2);margin-top:2px;font-variant-numeric:tabular-nums;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pi-name mark{background:var(--hit);color:inherit;border-radius:2px;padding:0 1px;}
+.pi-pin{flex:none;background:none;border:none;cursor:pointer;padding:0 14px;font-size:15px;
+  color:var(--ink-3);transition:color .15s,transform .12s;line-height:1;}
+.pi-pin:hover{transform:scale(1.15);}
+.pi-pin.on{color:var(--pin);}
+.pick-ft{padding:10px 16px;border-top:1px solid var(--sep);display:flex;align-items:center;
+  justify-content:space-between;gap:10px;font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;}
+.pick-none{padding:34px 20px;text-align:center;color:var(--ink-3);font-size:13px;line-height:1.7;}
+
+/* ---- 送信履歴 ------------------------------------------------------------ */
+.hist-row{padding:11px 16px;border-bottom:1px solid var(--sep);}
+.hist-row:last-child{border-bottom:none;}
+.hist-main{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+.hist-name{font-weight:600;font-size:13.5px;}
+.hist-when{font-size:11.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.hist-sub{margin-top:2px;font-size:12px;color:var(--ink-2);display:flex;justify-content:space-between;gap:10px;}
+
+/* ---- attachments ------------------------------------------------------- */
+.drop{border:1.5px dashed var(--sep);border-radius:var(--r);padding:22px 16px;
+  text-align:center;color:var(--ink-2);cursor:pointer;transition:border-color .18s,background .18s,color .18s;}
+.drop:hover{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink);}
+.drop .dt{font-size:13.5px;font-weight:600;color:inherit;}
+.drop .ds{font-size:11.5px;color:var(--ink-3);margin-top:2px;}
+
+/* ---- 画面のどこでも受け取るドロップ層 ---------------------------------- */
+/* 受け口はdocument側。この層は見た目だけなので、ドラッグの当たり判定から外す */
+.drop-all{position:fixed;inset:0;z-index:110;pointer-events:none;
+  display:flex;align-items:center;justify-content:center;padding:24px;
+  background:color-mix(in srgb,var(--ground) 74%,transparent);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  animation:fadeIn .13s ease-out;}
+.drop-all-in{background:var(--card);border:2px dashed var(--accent);border-radius:18px;
+  box-shadow:var(--shadow-2);padding:28px 34px;text-align:center;}
+.drop-all .dt{font-size:17px;font-weight:700;letter-spacing:-.3px;color:var(--accent-ink);}
+.drop-all .ds{font-size:12.5px;color:var(--ink-2);margin-top:5px;line-height:1.6;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.files{display:flex;flex-direction:column;gap:7px;margin-top:11px;scroll-margin:18px 0 88px;}
+.file{display:flex;align-items:center;gap:10px;padding:9px 10px 9px 12px;
+  background:var(--raised);border:1px solid var(--hair);border-radius:var(--r-sm);}
+.file .seq{font-size:11px;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums;min-width:14px;}
+.file .nm{flex:1;min-width:0;}
+.file .nm b{display:block;font-size:13px;font-weight:550;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.file .nm span{display:block;font-size:11px;color:var(--ink-2);font-variant-numeric:tabular-nums;}
+
+/* ---- mail spec --------------------------------------------------------- */
+.mail{border:1px solid var(--sep);border-radius:var(--r-sm);overflow:hidden;}
+.mail dl{margin:0;display:grid;grid-template-columns:74px 1fr;}
+.mail dt{padding:9px 12px;font-size:11.5px;font-weight:600;color:var(--ink-2);
+  background:var(--raised);border-bottom:1px solid var(--hair);}
+.mail dd{margin:0;padding:9px 12px;font-family:var(--mono);font-size:12.5px;
+  border-bottom:1px solid var(--hair);word-break:break-all;}
+.mail dt:last-of-type,.mail dd:last-of-type{border-bottom:none;}
+.mail .muted{color:var(--ink-3);font-family:var(--ui);font-size:12px;}
+.mail .bad{color:var(--danger);font-family:var(--ui);font-size:12px;}
+
+/* ---- preview screen ---------------------------------------------------- */
+.pv-head{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-1);
+  padding:15px 16px;margin-bottom:16px;}
+.pv-to{font-size:17px;font-weight:700;letter-spacing:-.3px;}
+.pv-fax{font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;margin-top:2px;}
+.pv-addr{font-family:var(--mono);font-size:12.5px;background:var(--raised);border:1px solid var(--hair);
+  border-radius:var(--r-sm);padding:9px 11px;margin-top:11px;word-break:break-all;}
+.pv-count{display:flex;align-items:baseline;gap:8px;margin-top:12px;padding-top:12px;
+  border-top:1px solid var(--hair);font-size:12.5px;color:var(--ink-2);}
+.pv-count b{font-size:22px;font-weight:700;color:var(--ink-1);font-variant-numeric:tabular-nums;line-height:1;}
+
+/* 紙面は横に並べてスクロール量を減らす。1面あたり600px前後は確保して列ズレを見落とさない */
+.pages{display:grid;gap:18px 18px;align-items:start;
+  grid-template-columns:repeat(auto-fill,minmax(430px,1fr));}
+/* グリッドの既定(min-width:auto)だと原寸1654pxの画像が列幅を押し広げるため、0に戻す */
+.page{margin:0;min-width:0;}
+.page figcaption{display:flex;align-items:center;gap:9px;margin-bottom:7px;}
+.pg-no{flex:none;min-width:22px;height:22px;padding:0 6px;border-radius:6px;display:inline-grid;place-items:center;
+  background:var(--ink-1);color:var(--card);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;}
+.pg-kind{font-size:12px;font-weight:650;letter-spacing:-.1px;}
+.pg-src{font-size:11.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* 表示しているのはPDFに詰めるJPEGそのもの。紙面の見た目と送信内容を1バイトもずらさない */
+.page img{display:block;width:100%;height:auto;background:#fff;
+  border:1px solid var(--paper-edge);border-radius:4px;box-shadow:var(--shadow-2);}
+.page.is-attach .pg-no{background:var(--accent);}
+
+.progress{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-1);
+  padding:30px 20px;text-align:center;color:var(--ink-2);font-size:13px;}
+.sent-note{background:var(--accent-soft);color:var(--accent-ink);border-radius:var(--r-sm);
+  padding:11px 13px;font-size:12.5px;margin-bottom:16px;font-weight:550;}
+
+/* ---- 別添PDFの編集 ------------------------------------------------------ */
+/* 紙面は原寸900pxまで。画面幅いっぱいに広げても見やすくならないので中央に寄せる */
+#pdfView{max-width:1000px;margin:0 auto;}
+.mk-hd{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-1);
+  padding:13px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+.mk-file{flex:1;min-width:0;font-size:14px;font-weight:650;letter-spacing:-.2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mk-nav{display:flex;align-items:center;gap:8px;flex:none;}
+.mk-pg{font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;min-width:52px;text-align:center;}
+.mk-cur{display:flex;align-items:center;gap:6px;flex:none;font-size:12.5px;
+  color:var(--ink-1);cursor:pointer;user-select:none;}
+.mk-cur input{margin:0;width:16px;height:16px;accent-color:var(--accent);}
+
+/* ---- 送るページの選択 --------------------------------------------------- */
+.mk-selbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px;}
+.mk-selcount{flex:1;min-width:140px;font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums;}
+.mk-selbar .btn{padding:6px 11px;font-size:12.5px;}
+.mk-thumbs{display:flex;gap:9px;overflow-x:auto;overscroll-behavior-x:contain;
+  padding:2px 2px 9px;margin-bottom:13px;}
+.mk-th{flex:none;width:84px;display:flex;flex-direction:column;gap:4px;}
+.mk-th-btn{display:block;width:100%;padding:0;line-height:0;cursor:pointer;background:#fff;
+  border:1px solid var(--paper-edge);border-radius:4px;overflow:hidden;transition:box-shadow .15s,opacity .15s;}
+.mk-th-btn canvas{display:block;width:100%;height:auto;}
+.mk-th.is-cur .mk-th-btn{box-shadow:0 0 0 2px var(--accent);}
+.mk-th.is-off .mk-th-btn{opacity:.3;}
+.mk-th-lb{display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;
+  font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;user-select:none;}
+.mk-th.is-off .mk-th-lb{color:var(--ink-3);}
+.mk-th-lb input{margin:0;width:15px;height:15px;accent-color:var(--accent);}
+.mk-stage{position:relative;margin:0 auto;line-height:0;background:#fff;
+  border:1px solid var(--paper-edge);border-radius:4px;box-shadow:var(--shadow-2);overflow:hidden;
+  transition:opacity .15s;}
+/* 送らないページは薄く。編集自体は続けられる */
+.mk-stage.is-off{opacity:.38;}
+.mk-stage canvas{display:block;width:100%;height:auto;}
+/* touch-action:none がないとiPadでスクロールに取られて矩形が描けない */
+.mk-ov{position:absolute;inset:0;cursor:crosshair;touch-action:none;}
+/* 枠の見た目はcanvasに直接描く。こちらは当たり判定と選択表示だけを持つ透明な層 */
+.mk-mark{position:absolute;cursor:pointer;}
+.mk-mark:hover{outline:1.5px dashed var(--accent);outline-offset:1px;}
+.mk-mark.is-sel{outline:2px solid var(--accent);outline-offset:1px;}
+.mk-ghost{position:absolute;background:rgba(0,0,0,.45);border:1px dashed #fff;pointer-events:none;}
+.mk-tools{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-1);
+  padding:13px 16px 15px;margin-top:14px;}
+.mk-empty{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-1);
+  padding:34px 20px;text-align:center;color:var(--ink-3);font-size:13px;}
+.mk-tools .eyebrow{margin-bottom:10px;}
+.mk-none{font-size:12.5px;color:var(--ink-2);line-height:1.65;}
+
+/* ---- 枠のその場編集（枠のすぐ下に出る小窓） ---------------------------- */
+/* 下部の固定バーに隠れないよう、スクロールで寄せるときの余白を多めに取る */
+.mk-pop{position:absolute;z-index:6;width:296px;max-width:calc(100% - 12px);
+  background:var(--card);border:1px solid var(--sep);border-radius:11px;
+  box-shadow:0 12px 30px rgba(12,13,18,.28);padding:10px;line-height:1.5;
+  display:flex;flex-direction:column;gap:7px;scroll-margin:18px 0 88px;}
+/* iOSは16px未満の入力欄にフォーカスすると画面ごと拡大してしまう */
+.mk-pop textarea{font-size:16px;line-height:1.45;padding:7px 9px;min-height:46px;resize:none;}
+/* 文面が1行でも2行でも高さを変えない。入力の1文字目で小窓が跳ねるのを防ぐため */
+.mk-pop-hint{font-size:11px;color:var(--ink-2);line-height:1.35;min-height:30px;}
+.mk-pop-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.mk-pop .btn{flex:none;padding:6px 12px;font-size:12.5px;}
+.file .acts{display:flex;align-items:center;gap:2px;flex:none;}
+.file .acts .btn{padding:6px 10px;font-size:12.5px;}
+.file.is-off .nm b{color:var(--ink-3);text-decoration:line-through;}
+.file.is-off .nm span{color:var(--danger);}
+
+/* ---- action bar -------------------------------------------------------- */
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:45;
+  background:color-mix(in srgb,var(--ground) 88%,transparent);
+  backdrop-filter:saturate(180%) blur(18px);-webkit-backdrop-filter:saturate(180%) blur(18px);
+  border-top:1px solid var(--hair);}
+.bar-in{max-width:760px;margin:0 auto;padding:11px 18px;display:flex;gap:10px;}
+.bar .btn{flex:1;}
+.bar .btn.flex-0{flex:0 0 38%;}
+.bar .btn.flex-auto{flex:0 0 auto;}
+
+/* ---- modal ------------------------------------------------------------- */
+.scrim{position:fixed;inset:0;z-index:90;background:rgba(12,13,18,.5);
+  display:flex;align-items:center;justify-content:center;padding:18px;
+  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
+.modal{background:var(--card);border-radius:16px;width:100%;max-width:420px;
+  max-height:86vh;overflow-y:auto;box-shadow:var(--shadow-3);}
+.modal-flex{display:flex;flex-direction:column;overflow:hidden;max-width:440px;height:min(620px,86vh);}
+.modal-hd{padding:16px 18px 13px;border-bottom:1px solid var(--sep);
+  display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.modal-hd h2{margin:0;font-size:16px;font-weight:650;letter-spacing:-.2px;}
+.modal-bd{padding:16px 18px;}
+.modal-ft{padding:13px 18px;border-top:1px solid var(--sep);display:flex;gap:8px;justify-content:flex-end;}
+
+/* ---- toast ------------------------------------------------------------- */
+#toasts{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);z-index:120;
+  display:flex;flex-direction:column;gap:7px;align-items:center;width:max-content;max-width:88vw;}
+.toast{background:#25262e;color:#f3f4f8;padding:9px 16px;border-radius:18px;font-size:12.5px;
+  box-shadow:var(--shadow-2);text-align:center;line-height:1.55;animation:rise .22s cubic-bezier(.2,.8,.3,1);}
+@keyframes rise{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+#cover{position:absolute;top:0;left:-10000px;width:794px;}
+
+@media (max-width:460px){
+  .mail dl{grid-template-columns:64px 1fr;}
+  .bar-in{padding:10px 14px;}
+  .modal-flex{height:88vh;}
+}
+</style>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <div class="mark" aria-hidden="true">📠</div>
+    <h1>eFAX送信支援</h1>
+    <div class="step" id="stepInd">
+      <b id="step1">入力</b><span>›</span><span id="step2">プレビュー</span>
+    </div>
+    <button class="btn btn-text" id="btnScheduleList" type="button" style="margin-left:6px;">予約一覧</button>
+    <button class="btn btn-text" id="btnHistory" type="button">送信履歴</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ============ 入力画面 ============ -->
+  <div id="editView">
+    <div class="notice" id="loadNotice" hidden>
+      <span aria-hidden="true">⚠️</span>
+      <div id="loadNoticeText"></div>
+    </div>
+
+    <div class="cols">
+      <!-- 左：誰に・誰から・何が送られるか。入力中ずっと見えているべきもの -->
+      <div class="col col-side">
+      <section class="card">
+        <span class="eyebrow">送信先</span>
+        <button class="trigger" id="btnPick" type="button">
+          <span class="tg-body">
+            <span class="tg-name" id="tgName"></span>
+            <span class="tg-sub" id="tgSub"></span>
+          </span>
+          <span class="tg-cta">変更</span>
+        </button>
+
+        <div id="toContactField" style="margin-top:13px;" hidden>
+          <label class="field" for="toContact">担当者（敬称まで含めて入力）</label>
+          <input type="text" id="toContact" autocomplete="off">
+        </div>
+        <div class="hint" id="toContactHint"></div>
+
+        <div class="row" style="margin-top:10px;">
+          <button class="btn btn-quiet" id="btnNewClinic" type="button">＋ 新規登録</button>
+          <button class="btn btn-quiet" id="btnEditClinic" type="button">編集</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <span class="eyebrow">発信元</span>
+        <div class="from-row">
+          <div class="from-name">つなぐ薬局足立</div>
+          <div class="from-staff">
+            <label class="field" for="staffName">担当者</label>
+            <input type="text" id="staffName" autocomplete="off">
+          </div>
+        </div>
+        <div class="hint" id="fromHint"></div>
+      </section>
+
+      <section class="card">
+        <span class="eyebrow">送信されるメール</span>
+        <div class="mail">
+          <dl>
+            <dt>宛先</dt><dd id="mailTo"></dd>
+            <dt>件名</dt><dd>{nocoverpage}</dd>
+            <dt>本文</dt><dd class="muted">（空）添付PDFのみがFAXされます</dd>
+            <dt>添付</dt><dd id="mailAttach"></dd>
+          </dl>
+        </div>
+        <div class="hint">FAX番号の先頭「0」を取り、「81」を付けて <code>@efaxsend.com</code> に送る形式です。件名の <code>{nocoverpage}</code> でeFAX側の自動カバーページを止めています。</div>
+      </section>
+      </div>
+
+      <!-- 右：実際に書き込む場所。等幅94桁が折り返さない幅を優先して割り当てる -->
+      <div class="col col-main">
+      <section class="card">
+        <span class="eyebrow">本文</span>
+        <textarea id="bodyText" spellcheck="false" aria-label="FAX本文"></textarea>
+        <div class="hint">改行と半角スペースは入力したまま送信票に反映されます（等幅フォント）。薬剤名・用法・日数の列を揃えるときは半角スペースで調整してください。Excelや電子薬歴から貼り付けたときに入る見えない区切り（タブ）は、画面で見えている幅の半角スペースに自動で置き換えます。1枚に収まらない分は自動で2枚目・3枚目に続きます（行の途中では切れません）。</div>
+        <div class="flag" id="widthFlag" hidden></div>
+      </section>
+
+      <section class="card">
+        <span class="eyebrow">別添PDF（任意）</span>
+        <div class="drop" id="drop" role="button" tabindex="0">
+          <div class="dt">タップしてPDFを選択</div>
+          <div class="ds">画面のどこにドロップしてもかまいません・選んだ順に送信されます</div>
+        </div>
+        <input type="file" id="fileInput" accept="application/pdf" multiple hidden>
+        <div class="files" id="fileList"></div>
+        <div class="hint"><b>編集</b>を押すと、隠したい部分をドラッグで囲めます。黒く塗りつぶすほか、枠の上に別の文字を重ねて書くこともできます。複数ページのPDFは、送るページだけを選べます（初めはすべて選択されています）。編集はFAXするPDFにだけ焼き込まれ、元のファイルは変更しません。</div>
+        <div class="flag" id="sizeFlag" hidden></div>
+      </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ プレビュー画面 ============ -->
+  <div id="previewView" hidden>
+    <div class="sent-note" id="sentNote" hidden></div>
+    <div class="pv-head">
+      <div class="pv-to" id="pvTo"></div>
+      <div class="pv-fax" id="pvFax"></div>
+      <div class="pv-addr" id="pvAddr"></div>
+      <div class="pv-count"><b id="pvPages">–</b><span id="pvBreak"></span></div>
+      <div class="flag" id="pvFlag" hidden></div>
+    </div>
+    <div class="progress" id="pvProgress" hidden></div>
+    <div class="pages" id="pvPagesHost"></div>
+  </div>
+
+  <!-- ============ 別添PDFの編集（マスキング） ============ -->
+  <div id="pdfView" hidden>
+    <div class="mk-hd">
+      <div class="mk-file" id="mkName"></div>
+      <label class="mk-cur" id="mkCurWrap" hidden>
+        <input type="checkbox" id="mkCur">このページを送る
+      </label>
+      <div class="mk-nav">
+        <button class="btn btn-quiet" id="mkRotate" type="button" aria-label="このページを90度回転" title="このページを回転（枠は消えます）">⟳ 回転</button>
+        <button class="btn btn-quiet" id="mkPrev" type="button">‹ 前</button>
+        <span class="mk-pg" id="mkPage">– / –</span>
+        <button class="btn btn-quiet" id="mkNext" type="button">次 ›</button>
+      </div>
+    </div>
+    <div class="progress" id="mkProgress" hidden></div>
+    <div class="mk-empty" id="mkEmpty" hidden></div>
+    <div id="mkPick" hidden>
+      <div class="mk-selbar">
+        <span class="mk-selcount" id="mkSelCount"></span>
+        <button class="btn btn-quiet" id="mkAllOn" type="button">すべて選ぶ</button>
+        <button class="btn btn-quiet" id="mkAllOff" type="button">すべて外す</button>
+      </div>
+      <div class="mk-thumbs" id="mkThumbs"></div>
+    </div>
+    <div class="mk-stage" id="mkStage" hidden>
+      <canvas id="mkCanvas"></canvas>
+      <div class="mk-ov" id="mkOv"></div>
+      <!-- 枠を作った・選んだ直後に、その枠のすぐ下へ出る入力欄 -->
+      <div class="mk-pop" id="mkPop" hidden>
+        <textarea id="mkText" rows="2" spellcheck="false"
+          placeholder="重ねて書く文字（空欄なら黒く塗ります）"></textarea>
+        <div class="mk-pop-hint" id="mkPopHint"></div>
+        <div class="mk-pop-row">
+          <button class="btn btn-warn" id="mkDel" type="button">枠を削除</button>
+          <button class="btn btn-solid" id="mkPopOk" type="button">閉じる</button>
+        </div>
+      </div>
+    </div>
+    <div class="mk-tools" id="mkTools">
+      <span class="eyebrow">枠の編集</span>
+      <div class="mk-none" id="mkNone"></div>
+      <div class="hint">隠したい部分をドラッグで囲むと枠が増えます。重ねて書く文字は、枠のすぐ下に出る小窓で入力します。枠に収まるよう自動で折り返し、文字の大きさも調整します。改行を入れるとその位置で必ず改行します。</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ アクションバー ============ -->
+<div class="bar">
+  <div class="bar-in" id="barEdit">
+    <button class="btn btn-solid btn-lg" id="btnPreview" type="button">
+      <span class="b-main" id="pvBtnMain">プレビュー</span>
+      <span class="b-sub" id="pvBtnSub">確認後、送信ボタンに進みます</span>
+    </button>
+  </div>
+  <div class="bar-in" id="barPreview" hidden>
+    <button class="btn btn-quiet btn-lg flex-0" id="btnCancel" type="button">キャンセル</button>
+    <button class="btn btn-quiet btn-lg flex-auto" id="btnScheduleSend" type="button">予約送信</button>
+    <button class="btn btn-solid btn-lg" id="btnSend" type="button">送信</button>
+  </div>
+  <div class="bar-in" id="barMask" hidden>
+    <button class="btn btn-quiet btn-lg flex-auto" id="mkUndo" type="button">元に戻す</button>
+    <button class="btn btn-quiet btn-lg flex-auto" id="mkClear" type="button">全消去</button>
+    <button class="btn btn-solid btn-lg" id="mkDone" type="button">編集を終える</button>
+  </div>
+</div>
+
+<!-- 送信先ピッカー -->
+<div class="scrim" id="pickScrim" hidden>
+  <div class="modal modal-flex" role="dialog" aria-modal="true" aria-label="送信先を選ぶ">
+    <div class="pick-hd">
+      <input type="search" id="pickQuery" placeholder="名前・よみ・FAX番号" autocomplete="off"
+             enterkeyhint="go" aria-label="送信先を検索">
+      <button class="btn btn-text" id="btnClosePick" type="button">閉じる</button>
+    </div>
+    <div class="pick-scroll" id="pickScroll"></div>
+    <div class="pick-ft">
+      <span id="pickCount"></span>
+      <button class="btn btn-text" id="btnAddFromPick" type="button">＋ 新規登録</button>
+    </div>
+  </div>
+</div>
+
+<!-- 送信先の登録 -->
+<div class="scrim" id="clinicScrim" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="clinicTitle">
+    <div class="modal-hd">
+      <h2 id="clinicTitle">送信先の登録</h2>
+      <button class="btn btn-text" id="btnCloseClinic" type="button" aria-label="閉じる">✕</button>
+    </div>
+    <div class="modal-bd">
+      <div class="field-group">
+        <label class="field" for="cmName">送信先名</label>
+        <input type="text" id="cmName" autocomplete="off">
+      </div>
+      <div class="field-group">
+        <label class="field" for="cmYomi">よみ（任意）</label>
+        <input type="text" id="cmYomi" autocomplete="off">
+        <div class="hint">ひらがなで入れておくと、漢字変換せずに検索できます。</div>
+      </div>
+      <div class="field-group">
+        <label class="field" for="cmFax">FAX番号</label>
+        <input type="text" id="cmFax" autocomplete="off" inputmode="tel">
+        <div class="hint">市外局番から入力してください。ハイフンの位置は入力したとおりに表示します（ハイフンなしでも送信できます）。</div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-warn" id="btnDeleteClinic" type="button" hidden>削除</button>
+      <button class="btn btn-quiet" id="btnCancelClinic" type="button">キャンセル</button>
+      <button class="btn btn-solid" id="btnSaveClinic" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 送信履歴 -->
+<div class="scrim" id="historyScrim" hidden>
+  <div class="modal modal-flex" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+    <div class="modal-hd">
+      <h2 id="historyTitle">送信履歴</h2>
+      <button class="btn btn-text" id="btnCloseHistory" type="button" aria-label="閉じる">✕</button>
+    </div>
+    <div class="pick-scroll" id="historyScroll"></div>
+  </div>
+</div>
+
+<!-- 予約送信の時刻指定 -->
+<div class="scrim" id="scheduleScrim" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="scheduleTitle">
+    <div class="modal-hd">
+      <h2 id="scheduleTitle">送信時刻を指定</h2>
+      <button class="btn btn-text" id="btnCloseSchedule" type="button" aria-label="閉じる">✕</button>
+    </div>
+    <div class="modal-bd">
+      <div class="field-group">
+        <label class="field" for="scheduleAt">送信予定日時</label>
+        <input type="datetime-local" id="scheduleAt">
+        <div class="hint">指定した時刻の前後数分でeFAXへ送信されます（Google側の実行タイミングにより多少前後します）。ブラウザを閉じても送信されます。</div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-quiet" id="btnCancelSchedule" type="button">キャンセル</button>
+      <button class="btn btn-solid" id="btnConfirmSchedule" type="button">予約する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 予約一覧 -->
+<div class="scrim" id="scheduleListScrim" hidden>
+  <div class="modal modal-flex" role="dialog" aria-modal="true" aria-labelledby="scheduleListTitle">
+    <div class="modal-hd">
+      <h2 id="scheduleListTitle">予約一覧</h2>
+      <button class="btn btn-text" id="btnCloseScheduleList" type="button" aria-label="閉じる">✕</button>
+    </div>
+    <div class="pick-scroll" id="scheduleListScroll"></div>
+  </div>
+</div>
+
+<!-- FAX送信票のページを組み立てる場所（オフスクリーン／テーマに依存しない固定色） -->
+<div id="cover" aria-hidden="true"></div>
+
+<!-- PDFをドラッグしている間だけ出る。スクロール位置に関係なく画面全体で受ける -->
+<div class="drop-all" id="dropAll" hidden>
+  <div class="drop-all-in">
+    <div class="dt">ここにドロップしてPDFを追加</div>
+    <div class="ds" id="dropAllSub">画面のどこでも受け付けます</div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // 送信先マスタはスプレッドシート（コード.js）。この2つだけは端末ごとの覚え書きとしてブラウザに置く
+  var RECENT_KEY = 'efax_recent_v1';
+  var STAFF_KEY  = 'efax_staff_v1';
+  var PHARMACY = 'つなぐ薬局足立';
+  // 本文欄の幅674px÷半角7px＝96桁。折り返しで列がずれる手前で知らせる（全角=2）
+  var BODY_MAX_COLS = 94;
+  var MAX_TOTAL_BYTES = 15 * 1024 * 1024;
+  var RECENT_MAX = 5;                        // 覚えておく件数＝一覧に出す件数
+  var RENDER_WIDTH = 900;                    // 別添PDFの編集画面での描画幅(px)
+  // 送る紙面の解像度。FAXの精細モード（約200dpi）に合わせる。編集画面の900pxでは約109dpiしかなく、
+  // 検査値などの小さい活字が潰れる
+  var SEND_DPI = 200;
+  var SEND_MAX_PX = 3400;                    // A3相当より大きいページで巨大なcanvasを作らないための上限
+  var JPEG_QUALITY = 0.92;
+  var PAGE_W = 794, PAGE_H = 1123;           // A4（96dpi）
+  var A4_PT_W = 595.28, A4_PT_H = 841.89;    // PDFの寸法（1pt＝1/72インチ）
+  var PAGE_PAD_X = 60, PAGE_PAD_Y = 56;
+  var FOOTER_RESERVE = 116;                  // 差出人欄（16px×3行）の確保高さ
+  var MAX_COVER_PAGES = 20;
+  var PRINT_FONT = "'Segoe UI',Meiryo,'メイリオ','Hiragino Sans',sans-serif";
+  var PRINT_MONO = "'MS Gothic','ＭＳ ゴシック','Osaka-Mono','Courier New',monospace";
+
+  if (window.pdfjsLib) {
+    // 読み込めない環境ではpdf.jsが自動でメインスレッド実行に切り替わる
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  // 送信先マスタが持つのは 名称・よみ・FAX番号・ピン留め だけ（コード.js の「送信先マスタ」シート）。
+  // 担当者と敬称は都度の自由記載
+
+  var state = {
+    clinics: [], recent: [], selected: null,
+    loading: true,            // 送信先マスタをシートから読み込み中
+    editing: null,            // 編集モーダルを開いた時点の {row, name, fax}。保存・削除でシートと照合する
+    staffName: '',
+    attachments: [],          // {name, bytes, buffer}
+    build: null,              // 作り終えたプレビューの紙面。送信ボタンはこれだけを送る
+    mode: 'edit',
+    pickRows: [], pickActive: -1, recentOpen: false
+  };
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---- storage --------------------------------------------------------- */
+  function readJson(key, fallback) {
+    try {
+      var raw = localStorage.getItem(key);
+      if (raw) return JSON.parse(raw);
+    } catch (e) { /* プライベートウィンドウ等。既定値で続行する */ }
+    return fallback;
+  }
+  function writeJson(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+  }
+
+  /* ---- server（コード.js） ---------------------------------------------- */
+  // google.script.run を Promise で包む。コード.js で throw したエラーの文言が err.message に入る
+  function callServer(fn, arg) {
+    return new Promise(function (resolve, reject) {
+      var runner = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+      // 引数に undefined を渡すと受け付けられないことがあるので、引数なしの呼び出しは本当に渡さない
+      if (arg === undefined) runner[fn](); else runner[fn](arg);
+    });
+  }
+  function errText(err) { return (err && err.message) || String(err); }
+
+  // シートから返ってきた一覧に差し替える。行番号は削除のたびにずれるので、選択中の送信先は
+  // 名前とFAX番号で探し直す（keep を渡すと、保存したばかりの送信先を選択状態にする）
+  function applyClinics(list, keep) {
+    var want = keep || state.selected;
+    state.clinics = (list || []).map(function (c) {
+      return {
+        row: Number(c.row), name: String(c.name || ''), yomi: String(c.yomi || ''),
+        fax: String(c.fax || ''), pin: !!c.pin
+      };
+    }).filter(function (c) { return c.name; });
+    state.selected = want ? (state.clinics.filter(function (c) {
+      return c.name === want.name && faxKey(c) === faxKey(want);
+    })[0] || null) : null;
+    renderTrigger();
+    renderToContact();
+    renderMail();
+    if (!$('pickScrim').hidden) renderPick();
+  }
+
+  function reloadClinics() {
+    return callServer('getClinics').then(function (list) { applyClinics(list); });
+  }
+
+  /* ---- helpers --------------------------------------------------------- */
+  function toast(msg) {
+    var el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = msg;
+    $('toasts').appendChild(el);
+    setTimeout(function () { el.remove(); }, 3400);
+  }
+
+  function reiwa(d) {
+    return 'R' + (d.getFullYear() - 2018) + '.' + (d.getMonth() + 1) + '/' + d.getDate();
+  }
+
+  // コード.js の buildEfaxAddress_ と同じ規則
+  function efaxAddress(fax) {
+    var digits = String(fax).replace(/[^0-9]/g, '');
+    if ((digits.length === 9 || digits.length === 10) && digits.charAt(0) !== '0') digits = '0' + digits;
+    if (digits.charAt(0) !== '0' || digits.length < 10 || digits.length > 11) return null;
+    return '81' + digits.substring(1) + '@efaxsend.com';
+  }
+
+  // FAX番号は登録時に打たれた区切り方のまま保存・表示する。ハイフンの位置は市外局番の桁数
+  // （03／048／0279…）で決まり、数字だけからは正しく付けられないので推測しない。
+  // ここでは全角→半角と記号の揺れだけを揃える。宛先アドレスは数字だけから作る（efaxAddress）
+  function tidyFax(s) {
+    return String(s || '')
+      .replace(/[０-９（）]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })
+      .replace(/[－ー‐―−–—]/g, '-')
+      .replace(/(\d)[\s　]+(?=\d)/g, '$1-')
+      .replace(/[^0-9()\-]/g, '')
+      .replace(/-{2,}/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  // 全角英数→半角、ひらがな→カタカナ、区切り文字を落として比較しやすくする
+  function norm(s) {
+    return String(s || '')
+      .replace(/[Ａ-Ｚａ-ｚ０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })
+      .replace(/[ぁ-ゖ]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) + 0x60); })
+      .replace(/[\s　ー・－\-‐−（）()]/g, '')
+      .toLowerCase();
+  }
+
+  function fmtSize(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1024 * 1024) return Math.round(b / 1024) + ' KB';
+    return (b / 1024 / 1024).toFixed(1) + ' MB';
+  }
+
+  function totalBytes() {
+    return state.attachments.reduce(function (s, a) { return s + a.bytes; }, 0);
+  }
+
+  // 入力欄に打たれた担当者（敬称込み）。空なら何も出さない（送信票は送信先名だけになる）
+  function contactLine() { return $('toContact').value.trim(); }
+
+  // 送信票に印字する発信元の1行
+  function fromLine() {
+    var s = (state.staffName || '').trim();
+    return '発信元：' + PHARMACY + (s ? '　担当：' + s : '');
+  }
+
+  function faxKey(c) { return String(c.fax).replace(/[^0-9]/g, ''); }
+  function sortKey(c) { return norm(c.yomi || c.name); }
+  function byYomi(a, b) { return sortKey(a).localeCompare(sortKey(b), 'ja'); }
+
+  function touchRecent(c) {
+    var key = faxKey(c);
+    // 古いものは押し出して捨てる。増やすと「最近」でなくなり、探す手間が戻ってしまう
+    state.recent = [key].concat(state.recent.filter(function (k) { return k !== key; })).slice(0, RECENT_MAX);
+    writeJson(RECENT_KEY, state.recent);
+  }
+  function recentRank(c) {
+    var i = state.recent.indexOf(faxKey(c));
+    return i < 0 ? 999 : i;
+  }
+
+  /* ---- 選択中の表示 ----------------------------------------------------- */
+  function renderTrigger() {
+    var c = state.selected;
+    var btn = $('btnPick');
+    if (!c) {
+      btn.classList.add('is-empty');
+      if (state.loading) {
+        $('tgName').textContent = '送信先を読み込んでいます…';
+        $('tgSub').textContent = 'スプレッドシートから取得中です';
+        return;
+      }
+      $('tgName').textContent = state.clinics.length ? '送信先を選んでください' : '送信先が未登録です';
+      $('tgSub').textContent = state.clinics.length
+        ? state.clinics.length + '件から検索できます'
+        : '「＋ 新規登録」から追加してください';
+      return;
+    }
+    btn.classList.remove('is-empty');
+    $('tgName').textContent = c.name;
+    $('tgSub').textContent = 'FAX ' + c.fax;
+  }
+
+  /* ---- 送信先の担当者（完全に自由記載。送信先マスタには保存しない） ------- */
+  function renderToContact() {
+    $('toContactField').hidden = !state.selected;
+    updateToHint();
+  }
+
+  function updateToHint() {
+    var c = state.selected;
+    if (!c) { $('toContactHint').textContent = ''; return; }
+    var full = contactLine();
+    $('toContactHint').textContent = full
+      ? '送信票には「送信先：' + c.name + '　' + full + '」と印字されます。'
+      : '担当者は空欄のままでも構いません。その場合は「送信先：' + c.name + '」だけを印字します。';
+  }
+
+  /* ---- 発信元の担当者（自由記載。端末に保存する） ------------------------- */
+  function updateFromHint() {
+    $('fromHint').textContent = '送信票には「' + fromLine() + '」と印字されます。';
+  }
+
+  function commitStaffName() {
+    state.staffName = $('staffName').value;
+    writeJson(STAFF_KEY, state.staffName);
+    updateFromHint();
+  }
+
+  /* ---- 検索 ------------------------------------------------------------- */
+  // 前方一致を最上位に、よみ一致、部分一致の順で並べる
+  function scoreClinic(c, q) {
+    var name = norm(c.name), yomi = norm(c.yomi), fax = faxKey(c);
+    var score = -1;
+    if (name.indexOf(q) === 0) score = 100;
+    else if (yomi && yomi.indexOf(q) === 0) score = 90;
+    else if (fax.indexOf(q) === 0) score = 80;
+    else if (name.indexOf(q) >= 0) score = 60;
+    else if (yomi && yomi.indexOf(q) >= 0) score = 55;
+    else if (fax.indexOf(q) >= 0) score = 50;
+    if (score < 0) return -1;
+    if (c.pin) score += 6;
+    score += Math.max(0, RECENT_MAX - recentRank(c));
+    return score;
+  }
+
+  // 一致部分を <mark> で囲む。正規化で文字数が変わる場合は素のテキストを返す
+  function highlight(text, q) {
+    var frag = document.createDocumentFragment();
+    var normed = norm(text), pos = q ? normed.indexOf(q) : -1;
+    if (pos < 0 || normed.length !== text.length) {
+      frag.appendChild(document.createTextNode(text));
+      return frag;
+    }
+    frag.appendChild(document.createTextNode(text.slice(0, pos)));
+    var mk = document.createElement('mark');
+    mk.textContent = text.slice(pos, pos + q.length);
+    frag.appendChild(mk);
+    frag.appendChild(document.createTextNode(text.slice(pos + q.length)));
+    return frag;
+  }
+
+  function buildRow(c, index, q) {
+    var row = document.createElement('div');
+    row.className = 'pick-row';
+    if (state.selected && faxKey(state.selected) === faxKey(c)) row.classList.add('is-current');
+
+    var main = document.createElement('button');
+    main.type = 'button';
+    main.className = 'pi-main';
+
+    var body = document.createElement('span');
+    body.className = 'pi-body';
+    var nm = document.createElement('span');
+    nm.className = 'pi-name';
+    nm.appendChild(highlight(c.name, q));
+    var sub = document.createElement('span');
+    sub.className = 'pi-sub';
+    sub.textContent = c.fax;
+    body.append(nm, sub);
+    main.appendChild(body);
+    main.addEventListener('click', function () { choose(index); });
+
+    var pin = document.createElement('button');
+    pin.type = 'button';
+    pin.className = 'pi-pin' + (c.pin ? ' on' : '');
+    pin.textContent = c.pin ? '★' : '☆';
+    pin.setAttribute('aria-label', c.pin ? 'ピン留めを外す' : 'ピン留めする');
+    pin.addEventListener('click', function (e) {
+      e.stopPropagation();
+      pin.disabled = true;
+      callServer('setPin', { row: c.row, name: c.name, fax: c.fax, pin: !c.pin })
+        .then(function (list) { applyClinics(list); })
+        .catch(function (err) {
+          pin.disabled = false;
+          toast(errText(err));
+          reloadClinics().catch(function () {});
+        });
+    });
+
+    row.append(main, pin);
+    return { el: row, index: index };
+  }
+
+  function renderPick() {
+    var host = $('pickScroll');
+    host.textContent = '';
+    state.pickRows = [];
+    state.pickActive = -1;
+
+    var q = norm($('pickQuery').value);
+    var indexed = state.clinics.map(function (c, i) { return { c: c, i: i }; });
+
+    // collapsible を渡した見出しは折りたたみ式になる。閉じている間は
+    // 行を pickRows に積まないので、↑↓キーの移動先にもならない
+    function section(label, items, collapsible) {
+      if (!items.length) return;
+      var open = !collapsible || state.recentOpen;
+      var sec = document.createElement('section');
+      sec.className = 'pick-sec';
+
+      var h = document.createElement(collapsible ? 'button' : 'div');
+      h.className = 'pick-group';
+      var lab = document.createElement('span');
+      lab.textContent = label;
+      var meta = document.createElement('span');
+      meta.className = 'pg-meta';
+      // 「最近使った連絡先」は上限5件と決まっていて、件数を出しても判断の足しにならない
+      if (!collapsible) {
+        var cnt = document.createElement('span');
+        cnt.className = 'pg-count';
+        cnt.textContent = items.length + '件';
+        meta.appendChild(cnt);
+      }
+
+      if (collapsible) {
+        h.type = 'button';
+        h.setAttribute('aria-expanded', open ? 'true' : 'false');
+        var car = document.createElement('span');
+        car.className = 'pg-caret' + (open ? ' is-open' : '');
+        car.textContent = '▼';
+        meta.appendChild(car);
+        h.addEventListener('click', function () {
+          state.recentOpen = !state.recentOpen;
+          renderPick();
+        });
+      }
+      h.append(lab, meta);
+      sec.appendChild(h);
+
+      if (open) {
+        var body = document.createElement('div');
+        body.className = 'pick-body';
+        items.forEach(function (it) {
+          var r = buildRow(it.c, it.i, q);
+          body.appendChild(r.el);
+          state.pickRows.push(r);
+        });
+        sec.appendChild(body);
+      }
+      host.appendChild(sec);
+    }
+
+    if (q) {
+      var hits = indexed
+        .map(function (it) { return { it: it, s: scoreClinic(it.c, q) }; })
+        .filter(function (x) { return x.s >= 0; })
+        .sort(function (a, b) { return b.s - a.s || byYomi(a.it.c, b.it.c); })
+        .map(function (x) { return x.it; });
+
+      if (!hits.length) {
+        var none = document.createElement('div');
+        none.className = 'pick-none';
+        none.textContent = '「' + $('pickQuery').value + '」に一致する送信先がありません。';
+        host.appendChild(none);
+      } else {
+        section('検索結果', hits);
+        state.pickActive = 0;
+        state.pickRows[0].el.classList.add('is-active');
+      }
+      $('pickCount').textContent = state.clinics.length + '件中 ' + hits.length + '件';
+      return;
+    }
+
+    var pinned = indexed.filter(function (it) { return it.c.pin; }).sort(function (a, b) { return byYomi(a.c, b.c); });
+    var recent = indexed
+      .filter(function (it) { return !it.c.pin && recentRank(it.c) < 999; })
+      .sort(function (a, b) { return recentRank(a.c) - recentRank(b.c); })
+      .slice(0, RECENT_MAX);
+    // 「すべて」は名前どおり全件を出す。ピン留め・最近使った連絡先はここにも重複して出てよい
+    // （上のほうだけ見れば済むよう別枠で先出ししているだけで、絞り込みではない）
+    var rest = indexed.slice().sort(function (a, b) { return byYomi(a.c, b.c); });
+
+    section('ピン留め', pinned);
+    section('最近使った連絡先', recent, true);
+    section('すべて（50音順）', rest);
+
+    if (!state.clinics.length) {
+      var empty = document.createElement('div');
+      empty.className = 'pick-none';
+      empty.textContent = 'まだ送信先が登録されていません。';
+      host.appendChild(empty);
+    }
+    $('pickCount').textContent = state.clinics.length + '件';
+  }
+
+  function moveActive(delta) {
+    if (!state.pickRows.length) return;
+    if (state.pickActive >= 0) state.pickRows[state.pickActive].el.classList.remove('is-active');
+    state.pickActive = (state.pickActive + delta + state.pickRows.length) % state.pickRows.length;
+    var row = state.pickRows[state.pickActive];
+    row.el.classList.add('is-active');
+    row.el.scrollIntoView({ block: 'nearest' });
+  }
+
+  function openPick() {
+    if (state.loading) { toast('送信先を読み込んでいます。少しお待ちください'); return; }
+    $('pickQuery').value = '';
+    state.recentOpen = false;      // 開くたびに「最近使った連絡先」は畳んだ状態から始める
+    $('pickScrim').hidden = false;
+    renderPick();
+    $('pickQuery').focus({ preventScroll: true });
+  }
+  function closePick() { $('pickScrim').hidden = true; }
+
+  /* ---- 送信履歴 ----------------------------------------------------------- */
+  function fmtHistDate(ms) {
+    if (!ms) return '（日時不明）';
+    var d = new Date(ms);
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
+      ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+  }
+
+  function openHistory() {
+    $('historyScrim').hidden = false;
+    var host = $('historyScroll');
+    host.textContent = '';
+    var loading = document.createElement('div');
+    loading.className = 'pick-none';
+    loading.textContent = '読み込んでいます…';
+    host.appendChild(loading);
+
+    callServer('getSendHistory', 200).then(function (list) {
+      if ($('historyScrim').hidden) return;   // 待っている間に閉じられていたら描かない
+      host.textContent = '';
+      if (!list || !list.length) {
+        var none = document.createElement('div');
+        none.className = 'pick-none';
+        none.textContent = 'まだ送信履歴がありません。';
+        host.appendChild(none);
+        return;
+      }
+      list.forEach(function (h) {
+        var row = document.createElement('div');
+        row.className = 'hist-row';
+        var main = document.createElement('div');
+        main.className = 'hist-main';
+        var name = document.createElement('span');
+        name.className = 'hist-name';
+        name.textContent = h.name || '（送信先名なし）';
+        var when = document.createElement('span');
+        when.className = 'hist-when';
+        when.textContent = fmtHistDate(h.at);
+        main.append(name, when);
+        var sub = document.createElement('div');
+        sub.className = 'hist-sub';
+        var fax = document.createElement('span');
+        fax.textContent = h.fax || '';
+        var files = document.createElement('span');
+        files.textContent = 'ファイル' + h.files + '件';
+        sub.append(fax, files);
+        row.append(main, sub);
+        host.appendChild(row);
+      });
+    }).catch(function (err) {
+      host.textContent = '';
+      var errEl = document.createElement('div');
+      errEl.className = 'pick-none';
+      errEl.textContent = '送信履歴を読み込めませんでした（' + errText(err) + '）';
+      host.appendChild(errEl);
+    });
+  }
+  function closeHistory() { $('historyScrim').hidden = true; }
+
+  /* ---- 予約一覧（時間指定した送信の確認・キャンセル） --------------------- */
+  function openScheduleList() {
+    $('scheduleListScrim').hidden = false;
+    var host = $('scheduleListScroll');
+    host.textContent = '';
+    var loading = document.createElement('div');
+    loading.className = 'pick-none';
+    loading.textContent = '読み込んでいます…';
+    host.appendChild(loading);
+
+    callServer('getScheduledFaxes').then(function (list) {
+      if ($('scheduleListScrim').hidden) return;   // 待っている間に閉じられていたら描かない
+      renderScheduleList(list || []);
+    }).catch(function (err) {
+      host.textContent = '';
+      var errEl = document.createElement('div');
+      errEl.className = 'pick-none';
+      errEl.textContent = '予約一覧を読み込めませんでした（' + errText(err) + '）';
+      host.appendChild(errEl);
+    });
+  }
+  function closeScheduleList() { $('scheduleListScrim').hidden = true; }
+
+  function renderScheduleList(list) {
+    var host = $('scheduleListScroll');
+    host.textContent = '';
+    if (!list.length) {
+      var none = document.createElement('div');
+      none.className = 'pick-none';
+      none.textContent = 'まだ予約がありません。';
+      host.appendChild(none);
+      return;
+    }
+    list.forEach(function (r) {
+      var row = document.createElement('div');
+      row.className = 'hist-row';
+      var main = document.createElement('div');
+      main.className = 'hist-main';
+      var name = document.createElement('span');
+      name.className = 'hist-name';
+      var label = r.name || '（送信先名なし）';
+      name.textContent = label;
+      var when = document.createElement('span');
+      when.className = 'hist-when';
+      when.textContent = fmtHistDate(r.at) + (r.status === '予約中' ? ' 予定' : '');
+      main.append(name, when);
+
+      var sub = document.createElement('div');
+      sub.className = 'hist-sub';
+      var info = document.createElement('span');
+      info.textContent = (r.fax || '') + '・ファイル' + r.files + '件・' + r.status;
+      sub.appendChild(info);
+      if (r.status === '予約中') {
+        var cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'btn btn-warn';
+        cancelBtn.textContent = 'キャンセル';
+        cancelBtn.addEventListener('click', function () {
+          cancelBtn.disabled = true;
+          callServer('cancelScheduledFax', { id: r.id }).then(function (list2) {
+            renderScheduleList(list2);
+            toast('予約をキャンセルしました');
+          }).catch(function (err) {
+            cancelBtn.disabled = false;
+            toast(errText(err));
+          });
+        });
+        sub.appendChild(cancelBtn);
+      }
+      row.append(main, sub);
+      if (r.status === 'エラー' && r.error) {
+        var flag = document.createElement('div');
+        flag.className = 'flag';
+        flag.style.marginTop = '8px';
+        flag.textContent = r.error;
+        row.appendChild(flag);
+      }
+      host.appendChild(row);
+    });
+  }
+
+  function choose(index) {
+    var next = state.clinics[index] || null;
+    // 送信先が変わったら担当者名は消す。前の宛先の担当者名が残ったまま送るのを防ぐ
+    if (!state.selected || !next || faxKey(state.selected) !== faxKey(next)) $('toContact').value = '';
+    state.selected = next;
+    // 「最近使った連絡先」には選んだ時点では入れない。送信した時点で記録する（btnSend）
+    closePick();
+    renderTrigger();
+    renderToContact();
+    renderMail();
+  }
+
+  /* ---- mail spec ------------------------------------------------------- */
+  function renderMail() {
+    var c = state.selected;
+    var to = $('mailTo');
+    if (!c) {
+      to.className = 'muted';
+      to.textContent = '送信先を選択してください';
+    } else {
+      var addr = efaxAddress(c.fax);
+      if (addr) { to.className = ''; to.textContent = addr; }
+      else { to.className = 'bad'; to.textContent = 'FAX番号の形式が不正です（' + c.fax + '）'; }
+    }
+    // 全ページのチェックを外した別添は送られないので、件数からも除く
+    var live = state.attachments.filter(function (a) { return !a.pageCount || onCount(a) > 0; });
+    var att = $('mailAttach');
+    att.className = '';
+    att.textContent = 'FAX送信票.pdf' +
+      (live.length ? '　＋ 別添 ' + live.length + '件（' + fmtSize(totalBytes()) + '）' : '');
+  }
+
+  /* ---- attachments ----------------------------------------------------- */
+  function renderFiles() {
+    var host = $('fileList');
+    host.textContent = '';
+    state.attachments.forEach(function (a, i) {
+      var row = document.createElement('div');
+      row.className = 'file';
+      var seq = document.createElement('span');
+      seq.className = 'seq'; seq.textContent = String(i + 1);
+      var nm = document.createElement('span');
+      nm.className = 'nm';
+      var b = document.createElement('b'); b.textContent = a.name;
+      var marks = (a.marks || []).length;
+      var on = onCount(a);
+      var parts = [fmtSize(a.bytes)];
+      if (a.pageCount) {
+        if (!on) parts.push('送るページがありません');
+        else if (on < a.pageCount) parts.push('送信 ' + on + '/' + a.pageCount + 'ページ');
+        else parts.push(a.pageCount + 'ページ');
+      }
+      if (marks) parts.push('マスキング ' + marks + 'か所');
+      if (a.pageCount && !on) row.className = 'file is-off';
+      var s = document.createElement('span');
+      s.textContent = parts.join('・');
+      nm.append(b, s);
+
+      var acts = document.createElement('span');
+      acts.className = 'acts';
+      var edit = document.createElement('button');
+      edit.type = 'button'; edit.className = 'btn btn-quiet'; edit.textContent = '編集';
+      edit.addEventListener('click', function () { openMask(i); });
+      var del = document.createElement('button');
+      del.type = 'button'; del.className = 'btn btn-warn'; del.textContent = '削除';
+      del.addEventListener('click', function () {
+        // 開いたままのpdf.jsの文書は、参照を切っても作業スレッド側に残るので明示的に閉じる
+        if (a.docPromise) a.docPromise.then(function (d) { d.destroy(); }, function () {});
+        state.attachments.splice(i, 1);
+        renderFiles(); renderMail();
+      });
+      acts.append(edit, del);
+      row.append(seq, nm, acts);
+      host.appendChild(row);
+    });
+
+    var total = totalBytes();
+    var flag = $('sizeFlag');
+    if (total > MAX_TOTAL_BYTES) {
+      flag.hidden = false;
+      flag.textContent = '別添の合計が ' + fmtSize(total) + ' で、送信できる上限（約15MB）を超えています。ファイルを減らしてください。';
+    } else {
+      flag.hidden = true;
+    }
+  }
+
+  function readBuffer(file) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function (e) { resolve(e.target.result); };
+      r.onerror = function () { reject(new Error(file.name + ' の読み込みに失敗しました')); };
+      r.readAsArrayBuffer(file);
+    });
+  }
+
+  function addFiles(list) {
+    var files = Array.prototype.slice.call(list).filter(function (f) {
+      if (f.type !== 'application/pdf') { toast(f.name + ' はPDFではないため追加できません'); return false; }
+      return true;
+    });
+    if (!files.length) return;
+    // 選択した順序をそのまま送信順にするため、全件読み終えてから追加する
+    Promise.all(files.map(readBuffer)).then(function (buffers) {
+      files.forEach(function (f, i) {
+        state.attachments.push({
+          name: f.name, bytes: f.size, buffer: buffers[i],
+          pageCount: 0, pages: null, marks: [], skip: {}, rotate: {}
+        });
+      });
+      renderFiles(); renderMail();
+      // 画面の端でドロップすると一覧が見えないままになるので、必要なぶんだけ送る
+      $('fileList').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }).catch(function (err) { toast(err.message); });
+  }
+
+  /* ---- body width check ------------------------------------------------ */
+  // 等幅での見かけの幅（全角=2）。桁あふれの判定とタブの置き換えで同じ数え方をする
+  function charCols(code) { return code > 0xff ? 2 : 1; }
+
+  // タブは「次の目盛りまで飛ぶ」空白で、目盛りの間隔が入力欄（4桁）と送信票（8桁）で違う。
+  // Excelや電子薬歴から貼り付けると列の間にタブが入り、入力欄で揃って見えた列がFAXではずれる。
+  // 入力欄で見えている幅と同じ数の半角スペースに置き換え、見たままを送る
+  var TAB_COLS = 4;
+  function expandTabs(text, startCol) {
+    var out = '', col = startCol || 0;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i);
+      if (ch === '\t') {
+        var n = TAB_COLS - (col % TAB_COLS);
+        out += ' '.repeat(n);
+        col += n;
+      } else {
+        out += ch;
+        col = ch === '\n' ? 0 : col + charCols(text.charCodeAt(i));
+      }
+    }
+    return out;
+  }
+  // カーソル位置が行頭から何桁目か（貼り付けたタブの飛び先はここから数える）
+  function colAt(value, pos) {
+    var col = 0;
+    for (var i = value.lastIndexOf('\n', pos - 1) + 1; i < pos; i++) col += charCols(value.charCodeAt(i));
+    return col;
+  }
+
+  function checkWidth() {
+    var over = [];
+    $('bodyText').value.split('\n').forEach(function (line, i) {
+      var cols = 0;
+      for (var j = 0; j < line.length; j++) cols += charCols(line.charCodeAt(j));
+      if (cols > BODY_MAX_COLS) over.push(i + 1);
+    });
+    var flag = $('widthFlag');
+    if (over.length) {
+      flag.hidden = false;
+      flag.textContent = over.length + '行が長すぎます（' + over.slice(0, 5).join('、') +
+        (over.length > 5 ? ' 行ほか' : ' 行目') + '）。送信票では折り返されて列がずれる可能性があります。';
+    } else {
+      flag.hidden = true;
+    }
+  }
+
+  /* ---- 紙面づくりの共通部品 --------------------------------------------- */
+  // 画面に出すのも、PDFに詰めるのもこの文字列。変換を1回にして、見た目と送信内容を一致させる
+  function toJpeg(cv) { return cv.toDataURL('image/jpeg', JPEG_QUALITY); }
+  // 大きなcanvasは参照が切れてもすぐには解放されない。寸法を0にしてメモリを即座に返す
+  function release(cv) { cv.width = 0; cv.height = 0; }
+  // 「送信中…」などの表示を画面に出してから、重い処理に入るための一呼吸
+  function nextFrame() {
+    return new Promise(function (r) { requestAnimationFrame(function () { setTimeout(r, 0); }); });
+  }
+
+  // プレビューを作るたびに番号を進める。キャンセルや作り直しで古くなった作成処理は、
+  // この番号が合わなくなった時点で途中でやめる（古い紙面が新しい画面に混ざらないように）
+  var previewSeq = 0;
+  var STALE = new Error('stale');
+
+  /* ---- 本紙のレンダリング ----------------------------------------------- */
+  // 1ページ分のA4用紙を組み立てる。本文の器は空のまま返し、呼び出し側が行を詰める。
+  function newCoverPage(clinic, pageNo) {
+    var el = document.createElement('div');
+    el.style.cssText = 'position:relative;box-sizing:border-box;overflow:hidden;' +
+      'width:' + PAGE_W + 'px;height:' + PAGE_H + 'px;padding:' + PAGE_PAD_Y + 'px ' + PAGE_PAD_X + 'px;' +
+      'background:#ffffff;color:#000000;font-family:' + PRINT_FONT + ';';
+
+    var title = document.createElement('div');
+    if (pageNo === 1) {
+      title.style.cssText = 'font-size:42px;font-weight:700;letter-spacing:8px;margin-bottom:26px;';
+      title.textContent = 'ＦＡＸ送信票';
+    } else {
+      title.style.cssText = 'font-size:27px;font-weight:700;letter-spacing:5px;margin-bottom:20px;';
+      title.textContent = 'ＦＡＸ送信票（つづき ' + pageNo + '枚目）';
+    }
+
+    var to = document.createElement('div');
+    to.style.cssText = 'font-size:21px;line-height:1.5;';
+    var ct = contactLine();
+    to.textContent = '送信先：' + clinic.name + (ct ? '　' + ct : '');
+
+    var from = document.createElement('div');
+    from.style.cssText = 'font-size:16px;line-height:1.5;margin:4px 0 16px;';
+    from.textContent = fromLine();
+
+    var rule = document.createElement('div');
+    rule.style.cssText = 'display:flex;justify-content:space-between;font-size:15px;' +
+      'border-top:1.5px solid #000;border-bottom:1.5px solid #000;padding:8px 2px;';
+    var count = document.createElement('span');
+    var date = document.createElement('span');
+    date.textContent = '送信日：' + reiwa(new Date());
+    rule.append(count, date);
+
+    var pre = document.createElement('pre');
+    pre.style.cssText = 'white-space:pre-wrap;overflow-wrap:break-word;margin:16px 0 0;' +
+      'font-family:' + PRINT_MONO + ';font-size:14px;line-height:1.9;';
+
+    el.append(title, to, from, rule, pre);
+    return { el: el, pre: pre, count: count };
+  }
+
+  function coverFooter() {
+    var f = document.createElement('div');
+    f.style.cssText = 'position:absolute;left:' + PAGE_PAD_X + 'px;right:' + PAGE_PAD_X + 'px;' +
+      'bottom:' + PAGE_PAD_Y + 'px;text-align:right;font-size:16px;line-height:1.75;';
+    f.innerHTML = '<div style="font-weight:700;">' + PHARMACY + '　〒121-0816</div>' +
+      '<div>東京都足立区梅島1-9-13</div>' +
+      // 絵文字はカラー画像として描かれ、白黒のFAXでは黒い塊になりうるので文字で書く
+      '<div>TEL 03-4285-6717　FAX 03-6325-6764</div>';
+    return f;
+  }
+
+  // 本文を1行単位で詰めてA4に収める。行の途中で切れないよう、入らない行は次ページへ送る。
+  // 載せきれなかった行があれば truncated / clipped を立てて返す。黙って捨てると欠けたFAXが届くため
+  async function renderCover(clinic, attachCount, attachPageTotal, alive) {
+    var host = $('cover');
+    host.textContent = '';
+    // 入力欄で置き換え済みのはずだが、どの経路で入ったタブも送信票には残さない
+    var lines = expandTabs($('bodyText').value).split('\n');
+    var pages = [], idx = 0, clipped = false;
+
+    do {
+      var p = newCoverPage(clinic, pages.length + 1);
+      host.appendChild(p.el);
+      pages.push(p);
+      // 本文の器の上端位置は見出しの量で変わるため、毎ページ実測する
+      var avail = PAGE_H - (p.pre.offsetTop + PAGE_PAD_Y + FOOTER_RESERVE);
+      var taken = [];
+      while (idx < lines.length) {
+        taken.push(lines[idx]);
+        p.pre.textContent = taken.join('\n');
+        if (p.pre.scrollHeight > avail) {
+          if (taken.length === 1) {
+            // 改行のない極端に長い1行。そのまま載せるが、紙の下端を越えた分は切れてしまう
+            if (p.pre.offsetTop + p.pre.scrollHeight > PAGE_H) clipped = true;
+            idx++;
+            break;
+          }
+          taken.pop();
+          p.pre.textContent = taken.join('\n');
+          break;
+        }
+        idx++;
+      }
+    } while (idx < lines.length && pages.length < MAX_COVER_PAGES);
+    var shownLines = idx;
+
+    pages[pages.length - 1].el.appendChild(coverFooter());
+
+    var label = '枚数：本紙' + pages.length + '枚';
+    // ファイル数だと、1ファイル内でチェックしたページ数が反映されない。チェック済みページ数を「点」で数える
+    if (attachPageTotal) label += '＋別添' + attachPageTotal + '点（全' + (pages.length + attachPageTotal) + 'ページ）';
+    pages.forEach(function (p) { p.count.textContent = label; });
+
+    var out = [];
+    for (var i = 0; i < pages.length; i++) {
+      // 794px×(200/96)＝1654px。別添と同じ約200dpiにそろえる
+      var cv = await html2canvas(pages[i].el, { scale: SEND_DPI / 96, backgroundColor: '#ffffff' });
+      if (!alive()) { release(cv); throw STALE; }
+      out.push({ url: toJpeg(cv), ptW: A4_PT_W, ptH: A4_PT_H });
+      release(cv);
+    }
+    return {
+      pages: out,
+      truncated: shownLines < lines.length,
+      clipped: clipped,
+      shownLines: shownLines,
+      totalLines: lines.length
+    };
+  }
+
+  /* ---- 別添PDFのレンダリング -------------------------------------------- */
+  // 清書canvasはメモリを食うため、キャッシュは直近に触った1ファイルだけに絞る
+  function keepOnly(att) {
+    state.attachments.forEach(function (a) { if (a !== att) a.pages = null; });
+  }
+
+  // pdf.jsの文書は別添ごとに1回だけ開き、編集画面と送信用の描画で使い回す
+  function loadDoc(att) {
+    if (!att.docPromise) {
+      // pdf.jsはバッファを転送してしまうため、コピーを渡す
+      att.docPromise = pdfjsLib.getDocument({ data: new Uint8Array(att.buffer.slice(0)) }).promise;
+      att.docPromise.catch(function () { att.docPromise = null; });   // 失敗したら次回開き直せるように
+    }
+    return att.docPromise;
+  }
+
+  // 編集画面での倍率。重ね書きの文字組みの基準にもなるので、送信用の描画でも同じ式で求める
+  function editScale(base) { return Math.min(2, RENDER_WIDTH / base.width); }
+
+  // rotation はスキャンの向き直し用に追加する回転角度（0/90/180/270、時計回り）。
+  // ページ自体が埋め込みで持っている回転（page.rotate）に上乗せする
+  async function paintPage(page, scale, rotation) {
+    var vp = page.getViewport({ scale: scale, rotation: (page.rotate + (rotation || 0)) % 360 });
+    var cv = document.createElement('canvas');
+    cv.width = Math.floor(vp.width);
+    cv.height = Math.floor(vp.height);
+    var ctx = cv.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    return cv;
+  }
+
+  // 編集画面用にページをcanvasに起こす。ここで作ったcanvasは「原本」として保持し、以後書き換えない。
+  async function ensurePages(att, onProgress) {
+    keepOnly(att);
+    if (att.pages && att.pages.length) return att.pages;
+    var doc = await loadDoc(att);
+    att.pageCount = doc.numPages;
+    var out = [];
+    for (var p = 1; p <= doc.numPages; p++) {
+      if (onProgress) onProgress(p, doc.numPages);
+      var page = await doc.getPage(p);
+      var r = (att.rotate && att.rotate[p]) || 0;
+      out.push(await paintPage(page, editScale(page.getViewport({ scale: 1, rotation: (page.rotate + r) % 360 })), r));
+    }
+    att.pages = out;
+    return out;
+  }
+
+  // 1ページだけ向きを変えて描き直す。枠の位置（xPct等）は回転前の向きに対する値なので、
+  // 回転すると意味が変わってしまう。安全のためそのページの枠は消し、消えたかどうかを返す
+  async function rotatePage(att, p, deltaDeg) {
+    att.rotate = att.rotate || {};
+    att.rotate[p] = ((att.rotate[p] || 0) + deltaDeg + 360) % 360;
+    var hadMarks = marksOf(att, p).length > 0;
+    att.marks = (att.marks || []).filter(function (m) { return m.page !== p; });
+    var doc = await loadDoc(att);
+    var page = await doc.getPage(p);
+    var r = att.rotate[p];
+    var base = page.getViewport({ scale: 1, rotation: (page.rotate + r) % 360 });
+    att.pages[p - 1] = await paintPage(page, editScale(base), r);
+    return hadMarks;
+  }
+
+  function marksOf(att, page) {
+    return (att.marks || []).filter(function (m) { return m.page === page; });
+  }
+
+  /* ---- 送るページの選択 -------------------------------------------------- */
+  // 外したページだけを skip に控える。既定＝全ページ送信を、ページ数を知る前から成立させるため
+  function isPageOn(att, p) { return !(att.skip && att.skip[p]); }
+  function setPageOn(att, p, on) {
+    if (!att.skip) att.skip = {};
+    if (on) delete att.skip[p]; else att.skip[p] = true;
+  }
+  function onCount(att) {
+    var n = 0;
+    for (var p = 1; p <= (att.pageCount || 0); p++) if (isPageOn(att, p)) n++;
+    return n;
+  }
+
+  /* ---- 重ね書きの文字組み ------------------------------------------------ */
+  var LINE_RATIO = 1.28;   // 行送り（文字サイズの何倍か）
+  var MIN_FONT = 6;
+  // 日本語は単語の区切りがないため、行頭・行末に置けない文字だけ簡易に禁則処理する
+  var NO_START = '、。，．・：；？！）」』】〉》〕｝］,.:;?!)]}ーぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ々';
+  var NO_END   = '（「『【〈《〔｛［([{';
+
+  // 英数字のまとまりは1語として扱い、途中で割らないようにする
+  function tokenizeText(s) {
+    var out = [], buf = '';
+    for (var i = 0; i < s.length; i++) {
+      var ch = s.charAt(i);
+      if (/[0-9A-Za-z@._\-\/+#%]/.test(ch)) { buf += ch; continue; }
+      if (buf) { out.push(buf); buf = ''; }
+      out.push(ch);
+    }
+    if (buf) out.push(buf);
+    return out;
+  }
+
+  // 1行を幅innerWに収まるよう折り返す。1文字でも入らない場合はnull（＝もっと縮めて、の合図）
+  function wrapLine(ctx, text, innerW) {
+    if (!text) return [''];
+    var toks = tokenizeText(text), lines = [], cur = '';
+
+    function splitChars(tok) {
+      for (var k = 0; k < tok.length; k++) {
+        var ch = tok.charAt(k);
+        if (cur && ctx.measureText(cur + ch).width > innerW) { lines.push(cur); cur = ''; }
+        if (ctx.measureText(ch).width > innerW) return false;   // 1文字が幅を超える
+        cur += ch;
+      }
+      return true;
+    }
+
+    for (var i = 0; i < toks.length; i++) {
+      var t = toks[i];
+      if (!cur && t === ' ') continue;                 // 折り返した行の先頭に空白は置かない
+      if (ctx.measureText(cur + t).width <= innerW) { cur += t; continue; }
+      if (!cur) { if (!splitChars(t)) return null; continue; }
+      // 行頭に置けない文字・行末に置けない文字は、直前の文字ごと次の行へ送る
+      var carry = t;
+      while (cur.length > 1 && (NO_START.indexOf(carry.charAt(0)) >= 0 ||
+                                NO_END.indexOf(cur.charAt(cur.length - 1)) >= 0)) {
+        carry = cur.charAt(cur.length - 1) + carry;
+        cur = cur.slice(0, -1);
+      }
+      lines.push(cur);
+      cur = '';
+      if (ctx.measureText(carry).width <= innerW) { cur = carry; }
+      else if (!splitChars(carry)) return null;
+    }
+    lines.push(cur);
+    if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+    return lines;
+  }
+
+  // 枠に収まる最大の文字サイズと行割りを決める。改行は尊重し、長い行は折り返す。
+  function layoutText(ctx, text, w, h) {
+    var pad = Math.max(1.5, Math.min(w, h) * 0.06);
+    var innerW = Math.max(1, w - pad * 2);
+    var innerH = Math.max(1, h - pad * 2);
+    var hard = text.split('\n');
+    var start = Math.max(MIN_FONT, Math.min(240, Math.floor(innerH / LINE_RATIO)));
+    var last = null;
+    for (var size = start; size >= MIN_FONT; size--) {
+      ctx.font = '600 ' + size + 'px ' + PRINT_FONT;
+      var lines = [], ok = true;
+      for (var i = 0; i < hard.length; i++) {
+        var got = wrapLine(ctx, hard[i], innerW);
+        if (!got) { ok = false; break; }
+        lines = lines.concat(got);
+      }
+      if (!ok) continue;
+      last = { size: size, lines: lines, pad: pad, lineH: size * LINE_RATIO };
+      if (lines.length * size * LINE_RATIO <= innerH) return last;
+    }
+    // 最小サイズでも入り切らないときは、入るところまでを描く（描画側で枠外を切り落とす）
+    return last;
+  }
+
+  // 原本canvasには絶対に描き込まず、複製に焼き込む。やり直しをいつでも安全にするため。
+  // 枠が0個でも複製を返す（返した先でDOMに差し込まれると原本が移動してしまうため）。
+  // refW は重ね書きの文字組みの基準幅（＝編集画面での紙面の幅px。省略時は clean の幅）。
+  // 送信用の高解像度でも編集画面と同じ寸法で組んでから拡大して描くので、改行位置が変わらない
+  function burnMarks(clean, marks, refW) {
+    var cv = document.createElement('canvas');
+    cv.width = clean.width;
+    cv.height = clean.height;
+    var ctx = cv.getContext('2d');
+    ctx.drawImage(clean, 0, 0);
+    var k = cv.width / (refW || cv.width);
+    marks.forEach(function (m) {
+      var x = m.xPct / 100 * cv.width, y = m.yPct / 100 * cv.height;
+      var w = m.wPct / 100 * cv.width, h = m.hPct / 100 * cv.height;
+      var text = (m.text || '').replace(/\s+$/, '');
+      ctx.fillStyle = text.trim() ? '#ffffff' : '#000000';
+      ctx.fillRect(x, y, w, h);
+      if (!text.trim()) return;
+      var lay = layoutText(ctx, text, w / k, h / k);
+      if (!lay) return;
+      ctx.save();
+      // はみ出した文字が原本を汚さないための保険。枠の外へは1pxも描かせない
+      ctx.beginPath();
+      ctx.rect(x, y, w, h);
+      ctx.clip();
+      ctx.scale(k, k);
+      ctx.font = '600 ' + lay.size + 'px ' + PRINT_FONT;
+      ctx.fillStyle = '#000000';
+      ctx.textBaseline = 'middle';
+      var top = y / k + Math.max(lay.pad, (h / k - lay.lines.length * lay.lineH) / 2);
+      lay.lines.forEach(function (ln, i) {
+        ctx.fillText(ln, x / k + lay.pad, top + lay.lineH * (i + 0.5));
+      });
+      ctx.restore();
+    });
+    return cv;
+  }
+
+  // 送る紙面を作る。編集画面の原本canvas（約109dpi）は使わず、SEND_DPIで描き直してから枠を焼き込む。
+  // 1ページずつJPEGにしてcanvasはすぐ手放す（200dpiのA4は1枚約15MBあり、溜めるとタブが落ちる）
+  async function renderAttachment(att, alive, onProgress) {
+    var doc = await loadDoc(att);
+    if (!alive()) throw STALE;
+    att.pageCount = doc.numPages;
+    var out = [];
+    for (var p = 1; p <= doc.numPages; p++) {
+      if (!isPageOn(att, p)) continue;   // チェックを外したページは送らない
+      if (onProgress) onProgress(p, doc.numPages);
+      var page = await doc.getPage(p);
+      var r = (att.rotate && att.rotate[p]) || 0;
+      var base = page.getViewport({ scale: 1, rotation: (page.rotate + r) % 360 });
+      var cv = await paintPage(page, Math.min(SEND_DPI / 72, SEND_MAX_PX / Math.max(base.width, base.height)), r);
+      if (!alive()) { release(cv); throw STALE; }
+      var burned = burnMarks(cv, marksOf(att, p), Math.floor(base.width * editScale(base)));
+      out.push({ url: toJpeg(burned), ptW: base.width, ptH: base.height, page: p, of: doc.numPages });
+      release(cv);
+      release(burned);
+    }
+    return out;
+  }
+
+  /* ---- 別添PDFの編集（マスキング） --------------------------------------- */
+  var mk = { att: null, page: 1, sel: -1, hist: [], drag: null, textDirty: false, thumbs: [] };
+  var THUMB_W = 84;
+
+  // 元に戻す用。枠は数が知れているので、丸ごと控えて積む単純な方式で足りる
+  function pushHistory() {
+    if (!mk.att) return;
+    mk.hist.push(JSON.stringify(mk.att.marks));
+    if (mk.hist.length > 50) mk.hist.shift();
+  }
+
+  async function openMask(index) {
+    var att = state.attachments[index];
+    if (!att) return;
+    if (!window.pdfjsLib) { toast('PDFを表示できない環境のため編集できません'); return; }
+    if (!att.marks) att.marks = [];
+    if (!att.skip) att.skip = {};
+    mk.att = att; mk.page = 1; mk.sel = -1; mk.hist = []; mk.drag = null; mk.thumbs = [];
+
+    setMode('mask');
+    $('mkName').textContent = att.name;
+    $('mkStage').hidden = true;
+    $('mkEmpty').hidden = true;
+    $('mkPick').hidden = true;
+    $('mkCurWrap').hidden = true;
+    $('mkPop').hidden = true;
+    $('mkThumbs').textContent = '';
+    $('mkOv').textContent = '';
+    $('mkPage').textContent = '– / –';
+    var prog = $('mkProgress');
+    prog.hidden = false;
+    prog.textContent = 'PDFを読み込んでいます…';
+    try {
+      await ensurePages(att, function (p, of) {
+        prog.textContent = 'PDFを読み込んでいます… (' + p + '/' + of + ')';
+      });
+      prog.hidden = true;
+      buildThumbs();
+      renderMaskPage();
+    } catch (err) {
+      prog.hidden = true;
+      $('mkEmpty').hidden = false;
+      $('mkEmpty').textContent = 'このPDFは表示できませんでした（' + err.message + '）';
+    }
+  }
+
+  // サムネイルは重ね文字まで再現すると重いので、枠の位置だけを塗って示す
+  function paintThumb(cv, clean, marks) {
+    cv.width = THUMB_W;
+    cv.height = Math.max(1, Math.round(clean.height * THUMB_W / clean.width));
+    var ctx = cv.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(clean, 0, 0, cv.width, cv.height);
+    marks.forEach(function (m) {
+      var x = m.xPct / 100 * cv.width, y = m.yPct / 100 * cv.height;
+      var w = m.wPct / 100 * cv.width, h = m.hPct / 100 * cv.height;
+      var hasText = !!(m.text || '').trim();
+      ctx.fillStyle = hasText ? '#ffffff' : '#000000';
+      ctx.fillRect(x, y, w, h);
+      if (!hasText) return;
+      ctx.strokeStyle = '#9aa0aa';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + .5, y + .5, Math.max(1, w - 1), Math.max(1, h - 1));
+    });
+  }
+
+  function buildThumbs() {
+    var att = mk.att, host = $('mkThumbs');
+    host.textContent = '';
+    mk.thumbs = [];
+    // 1ページだけのPDFは選ぶ余地がないので、選択の一式ごと出さない
+    var multi = att.pages.length > 1;
+    $('mkPick').hidden = !multi;
+    $('mkCurWrap').hidden = !multi;
+    if (multi) {
+      att.pages.forEach(function (clean, i) {
+        var p = i + 1;
+        var wrap = document.createElement('div');
+        wrap.className = 'mk-th';
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'mk-th-btn';
+        btn.setAttribute('aria-label', p + 'ページ目を開く');
+        var cv = document.createElement('canvas');
+        paintThumb(cv, clean, marksOf(att, p));
+        btn.appendChild(cv);
+        btn.addEventListener('click', function () {
+          if (mk.page === p) return;
+          mk.page = p; mk.sel = -1;
+          renderMaskPage();
+        });
+
+        var lb = document.createElement('label');
+        lb.className = 'mk-th-lb';
+        var chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.checked = isPageOn(att, p);
+        chk.addEventListener('change', function () { setPageOn(att, p, chk.checked); syncSel(); });
+        var num = document.createElement('span');
+        num.textContent = String(p);
+        lb.append(chk, num);
+
+        wrap.append(btn, lb);
+        host.appendChild(wrap);
+        mk.thumbs.push({ wrap: wrap, cv: cv, chk: chk, page: p });
+      });
+    }
+    syncSel();
+  }
+
+  // 選択状態をサムネイル・見出し・別添カードの3か所へ一度に反映する
+  function syncSel() {
+    var att = mk.att;
+    if (!att) return;
+    mk.thumbs.forEach(function (t) {
+      var on = isPageOn(att, t.page);
+      t.chk.checked = on;
+      t.wrap.className = 'mk-th' + (on ? '' : ' is-off') + (t.page === mk.page ? ' is-cur' : '');
+    });
+    var total = att.pages ? att.pages.length : 0;
+    var on = onCount(att);
+    $('mkSelCount').textContent = total > 1
+      ? (on ? '送るページ：' + total + 'ページ中 ' + on + 'ページ'
+            : '送るページがありません。このファイルはFAXされません。')
+      : '';
+    var cur = isPageOn(att, mk.page);
+    $('mkCur').checked = cur;
+    $('mkStage').classList.toggle('is-off', !cur);
+    renderFiles();
+    renderMail();
+  }
+
+  function renderMaskPage() {
+    var att = mk.att;
+    if (!att || !att.pages || !att.pages.length) return;
+    var stage = $('mkStage');
+    stage.style.maxWidth = att.pages[mk.page - 1].width + 'px';
+    stage.hidden = false;
+    $('mkPage').textContent = mk.page + ' / ' + att.pages.length;
+    $('mkPrev').disabled = mk.page <= 1;
+    $('mkNext').disabled = mk.page >= att.pages.length;
+    renderMarks();
+    syncSel();
+  }
+
+  function renderMarks() {
+    var att = mk.att;
+    if (!att || !att.pages || !att.pages.length) return;
+
+    // 画面に出す紙面と、FAXする紙面を同じ関数で作る。見えかたは常に送信結果と一致する
+    var burned = burnMarks(att.pages[mk.page - 1], marksOf(att, mk.page));
+    var cv = $('mkCanvas');
+    cv.width = burned.width;
+    cv.height = burned.height;
+    cv.getContext('2d').drawImage(burned, 0, 0);
+
+    // 当たり判定は透明な層で重ねる。ドラッグ中のゴーストは残したいので枠だけ作り直す
+    var ov = $('mkOv');
+    Array.prototype.slice.call(ov.querySelectorAll('.mk-mark')).forEach(function (n) {
+      ov.removeChild(n);
+    });
+    att.marks.forEach(function (m, i) {
+      if (m.page !== mk.page) return;
+      var el = document.createElement('div');
+      el.className = 'mk-mark' + (i === mk.sel ? ' is-sel' : '');
+      el.style.left = m.xPct + '%';
+      el.style.top = m.yPct + '%';
+      el.style.width = m.wPct + '%';
+      el.style.height = m.hPct + '%';
+      // 枠の上から新しい枠を引き始めると誤操作になりやすいので、枠上では選択だけ
+      el.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+      el.addEventListener('click', function (e) { e.stopPropagation(); selectMark(i); });
+      ov.appendChild(el);
+    });
+
+    // 開いているページのサムネイルだけ描き直す（全ページ作り直すと重い）
+    mk.thumbs.forEach(function (t) {
+      if (t.page === mk.page) paintThumb(t.cv, att.pages[mk.page - 1], marksOf(att, mk.page));
+    });
+    renderMaskTools();
+  }
+
+  function renderMaskTools() {
+    var m = mk.sel >= 0 && mk.att ? mk.att.marks[mk.sel] : null;
+    var total = mk.att ? mk.att.marks.length : 0;
+    $('mkNone').textContent = total
+      ? '枠をタップすると、文字の重ね書きや削除ができます。（このファイルに ' + total + ' か所）'
+      : 'まだ枠はありません。隠したい部分をドラッグで囲んでください。';
+
+    var pop = $('mkPop');
+    pop.hidden = !m;
+    if (!m) return;
+    // 入力中に値を上書きしないよう、フォーカスがある間は触らない
+    if (document.activeElement !== $('mkText')) $('mkText').value = m.text;
+    $('mkPopHint').textContent = (m.text || '').trim()
+      ? '枠に収まるよう自動で折り返し、大きさも調整します。'
+      : '空欄のまま閉じると、この枠を黒く塗りつぶします。';
+    positionPop(m);
+  }
+
+  // 小窓は枠のすぐ下に。下に入らなければ上へ回し、どちらも無理なら紙面内へ寄せる。
+  function positionPop(m) {
+    var stage = $('mkStage'), pop = $('mkPop');
+    var sw = stage.clientWidth, sh = stage.clientHeight;
+    if (!sw || !sh) return;
+    var pw = pop.offsetWidth, ph = pop.offsetHeight;
+    var x = m.xPct / 100 * sw, y = m.yPct / 100 * sh;
+    var w = m.wPct / 100 * sw, h = m.hPct / 100 * sh;
+    var gap = 8, edge = 6;
+
+    var top = y + h + gap;
+    if (top + ph > sh - edge) top = y - ph - gap;
+    top = Math.max(edge, Math.min(sh - ph - edge, top));
+    // 枠の中央に揃えたうえで、紙面からはみ出さないところまで戻す
+    var left = Math.max(edge, Math.min(sw - pw - edge, x + w / 2 - pw / 2));
+
+    pop.style.top = Math.round(Math.max(0, top)) + 'px';
+    pop.style.left = Math.round(Math.max(0, left)) + 'px';
+  }
+
+  function closePop() {
+    if ($('mkPop').hidden) return;
+    if (document.activeElement === $('mkText')) $('mkText').blur();
+    mk.sel = -1;
+    renderMarks();
+  }
+
+  function selectMark(i) {
+    mk.sel = i;
+    renderMarks();
+  }
+
+  function ovPoint(e) {
+    var r = $('mkOv').getBoundingClientRect();
+    return {
+      x: Math.min(100, Math.max(0, (e.clientX - r.left) / r.width * 100)),
+      y: Math.min(100, Math.max(0, (e.clientY - r.top) / r.height * 100))
+    };
+  }
+
+  function drawGhost(p) {
+    var d = mk.drag;
+    if (!d) return;
+    d.el.style.left = Math.min(d.x0, p.x) + '%';
+    d.el.style.top = Math.min(d.y0, p.y) + '%';
+    d.el.style.width = Math.abs(p.x - d.x0) + '%';
+    d.el.style.height = Math.abs(p.y - d.y0) + '%';
+  }
+
+  function endDrag(e) {
+    var d = mk.drag;
+    if (!d || e.pointerId !== d.id) return;
+    mk.drag = null;
+    if (d.el.parentNode) d.el.parentNode.removeChild(d.el);
+    var p = ovPoint(e);
+    var w = Math.abs(p.x - d.x0), h = Math.abs(p.y - d.y0);
+    // 指が少し滑っただけの極小の矩形は、選択解除のつもりのタップとして扱う
+    if (w < 1.2 || h < 0.8) { mk.sel = -1; renderMarks(); return; }
+    pushHistory();
+    mk.att.marks.push({
+      page: mk.page,
+      xPct: Math.min(d.x0, p.x), yPct: Math.min(d.y0, p.y),
+      wPct: w, hPct: h, text: ''
+    });
+    mk.sel = mk.att.marks.length - 1;
+    renderMarks();
+    renderFiles();
+    // 紙面の下の方で囲むと小窓が画面外に出るため、必要なぶんだけ送る
+    $('mkPop').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  /* ---- 画面遷移 --------------------------------------------------------- */
+  function setMode(mode) {
+    // プレビュー画面を離れたら、作りかけ・作り終えた紙面はもう送らない。
+    // 戻って本文や枠を直した場合、古い紙面は画面の内容と食い違うため
+    if (mode !== 'preview') { previewSeq++; state.build = null; }
+    state.mode = mode;
+    var preview = mode === 'preview';
+    var mask = mode === 'mask';
+    $('editView').hidden = preview || mask;
+    $('previewView').hidden = !preview;
+    $('pdfView').hidden = !mask;
+    $('barEdit').hidden = preview || mask;
+    $('barPreview').hidden = !preview;
+    $('barMask').hidden = !mask;
+    // 別添の編集は「入力→確認」の流れから外れた作業なので、段表示は引っ込める
+    $('stepInd').hidden = mask;
+    $('step1').style.color = preview ? '' : 'var(--accent-ink)';
+    $('step1').style.fontWeight = preview ? '400' : '650';
+    $('step2').style.color = preview ? 'var(--accent-ink)' : '';
+    $('step2').style.fontWeight = preview ? '650' : '400';
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
+  function addPageFigure(host, item) {
+    var fig = document.createElement('figure');
+    fig.className = 'page' + (item.kind === 'attach' ? ' is-attach' : '');
+    var cap = document.createElement('figcaption');
+    var no = document.createElement('span');
+    no.className = 'pg-no'; no.textContent = String(item.no);
+    var kind = document.createElement('span');
+    kind.className = 'pg-kind'; kind.textContent = item.kind === 'attach' ? '別添' + item.attachNo : '本紙';
+    var src = document.createElement('span');
+    src.className = 'pg-src'; src.textContent = item.sub;
+    cap.append(no, kind, src);
+    var img = document.createElement('img');
+    img.decoding = 'async';
+    img.alt = kind.textContent + '（' + item.no + 'ページ目）';
+    img.src = item.url;
+    fig.append(cap, img);
+    host.appendChild(fig);
+  }
+
+  async function goPreview() {
+    var c = state.selected;
+    if (!c) { toast('送信先を選択してください'); return; }
+    if (!efaxAddress(c.fax)) { toast('FAX番号の形式が不正です。登録内容を修正してください'); return; }
+    if (totalBytes() > MAX_TOTAL_BYTES) { toast('別添の合計サイズが上限を超えています'); return; }
+
+    var btn = $('btnPreview');
+    btn.disabled = true;
+    $('pvBtnMain').textContent = '作成中…';
+    $('pvBtnSub').textContent = 'ページを組み立てています';
+
+    $('pvTo').textContent = c.name + (contactLine() ? '　' + contactLine() : '');
+    $('pvFax').textContent = 'FAX ' + c.fax;
+    $('pvAddr').textContent = efaxAddress(c.fax);
+    $('pvPages').textContent = '–';
+    $('pvBreak').textContent = '';
+    $('pvFlag').hidden = true;
+    $('sentNote').hidden = true;
+    // 全ページがそろうまで送信は押せない。未完成の紙面を送る・作成中に押してしまう、を防ぐ
+    $('btnSend').disabled = true;
+    $('btnSend').textContent = '作成中…';
+    $('btnScheduleSend').disabled = true;
+    $('btnScheduleSend').textContent = '予約送信';
+
+    var host = $('pvPagesHost');
+    host.textContent = '';
+    var prog = $('pvProgress');
+    prog.hidden = false;
+    prog.textContent = state.attachments.length ? '別添を作成しています…' : '本紙を作成しています…';
+    setMode('preview');
+    var seq = ++previewSeq;
+    function alive() { return seq === previewSeq; }
+
+    try {
+      // 本紙に「全〇ページ」を印字するため、別添の枚数を先に確定させる
+      var renders = [], attachTotal = 0;
+      for (var i = 0; i < state.attachments.length; i++) {
+        var att = state.attachments[i];
+        var head = '別添を作成しています… (' + (i + 1) + '/' + state.attachments.length + ') ' + att.name;
+        prog.textContent = head;
+        var pages = await renderAttachment(att, alive, function (p, of) {
+          prog.textContent = head + '　' + p + '/' + of + 'ページ';
+        });
+        // ページを全部外した別添は送らない。番号も詰めて、表書きの「別添〇点」と一致させる
+        if (pages.length) renders.push({ att: att, pages: pages });
+        attachTotal += pages.length;
+      }
+
+      prog.textContent = '本紙を作成しています…';
+      var cover = await renderCover(c, renders.length, attachTotal, alive);
+
+      var no = 0;
+      cover.pages.forEach(function (pg, i) {
+        no += 1;
+        addPageFigure(host, {
+          no: no, kind: 'cover', url: pg.url,
+          sub: cover.pages.length > 1 ? (i + 1) + '/' + cover.pages.length + '枚目' : ''
+        });
+      });
+      renders.forEach(function (r, i) {
+        r.pages.forEach(function (pg) {
+          no += 1;
+          addPageFigure(host, {
+            no: no, kind: 'attach', attachNo: i + 1, url: pg.url,
+            sub: r.att.name + '　' + pg.page + '/' + pg.of + 'ページ'
+          });
+        });
+      });
+
+      prog.hidden = true;
+      $('pvPages').textContent = no;
+      $('pvBreak').textContent = 'ページを送信します（本紙 ' + cover.pages.length + '＋別添 ' + attachTotal + '）';
+      renderFiles();
+
+      // 本文が載りきらなかったときは送らせない。欠けたFAXが届くより、ここで止めるほうが安全
+      if (cover.truncated || cover.clipped) {
+        $('pvFlag').hidden = false;
+        $('pvFlag').textContent = cover.truncated
+          ? '本文が長すぎて、送信票' + MAX_COVER_PAGES + '枚に収まりません（全' + cover.totalLines + '行のうち' +
+            cover.shownLines + '行目まで）。本文を減らすか、2回に分けて送ってください。このままでは送信できません。'
+          : '改行のない長すぎる行があり、送信票の下端で切れてしまいます。途中で改行を入れてください。このままでは送信できません。';
+        $('btnSend').textContent = '送信できません';
+        return;
+      }
+      state.build = { seq: seq, clinic: c, cover: cover.pages, attachments: renders };
+      $('btnSend').disabled = false;
+      $('btnSend').textContent = '送信';
+      $('btnScheduleSend').disabled = false;
+    } catch (err) {
+      if (err === STALE) return;   // キャンセル・作り直しで打ち切った。画面はもう別の状態なので触らない
+      prog.hidden = true;
+      toast('プレビューの作成に失敗しました: ' + err.message);
+      setMode('edit');
+    } finally {
+      btn.disabled = false;
+      $('pvBtnMain').textContent = 'プレビュー';
+      $('pvBtnSub').textContent = '確認後、送信ボタンに進みます';
+    }
+  }
+
+  /* ---- wiring ---------------------------------------------------------- */
+  $('btnPick').addEventListener('click', openPick);
+  $('btnClosePick').addEventListener('click', closePick);
+  $('pickScrim').addEventListener('click', function (e) { if (e.target === $('pickScrim')) closePick(); });
+  $('pickQuery').addEventListener('input', renderPick);
+  $('pickQuery').addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveActive(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveActive(-1); }
+    else if (e.key === 'Enter' && state.pickActive >= 0) {
+      e.preventDefault();
+      choose(state.pickRows[state.pickActive].index);
+    }
+  });
+  $('btnAddFromPick').addEventListener('click', function () { closePick(); openClinic(null); });
+  $('btnHistory').addEventListener('click', openHistory);
+  $('btnCloseHistory').addEventListener('click', closeHistory);
+  $('historyScrim').addEventListener('click', function (e) { if (e.target === $('historyScrim')) closeHistory(); });
+
+  $('btnScheduleList').addEventListener('click', openScheduleList);
+  $('btnCloseScheduleList').addEventListener('click', closeScheduleList);
+  $('scheduleListScrim').addEventListener('click', function (e) { if (e.target === $('scheduleListScrim')) closeScheduleList(); });
+
+  // IME変換中も含めて拾えるよう input と change の両方で反映する
+  ['input', 'change'].forEach(function (ev) {
+    $('toContact').addEventListener(ev, updateToHint);
+    $('staffName').addEventListener(ev, commitStaffName);
+  });
+
+  var bodyEl = $('bodyText');
+  bodyEl.addEventListener('paste', function (e) {
+    var text = e.clipboardData && e.clipboardData.getData('text/plain');
+    if (!text || text.indexOf('\t') < 0) return;
+    e.preventDefault();
+    var fixed = expandTabs(text.replace(/\r\n?/g, '\n'), colAt(bodyEl.value, bodyEl.selectionStart));
+    // insertText なら Ctrl+Z で貼り付け前に戻せる。使えない環境では直接書き換える
+    if (!document.execCommand('insertText', false, fixed)) {
+      bodyEl.setRangeText(fixed, bodyEl.selectionStart, bodyEl.selectionEnd, 'end');
+      bodyEl.dispatchEvent(new Event('input'));
+    }
+  });
+  // 貼り付け以外（文字のドラッグ＆ドロップなど）で入ったタブもここで置き換える
+  bodyEl.addEventListener('input', function () {
+    var v = bodyEl.value;
+    if (v.indexOf('\t') >= 0) {
+      var caret = expandTabs(v.slice(0, bodyEl.selectionStart)).length;
+      bodyEl.value = expandTabs(v);
+      bodyEl.setSelectionRange(caret, caret);
+    }
+    checkWidth();
+  });
+
+  $('drop').addEventListener('click', function () { $('fileInput').click(); });
+  $('drop').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('fileInput').click(); }
+  });
+  $('fileInput').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });
+
+  /* ---- 画面のどこでもドロップできるようにする --------------------------- */
+  // 文字の選択をドラッグしただけで反応しないよう、ファイルのドラッグだけを拾う
+  function isFileDrag(e) {
+    var t = e.dataTransfer && e.dataTransfer.types;
+    if (!t) return false;
+    if (t.indexOf) return Array.prototype.indexOf.call(t, 'Files') >= 0;
+    return !!(t.contains && t.contains('Files'));
+  }
+
+  // dragleaveは子要素をまたぐたびに飛んでくるので、出入りの数を数えて判定する
+  var dragDepth = 0;
+  function showDropAll(on) {
+    if (!on) dragDepth = 0;
+    var el = $('dropAll');
+    if (el.hidden === !on) return;   // すでに目的の状態なら触らない（再アニメを防ぐ）
+    el.hidden = !on;
+    if (on) {
+      $('dropAllSub').textContent = state.mode === 'edit'
+        ? '画面のどこでも受け付けます'
+        : '入力画面に戻って、別添PDFに追加します';
+    }
+  }
+
+  document.addEventListener('dragenter', function (e) {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    dragDepth++;
+    showDropAll(true);
+  });
+  document.addEventListener('dragover', function (e) {
+    if (!isFileDrag(e)) return;
+    // ここでpreventDefaultしないとブラウザがdropを起こさず、ファイルを開いてしまう
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = 'copy'; } catch (err) {}
+    if ($('dropAll').hidden) { dragDepth = 1; showDropAll(true); }
+  });
+  document.addEventListener('dragleave', function (e) {
+    if (!isFileDrag(e)) return;
+    dragDepth--;
+    if (dragDepth <= 0) showDropAll(false);
+  });
+  document.addEventListener('dragend', function () { showDropAll(false); });
+  document.addEventListener('drop', function (e) {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    showDropAll(false);
+    // 送信中に画面を切り替えると、送った内容と画面が食い違って見える
+    if (sending) { toast('送信中はファイルを追加できません'); return; }
+    // 別添は入力画面にしか置き場がない。プレビューや編集中なら戻してから足す
+    if (state.mode !== 'edit') {
+      mk.att = null; mk.drag = null;
+      $('pickScrim').hidden = true;
+      $('clinicScrim').hidden = true;
+      setMode('edit');
+      toast('入力画面に戻って別添PDFを追加しました');
+    }
+    addFiles(e.dataTransfer.files);
+  });
+
+  $('btnPreview').addEventListener('click', goPreview);
+  $('btnCancel').addEventListener('click', function () { setMode('edit'); });
+
+  /* 別添PDFの編集 */
+  $('mkRotate').addEventListener('click', function () {
+    if (!mk.att || !mk.att.pages) return;
+    var att = mk.att, p = mk.page;
+    pushHistory();
+    $('mkRotate').disabled = true;
+    rotatePage(att, p, 90).then(function (hadMarks) {
+      $('mkRotate').disabled = false;
+      mk.sel = -1;
+      renderMaskPage();
+      buildThumbs();
+      toast(hadMarks ? 'このページを回転しました（枠は消えました。元に戻すボタンで枠だけ戻せます）' : 'このページを回転しました');
+    }).catch(function (err) {
+      $('mkRotate').disabled = false;
+      toast(errText(err));
+    });
+  });
+  $('mkPrev').addEventListener('click', function () {
+    if (mk.page > 1) { mk.page--; mk.sel = -1; renderMaskPage(); }
+  });
+  $('mkNext').addEventListener('click', function () {
+    if (mk.att && mk.att.pages && mk.page < mk.att.pages.length) {
+      mk.page++; mk.sel = -1; renderMaskPage();
+    }
+  });
+
+  $('mkCur').addEventListener('change', function () {
+    if (!mk.att) return;
+    setPageOn(mk.att, mk.page, $('mkCur').checked);
+    syncSel();
+  });
+  $('mkAllOn').addEventListener('click', function () {
+    if (!mk.att) return;
+    mk.att.skip = {};
+    syncSel();
+  });
+  $('mkAllOff').addEventListener('click', function () {
+    if (!mk.att || !mk.att.pages) return;
+    mk.att.pages.forEach(function (_, i) { setPageOn(mk.att, i + 1, false); });
+    syncSel();
+  });
+
+  $('mkOv').addEventListener('pointerdown', function (e) {
+    if (!mk.att || !mk.att.pages) return;
+    e.preventDefault();
+    try { $('mkOv').setPointerCapture(e.pointerId); } catch (err) {}
+    // 小窓が邪魔で下の紙面を囲めない、を防ぐ。囲み終えた時点で新しい枠の小窓が開く
+    $('mkPop').hidden = true;
+    var p = ovPoint(e);
+    var g = document.createElement('div');
+    g.className = 'mk-ghost';
+    $('mkOv').appendChild(g);
+    mk.drag = { x0: p.x, y0: p.y, el: g, id: e.pointerId };
+    drawGhost(p);
+  });
+  $('mkOv').addEventListener('pointermove', function (e) {
+    if (mk.drag && e.pointerId === mk.drag.id) drawGhost(ovPoint(e));
+  });
+  ['pointerup', 'pointercancel'].forEach(function (ev) {
+    $('mkOv').addEventListener(ev, endDrag);
+  });
+
+  $('mkText').addEventListener('focus', function () { mk.textDirty = false; });
+  ['input', 'change'].forEach(function (ev) {
+    $('mkText').addEventListener(ev, function () {
+      var m = mk.sel >= 0 && mk.att ? mk.att.marks[mk.sel] : null;
+      if (!m) return;
+      // 1文字ごとに履歴を積むと「元に戻す」が効かなくなるので、入力の開始時だけ控える
+      if (!mk.textDirty) { pushHistory(); mk.textDirty = true; }
+      m.text = $('mkText').value;
+      renderMarks();
+    });
+  });
+
+  $('mkPopOk').addEventListener('click', closePop);
+  // 画面幅が変わると紙面の実寸も変わるので、小窓の位置を取り直す
+  window.addEventListener('resize', function () {
+    if (state.mode !== 'mask' || $('mkPop').hidden || mk.sel < 0 || !mk.att) return;
+    positionPop(mk.att.marks[mk.sel]);
+  });
+
+  $('mkDel').addEventListener('click', function () {
+    if (!mk.att || mk.sel < 0) return;
+    pushHistory();
+    mk.att.marks.splice(mk.sel, 1);
+    mk.sel = -1;
+    renderMarks(); renderFiles();
+  });
+  $('mkUndo').addEventListener('click', function () {
+    if (!mk.att || !mk.hist.length) { toast('元に戻せる操作がありません'); return; }
+    mk.att.marks = JSON.parse(mk.hist.pop());
+    mk.sel = -1;
+    renderMarks(); renderFiles();
+  });
+  $('mkClear').addEventListener('click', function () {
+    if (!mk.att || !mk.att.marks.length) { toast('消す枠がありません'); return; }
+    pushHistory();
+    mk.att.marks = [];
+    mk.sel = -1;
+    renderMarks(); renderFiles();
+    toast('このファイルの枠をすべて消しました');
+  });
+  $('mkDone').addEventListener('click', function () {
+    mk.att = null; mk.drag = null;
+    setMode('edit');
+  });
+
+
+  /* ---- 送信 ------------------------------------------------------------- */
+  // 1ページ＝プレビューに出したJPEG1枚でPDFを組み立てる。元のPDFのバイト列はここに一切入らないので、
+  // 黒塗りの下の文字や、送らないことにしたページが相手に届くことはない
+  function buildPdf(pages) {
+    var first = pages[0];
+    var pdf = new jspdf.jsPDF({
+      unit: 'pt', format: [first.ptW, first.ptH],
+      orientation: first.ptW > first.ptH ? 'landscape' : 'portrait'
+    });
+    pages.forEach(function (pg, i) {
+      if (i > 0) pdf.addPage([pg.ptW, pg.ptH], pg.ptW > pg.ptH ? 'landscape' : 'portrait');
+      pdf.addImage(pg.url, 'JPEG', 0, 0, pg.ptW, pg.ptH);
+    });
+    return pdf.output('datauristring').split(',')[1];
+  }
+
+  function base64Bytes(b64) {
+    var pad = b64.slice(-2) === '==' ? 2 : (b64.slice(-1) === '=' ? 1 : 0);
+    return Math.floor(b64.length * 3 / 4) - pad;
+  }
+
+  // 添付するPDFの一覧。コード.js の sendFax(payload) にそのまま渡す形にしてある
+  function buildSendFiles(build) {
+    if (!window.jspdf) throw new Error('PDFを作る部品（jsPDF）を読み込めませんでした');
+    // 元のファイル名には患者名が入っていることがあるので使わない
+    var groups = [{ name: 'FAX送信票.pdf', pages: build.cover }].concat(
+      build.attachments.map(function (r, i) { return { name: '別添' + (i + 1) + '.pdf', pages: r.pages }; })
+    );
+    return groups.map(function (g) {
+      var b64 = buildPdf(g.pages);
+      return { name: g.name, base64: b64, bytes: base64Bytes(b64), pageCount: g.pages.length };
+    });
+  }
+
+  // コード.js の sendFax がeFAX宛にメールを送る。戻り値は { ok, to }
+  function sendPayload(payload) { return callServer('sendFax', payload); }
+  // コード.js の scheduleFax が指定時刻用のトリガーを作る。戻り値は予約一覧（getScheduledFaxesと同じ形）
+  function schedulePayload(payload) { return callServer('scheduleFax', payload); }
+
+  // datetime-local欄の初期値。直近すぎる指定はサーバー側で弾かれるので、少し先（15分後）を勧める
+  function defaultScheduleValue() {
+    var d = new Date(Date.now() + 15 * 60000);
+    d.setSeconds(0, 0);
+    var pad = function (n) { return ('0' + n).slice(-2); };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+      'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  var sending = false;
+  $('btnSend').addEventListener('click', async function () {
+    var b = state.build;
+    // 作成中・作り直し後・送信中は受け付けない（ボタンの無効化に重ねた二重の守り）
+    if (sending || !b || b.seq !== previewSeq) return;
+    sending = true;
+    $('btnSend').disabled = true;
+    $('btnSend').textContent = '送信中…';
+    $('btnScheduleSend').disabled = true;
+    $('btnCancel').disabled = true;
+    try {
+      await nextFrame();
+      var files = buildSendFiles(b);
+      var res = await sendPayload({
+        fax: b.clinic.fax,
+        name: b.clinic.name,
+        files: files.map(function (f) { return { name: f.name, base64: f.base64 }; })
+      });
+      // 実際に送った相手だけを残す。選び間違えただけの医院で5件の枠を埋めないため
+      touchRecent(b.clinic);
+      state.build = null;
+
+      var d = new Date();
+      var hhmm = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+      var total = files.reduce(function (s, f) { return s + f.bytes; }, 0);
+      $('sentNote').hidden = false;
+      $('sentNote').textContent = hhmm + '　' + res.to + ' 宛に送信しました：' + files.map(function (f) {
+          return f.name + '（' + f.pageCount + 'ページ・' + fmtSize(f.bytes) + '）';
+        }).join('、') + '（合計 ' + fmtSize(total) + '）。' +
+        'ここで完了したのはeFAXへのメール送信までです。メールはGmailの「送信済み」に残ります。';
+      $('btnSend').textContent = '送信済み';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      $('btnSend').disabled = false;
+      $('btnSend').textContent = '送信';
+      $('btnScheduleSend').disabled = false;
+      toast('送信できませんでした: ' + ((err && err.message) || err));
+    } finally {
+      sending = false;
+      $('btnCancel').disabled = false;
+    }
+  });
+
+  /* ---- 予約送信（時間指定） ----------------------------------------------- */
+  function openScheduleModal() {
+    var b = state.build;
+    if (sending || !b || b.seq !== previewSeq) return;
+    $('scheduleAt').value = defaultScheduleValue();
+    $('scheduleScrim').hidden = false;
+  }
+  function closeScheduleModal() { $('scheduleScrim').hidden = true; }
+
+  $('btnScheduleSend').addEventListener('click', openScheduleModal);
+  $('btnCloseSchedule').addEventListener('click', closeScheduleModal);
+  $('btnCancelSchedule').addEventListener('click', closeScheduleModal);
+  $('scheduleScrim').addEventListener('click', function (e) { if (e.target === $('scheduleScrim')) closeScheduleModal(); });
+
+  $('btnConfirmSchedule').addEventListener('click', async function () {
+    var b = state.build;
+    if (sending || !b || b.seq !== previewSeq) { closeScheduleModal(); return; }
+    var raw = $('scheduleAt').value;
+    if (!raw) { toast('送信予定日時を指定してください'); return; }
+    var at = new Date(raw);
+    if (isNaN(at.getTime()) || at.getTime() < Date.now() + 60000) {
+      toast('送信予定時刻は、今より1分以上あとにしてください'); return;
+    }
+
+    sending = true;
+    $('btnConfirmSchedule').disabled = true;
+    $('btnConfirmSchedule').textContent = '予約中…';
+    $('btnSend').disabled = true;
+    $('btnScheduleSend').disabled = true;
+    $('btnCancel').disabled = true;
+    try {
+      await nextFrame();
+      var files = buildSendFiles(b);
+      await schedulePayload({
+        fax: b.clinic.fax,
+        name: b.clinic.name,
+        sendAt: at.getTime(),
+        files: files.map(function (f) { return { name: f.name, base64: f.base64 }; })
+      });
+      state.build = null;
+      closeScheduleModal();
+      $('sentNote').hidden = false;
+      $('sentNote').textContent = fmtHistDate(at.getTime()) + '頃、' + b.clinic.name + '（' + b.clinic.fax + '）宛に送信するよう予約しました。' +
+        'ブラウザを閉じても送信されます。予約の確認・キャンセルは「予約一覧」から行えます。';
+      $('btnScheduleSend').textContent = '予約済み';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      $('btnSend').disabled = false;
+      $('btnScheduleSend').disabled = false;
+      $('btnScheduleSend').textContent = '予約送信';
+      toast('予約できませんでした: ' + errText(err));
+    } finally {
+      sending = false;
+      $('btnCancel').disabled = false;
+      $('btnConfirmSchedule').disabled = false;
+      $('btnConfirmSchedule').textContent = '予約する';
+    }
+  });
+
+  /* 送信先モーダル */
+  function openClinic(clinic) {
+    // 開いた時点の行番号と中身を控える。保存・削除のとき、シートのその行と照合する
+    state.editing = clinic ? { row: clinic.row, name: clinic.name, fax: clinic.fax } : null;
+    $('clinicTitle').textContent = clinic ? '送信先の編集' : '送信先の登録';
+    $('cmName').value = clinic ? clinic.name : '';
+    $('cmYomi').value = clinic ? (clinic.yomi || '') : '';
+    $('cmFax').value = clinic ? clinic.fax : '';
+    $('btnDeleteClinic').hidden = !clinic;
+    $('clinicScrim').hidden = false;
+    $('cmName').focus({ preventScroll: true });
+  }
+  function closeClinic() { $('clinicScrim').hidden = true; }
+
+  function setClinicBusy(busy) {
+    $('btnSaveClinic').disabled = busy;
+    $('btnDeleteClinic').disabled = busy;
+  }
+
+  function clinicWriteFailed(err) {
+    var msg = errText(err);
+    toast(msg);
+    // 別の画面でシートが変わっていたら、控えた行番号はもう使えない。閉じて一覧を取り直す
+    if (msg.indexOf('読み込み直して') >= 0) {
+      closeClinic();
+      reloadClinics().catch(function () {});
+    }
+  }
+
+  $('btnNewClinic').addEventListener('click', function () { openClinic(null); });
+  $('btnEditClinic').addEventListener('click', function () {
+    if (!state.selected) { toast('先に送信先を選んでください'); return; }
+    openClinic(state.selected);
+  });
+  $('btnCloseClinic').addEventListener('click', closeClinic);
+  $('btnCancelClinic').addEventListener('click', closeClinic);
+
+  $('btnSaveClinic').addEventListener('click', function () {
+    var name = $('cmName').value.trim();
+    var fax = tidyFax($('cmFax').value);
+    var digits = fax.replace(/[^0-9]/g, '');
+    if (!name) { toast('送信先名を入力してください'); return; }
+    // 表示は打たれたまま使うので、0が抜けた番号をここで通すと画面と宛先が食い違う。登録時は厳密に見る
+    if (digits.charAt(0) !== '0' || digits.length < 10 || digits.length > 11) {
+      toast('FAX番号の形式が不正です。市外局番の0から10〜11桁で入力してください'); return;
+    }
+    var old = state.editing;
+    setClinicBusy(true);
+    callServer('saveClinic', {
+      name: name,
+      yomi: $('cmYomi').value.trim(),
+      fax: fax,
+      row: old ? old.row : null,
+      expect: old ? { name: old.name, fax: old.fax } : null
+    }).then(function (list) {
+      // 宛先のFAX番号が変わるなら担当者名は消す（choose と同じ扱い。前の宛先の担当者名を残さない）
+      if (!state.selected || faxKey(state.selected) !== digits) $('toContact').value = '';
+      applyClinics(list, { name: name, fax: fax });
+      closeClinic();
+      toast(old ? '保存しました' : '登録しました');
+    }).catch(clinicWriteFailed).then(function () { setClinicBusy(false); });
+  });
+
+  $('btnDeleteClinic').addEventListener('click', function () {
+    var target = state.editing;
+    if (!target) return;
+    setClinicBusy(true);
+    callServer('deleteClinic', target).then(function (list) {
+      applyClinics(list);   // 削除した送信先を選んでいた場合は、ここで未選択に戻る
+      closeClinic();
+      toast('削除しました');
+    }).catch(clinicWriteFailed).then(function () { setClinicBusy(false); });
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    $('pickScrim').hidden = true;
+    $('clinicScrim').hidden = true;
+    $('scheduleScrim').hidden = true;
+    if (state.mode === 'mask') closePop();
+  });
+
+  /* ---- boot ------------------------------------------------------------ */
+  var savedRecent = readJson(RECENT_KEY, []);
+  state.recent = (Array.isArray(savedRecent) ? savedRecent : []).slice(0, RECENT_MAX);
+  var savedStaff = readJson(STAFF_KEY, '');
+  state.staffName = typeof savedStaff === 'string' ? savedStaff : '';
+  // 送信先は毎回ブランクから。前回の相手や50音順の先頭が入っていると、
+  // 選んだつもりで別の医院へ送ってしまう事故につながる
+  state.selected = null;
+  $('bodyText').value = '';
+  $('staffName').value = state.staffName;
+  updateFromHint();
+  renderTrigger();
+  renderToContact();
+  renderMail();
+  renderFiles();
+  checkWidth();
+  setMode('edit');
+
+  callServer('getClinics').then(function (list) {
+    state.loading = false;
+    applyClinics(list);
+  }).catch(function (err) {
+    state.loading = false;
+    renderTrigger();
+    $('loadNoticeText').textContent = '送信先マスタを読み込めませんでした（' + errText(err) + '）。画面を再読み込みしてください。';
+    $('loadNotice').hidden = false;
+  });
+})();
+</script>
