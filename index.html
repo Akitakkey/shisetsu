@@ -212,7 +212,7 @@ hr{border:none;border-top:1px solid var(--sep);margin:16px 0;}
 /* Horizontal patient row */
 .h-header,.h-row{
   display:grid;
-  grid-template-columns:46px minmax(88px,100px) 3fr 4fr 40px 40px 40px 72px 72px 40px;
+  grid-template-columns:46px minmax(88px,100px) 3fr 4fr 40px 40px 40px 72px 72px 56px 40px;
   gap:8px;padding:9px 12px;align-items:start;
 }
 .h-header{
@@ -240,6 +240,31 @@ hr{border:none;border-top:1px solid var(--sep);margin:16px 0;}
 .name-input:focus{background:var(--card);border:1.5px solid var(--blue);
   box-shadow:0 0 0 3px rgba(0,122,255,.12);}
 .out-panel{background:rgba(0,0,0,.02);border-top:1px solid var(--sep);padding:14px;}
+
+/* 右パネル（2画面）: 広い画面では患者一覧の右に固定表示。狭い画面では行の下に表示する */
+body.split-on .content{max-width:1560px;}
+.split{display:grid;grid-template-columns:minmax(0,1fr) clamp(340px,30vw,500px);gap:16px;align-items:start;}
+.split-main{min-width:0;}
+.side-pane{position:sticky;top:72px;max-height:calc(100vh - 72px - 84px);display:flex;flex-direction:column;
+  background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-xs);overflow:hidden;}
+.side-empty{padding:40px 20px;text-align:center;color:var(--p3);font-size:13px;line-height:1.8;}
+.pane-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:12px 14px 10px;border-bottom:1px solid var(--sep);}
+.pane-title{font-size:15px;font-weight:600;}
+.pane-tabs{display:flex;gap:6px;padding:10px 14px 0;}
+.pane-tab{flex:1;padding:6px 0;border-radius:8px;border:none;background:rgba(118,118,128,.12);
+  color:var(--p1);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;}
+.pane-tab.sel{background:var(--blue);color:#fff;}
+.pane-tab:disabled{opacity:.4;cursor:not-allowed;}
+.pane-body{padding:10px 14px 14px;display:flex;flex-direction:column;min-height:0;flex:1;}
+.pane-edit{font-size:13px;line-height:1.8;white-space:pre-wrap;padding:9px 12px;
+  border:1px solid var(--sep);border-radius:var(--rsm);background:var(--card);
+  min-height:160px;outline:none;word-break:break-all;overflow:auto;flex:1;}
+.pane-edit:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,122,255,.12);}
+.inline-pane .pane-edit{flex:none;}
+.inline-pane{background:rgba(0,0,0,.02);border-top:1px solid var(--sep);}
+.h-row.pane-active{background:var(--blue-bg);}
+.btn-res-new{background:var(--orange,#ff9500);color:#fff;}
 
 /* Facility dropdown */
 @keyframes fadeDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
@@ -354,6 +379,9 @@ let visitDate    = new Date();
 // 生成中の部屋番号。renderApp()で再描画されても「生成中...」表示を維持するために保持する
 const generating = new Set();
 let bulkGenerating = false;
+// 右パネルに表示中の患者 { room, tab:'prev'|'out' }。null なら何も表示していない
+let sidePane = null;
+const WIDE_MQ = window.matchMedia('(min-width:1200px)');
 
 // ─── Prompt rule defaults ────────────────────────────────────────────────────
 const _defSRule = `今回のS入力を要約・言い換えせずそのまま記載する。
@@ -701,7 +729,7 @@ function renderApp() {
   document.getElementById('nav-fac').textContent =
     (fac ? fac.name : '施設を選択') + ' ▾';
 
-  if (!fac) { renderSetup(); return; }
+  if (!fac) { document.body.classList.remove('split-on'); renderSetup(); return; }
 
   const total = fac.patients.length;
   const done  = todayVisits.length;
@@ -749,7 +777,7 @@ function renderApp() {
         <span style="text-align:center">${fac.hasA ? '診察あり' : '変更なし'}</span>
         <span style="text-align:center">緊急</span>
         <span style="text-align:center">入院中</span>
-        <span></span><span></span>
+        <span></span><span></span><span></span>
         <span style="text-align:center">今月</span>
       </div>`;
     fac.patients.forEach(p => { html += buildRow(p, fac); });
@@ -787,7 +815,11 @@ function renderApp() {
     });
   }
 
+  const split = total > 0 && WIDE_MQ.matches;
+  document.body.classList.toggle('split-on', split);
+  if (split) html = `<div class="split"><div class="split-main">${html}</div><aside class="side-pane" id="side-pane"></aside></div>`;
   document.getElementById('app').innerHTML = html;
+  renderSidePane();
   document.getElementById('action-bar').style.display = done > 0 ? 'flex' : 'none';
 
   // 入力済みS/Oテキストエリアの高さを内容に合わせる（overflow:hiddenのため必須）
@@ -811,13 +843,13 @@ function buildRow(p, fac) {
   const pts          = pointsLabel(p);
   const sVal         = st.s || '';
   const oVal         = st.o || '';
-  const out      = st.output || '';
 
   const rowDim  = isDone ? 'opacity:.4;pointer-events:none;' : isHosp ? 'opacity:.4;' : '';
   const dis     = isDone || isHosp ? 'disabled' : '';
 
+  const active  = sidePane?.room === p.room;
   let html = `<div style="${rowDim}">
-    <div class="h-row">
+    <div class="h-row${active?' pane-active':''}" id="row-${esc(p.room)}">
       <span class="col-room">${esc(p.room)}</span>
       <input class="name-input" type="text" value="${esc(p.name)}" ${dis}
         autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
@@ -846,37 +878,21 @@ function buildRow(p, fac) {
         </label>
       </div>
       ${isDone
-        ? `<span class="badge badge-done" style="margin-top:5px">完了</span><span></span>`
+        ? `<span class="badge badge-done" style="margin-top:5px">完了</span><span></span><span></span>`
         : isHosp
-          ? `<span class="badge" style="background:#fff0f0;color:var(--red);margin-top:5px">入院中</span><span></span>`
+          ? `<span class="badge" style="background:#fff0f0;color:var(--red);margin-top:5px">入院中</span><span></span><span></span>`
           : `<button class="btn btn-primary btn-sm" style="margin-top:2px;white-space:nowrap"
                id="gen-${esc(p.room)}" onclick="generateRecord('${esc(p.room)}')"
                ${generating.has(p.room)?'disabled':''}>${generating.has(p.room)?'<span class="spin"></span> 生成中...':'作成'}</button>
              ${p.lastRecord
                ? `<button class="btn btn-secondary btn-sm" style="margin-top:2px;white-space:nowrap"
                     onclick="showLastRecord('${esc(p.room)}')">前回記録</button>`
-               : '<span></span>'}`}
+               : '<span></span>'}
+             <span id="res-${esc(p.room)}">${resBtnHtml(p.room)}</span>`}
       <span style="text-align:center;line-height:34px;font-size:12px;color:var(--p2)">${monthlyVisitCount(p, visitDate)}回</span>
     </div>
-    <div id="err-${esc(p.room)}"></div>`;
-
-  // Output panel — shown only after generation
-  if (out && !isDone) {
-    html += `<div class="out-panel">
-      <div class="form-label" style="margin-bottom:6px">生成結果（編集可）</div>
-      <div id="out-${esc(p.room)}" contenteditable="true"
-        style="font-size:13px;line-height:1.8;white-space:pre-wrap;padding:9px 12px;
-               border:1px solid var(--sep);border-radius:var(--rsm);background:var(--card);
-               min-height:160px;outline:none;transition:border-color .15s,box-shadow .15s;
-               word-break:break-all;"
-        onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(0,122,255,.12)'"
-        onblur="this.style.borderColor='';this.style.boxShadow=''"
-        oninput="inputState['${esc(p.room)}'].output=this.innerText"
-      >${renderBold(out)}</div>
-      <button class="btn btn-primary btn-full" style="margin-top:8px"
-        onclick="saveRecord('${esc(p.room)}')">✚ 一覧に追加して次の患者へ</button>
-    </div>`;
-  }
+    <div id="err-${esc(p.room)}"></div>
+    <div id="pane-slot-${esc(p.room)}"></div>`;
 
   html += `</div>`;
   return html;
@@ -1261,6 +1277,7 @@ async function generateRecord(room) {
   const btn = document.getElementById('gen-' + room);
   btn.disabled = true;
   btn.innerHTML = '<span class="spin"></span> 生成中...';
+  if (sidePane?.room === room) renderSidePane();
 
   const now      = visitDate;
   const reiwa    = now.getFullYear() - 2018;
@@ -1278,31 +1295,16 @@ async function generateRecord(room) {
       : await callClaude(apiKey, prompt.fixed, prompt.variable);
     const text = normalize(raw);
     inputState[room].output = text;
-
-    const errEl2 = document.getElementById('err-' + room);
-    const container = errEl2?.parentElement;
-    if (container) {
-      const existing = container.querySelector('.out-panel');
-      if (existing) existing.remove();
-      const panelDiv = document.createElement('div');
-      panelDiv.className = 'out-panel';
-      panelDiv.innerHTML = `
-        <div class="form-label" style="margin-bottom:6px">生成結果（編集可）</div>
-        <div id="out-${room}" contenteditable="true"
-          style="font-size:13px;line-height:1.8;white-space:pre-wrap;padding:9px 12px;
-                 border:1px solid var(--sep);border-radius:var(--rsm);background:var(--card);
-                 min-height:160px;outline:none;transition:border-color .15s,box-shadow .15s;
-                 word-break:break-all;"
-          onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(0,122,255,.12)'"
-          onblur="this.style.borderColor='';this.style.boxShadow=''"
-          oninput="inputState['${room}'].output=this.innerText"
-        >${renderBold(text)}</div>
-        <button class="btn btn-primary btn-full" style="margin-top:8px"
-          onclick="saveRecord('${room}')">✚ 一覧に追加して次の患者へ</button>
-      `;
-      container.appendChild(panelDiv);
-    }
     generating.delete(room);
+    // 右パネルが空のときだけ自動表示。他の人を表示中なら切り替えず「結果●」で知らせる。
+    // 狭い画面では行の下に差し込まれて入力中の欄がズレるため、自動表示しない
+    if (sidePane?.room === room || (!sidePane && WIDE_MQ.matches)) {
+      inputState[room].outSeen = true;
+      openPane(room, 'out');
+    } else {
+      inputState[room].outSeen = false;
+      updateResBtn(room);
+    }
     const genBtn = document.getElementById('gen-' + room);
     if (genBtn) { genBtn.disabled = false; genBtn.innerHTML = '作成'; }
     showToast(`${p.name} の記録が完成しました ✓`, 3000);
@@ -1312,41 +1314,115 @@ async function generateRecord(room) {
     if (errEl3) errEl3.innerHTML = `<div class="err">⚠️ ${esc(e.message)}</div>`;
     const b = document.getElementById('gen-' + room);
     if (b) { b.disabled = false; b.innerHTML = '作成'; }
+    if (sidePane?.room === room) renderSidePane();
   }
 }
 
-function showLastRecord(room) {
-  const fac = getFac();
-  const p   = fac?.patients.find(p => p.room === room);
-  if (!p?.lastRecord) return;
+function showLastRecord(room) { togglePane(room, 'prev'); }
+function showResult(room)     { togglePane(room, 'out'); }
 
-  if (!inputState[room]) inputState[room] = initSt(room);
-
-  const errEl    = document.getElementById('err-' + room);
-  const container = errEl?.parentElement;
-  if (!container) return;
-  const existing = container.querySelector('.out-panel');
-  if (existing) { existing.remove(); inputState[room].output = ''; return; }
-  inputState[room].output = p.lastRecord;
-
-  const panelDiv = document.createElement('div');
-  panelDiv.className = 'out-panel';
-  panelDiv.innerHTML = `
-    <div class="form-label" style="margin-bottom:6px">前回の記録（編集可）</div>
-    <div id="out-${room}" contenteditable="true"
-      style="font-size:13px;line-height:1.8;white-space:pre-wrap;padding:9px 12px;
-             border:1px solid var(--sep);border-radius:var(--rsm);background:var(--card);
-             min-height:160px;outline:none;transition:border-color .15s,box-shadow .15s;
-             word-break:break-all;"
-      onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(0,122,255,.12)'"
-      onblur="this.style.borderColor='';this.style.boxShadow=''"
-      oninput="inputState['${room}'].output=this.innerText"
-    >${renderBold(p.lastRecord)}</div>
-    <button class="btn btn-primary btn-full" style="margin-top:8px"
-      onclick="saveRecord('${room}')">✚ 一覧に追加して次の患者へ</button>
-  `;
-  container.appendChild(panelDiv);
+// 同じ患者・同じタブのボタンをもう一度押すと閉じる。それ以外はその患者・タブに切り替える
+function togglePane(room, tab) {
+  if (sidePane?.room === room && sidePane.tab === tab) { closePane(); return; }
+  openPane(room, tab);
 }
+
+function openPane(room, tab) {
+  if (!inputState[room]) inputState[room] = initSt(room);
+  if (tab === 'out') inputState[room].outSeen = true;
+  const prev = sidePane?.room;
+  sidePane = { room, tab };
+  if (prev && prev !== room) updateResBtn(prev);
+  updateResBtn(room);
+  renderSidePane();
+}
+
+function closePane() {
+  const prev = sidePane?.room;
+  sidePane = null;
+  if (prev) updateResBtn(prev);
+  renderSidePane();
+}
+
+function resBtnHtml(room) {
+  const st = inputState[room];
+  if (!st?.output) return '';
+  const sel   = sidePane?.room === room && sidePane.tab === 'out';
+  const isNew = !st.outSeen;
+  const cls   = sel ? 'btn-primary' : isNew ? 'btn-res-new' : 'btn-secondary';
+  return `<button class="btn ${cls} btn-sm" style="margin-top:2px;white-space:nowrap;padding:5px 8px"
+    onclick="showResult('${esc(room)}')">結果${isNew ? '●' : ''}</button>`;
+}
+
+function updateResBtn(room) {
+  const el = document.getElementById('res-' + room);
+  if (el) el.innerHTML = resBtnHtml(room);
+  const row = document.getElementById('row-' + room);
+  if (row) row.classList.toggle('pane-active', sidePane?.room === room);
+}
+
+// 右パネル（狭い画面では該当患者の行の下）を描き直す。患者一覧側のDOMは触らない
+function renderSidePane() {
+  const fac = getFac();
+  if (sidePane) {
+    const p = fac?.patients.find(p => p.room === sidePane.room);
+    if (!p || todayVisits.some(v => v.room === p.room)) sidePane = null;
+  }
+  document.querySelectorAll('.inline-pane').forEach(el => el.remove());
+  const aside = document.getElementById('side-pane');
+
+  if (!sidePane) {
+    if (aside) aside.innerHTML = `<div class="side-empty">「前回記録」「結果」を押すと<br>ここに表示されます</div>`;
+    return;
+  }
+  const room = sidePane.room;
+  const p    = fac.patients.find(p => p.room === room);
+  const st   = inputState[room] || initSt(room);
+  const isGen = generating.has(room);
+  const tab  = sidePane.tab;
+
+  let body;
+  if (tab === 'out' && !st.output) {
+    body = `<div class="side-empty">${isGen ? '<span class="spin"></span> 生成中…' : 'まだ作成されていません'}</div>`;
+  } else if (tab === 'prev' && !p.lastRecord) {
+    body = `<div class="side-empty">前回記録がありません</div>`;
+  } else {
+    const text = tab === 'out' ? st.output : (st.prevDraft ?? p.lastRecord);
+    const onIn = tab === 'out'
+      ? `inputState['${esc(room)}'].output=this.innerText`
+      : `inputState['${esc(room)}'].prevDraft=this.innerText`;
+    body = `<div class="form-label">${tab === 'out' ? '生成結果' : '前回の記録'}（編集可）${
+        tab === 'out' && isGen ? '<span><span class="spin"></span> 再生成中…</span>' : ''}</div>
+      <div class="pane-edit" id="pane-edit" contenteditable="true" oninput="${onIn}">${renderBold(text)}</div>
+      <button class="btn btn-primary btn-full" style="margin-top:8px"
+        onclick="savePane()">✚ 一覧に追加して次の患者へ</button>`;
+  }
+
+  const html = `<div class="pane-hd">
+      <span class="pane-title">${esc(room)}　${esc(p.name)}</span>
+      <button class="btn btn-ghost btn-sm" onclick="closePane()">✕ 閉じる</button>
+    </div>
+    <div class="pane-tabs">
+      <button class="pane-tab${tab === 'prev' ? ' sel' : ''}" ${p.lastRecord ? '' : 'disabled'}
+        onclick="openPane('${esc(room)}','prev')">前回記録</button>
+      <button class="pane-tab${tab === 'out' ? ' sel' : ''}" ${st.output || isGen ? '' : 'disabled'}
+        onclick="openPane('${esc(room)}','out')">生成結果${isGen ? '（生成中）' : ''}</button>
+    </div>
+    <div class="pane-body">${body}</div>`;
+
+  if (aside) { aside.innerHTML = html; return; }
+  const slot = document.getElementById('pane-slot-' + room);
+  if (slot) slot.innerHTML = `<div class="inline-pane">${html}</div>`;
+}
+
+function savePane() {
+  if (!sidePane) return;
+  const el = document.getElementById('pane-edit');
+  saveRecord(sidePane.room, el ? el.innerText : '');
+}
+
+// 画面幅が境目をまたいだら、右パネル⇔行の下の表示を切り替える
+WIDE_MQ.addEventListener('change', () => renderApp());
 
 function extractSection(text, tag) {
   if (!text) return '';
@@ -1986,10 +2062,9 @@ function monthlyVisitCount(p, refDate) {
 }
 
 // ─── Save record ──────────────────────────────────────────────────────────────
-function saveRecord(room) {
-  const outEl   = document.getElementById('out-' + room);
-  const content = (outEl ? outEl.innerText : (inputState[room]?.output || '')).replace(/\*\*/g, '').trim();
-  if (!content) { showToast('生成結果がありません'); return; }
+function saveRecord(room, text) {
+  const content = (text || '').replace(/\*\*/g, '').trim();
+  if (!content) { showToast('記録が空です'); return; }
 
   const fac = getFac();
   const p   = fac.patients.find(p => p.room === room);
@@ -2008,6 +2083,7 @@ function saveRecord(room) {
 
   save();
   delete inputState[room];
+  if (sidePane?.room === room) sidePane = null;
   showToast(`${room}号室 ${p.name} を保存しました`);
   renderApp();
 }
