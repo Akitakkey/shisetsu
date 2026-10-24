@@ -212,7 +212,7 @@ hr{border:none;border-top:1px solid var(--sep);margin:16px 0;}
 /* Horizontal patient row */
 .h-header,.h-row{
   display:grid;
-  grid-template-columns:46px minmax(88px,100px) 3fr 4fr 40px 40px 40px 72px 72px 56px 40px;
+  grid-template-columns:40px minmax(88px,100px) 3fr 4fr 40px 40px 40px 72px 52px 56px 40px;
   gap:8px;padding:9px 12px;align-items:start;
 }
 .h-header{
@@ -264,6 +264,16 @@ body.split-on .content{max-width:1560px;}
 .inline-pane .pane-edit{flex:none;}
 .inline-pane{background:rgba(0,0,0,.02);border-top:1px solid var(--sep);}
 .h-row.pane-active{background:var(--blue-bg);}
+.cnt-cell{text-align:center;line-height:34px;font-size:12px;color:var(--p2);cursor:pointer;
+  border-radius:7px;pointer-events:auto;}
+.cnt-cell:hover{background:rgba(0,0,0,.05);color:var(--blue);}
+.visit-pop{position:fixed;z-index:300;background:var(--card);border-radius:var(--rsm);
+  box-shadow:var(--shadow-md);border:1px solid var(--sep);min-width:200px;padding:8px 0;font-size:13px;}
+.visit-pop-hd{font-size:12px;font-weight:600;color:var(--p2);padding:2px 14px 6px;border-bottom:1px solid var(--sep);}
+.visit-pop-row{display:flex;align-items:center;gap:8px;padding:5px 8px 5px 14px;}
+.visit-pop-row .d{flex:1;}
+.visit-pop-ft{font-size:12px;color:var(--p2);padding:6px 14px 2px;border-top:1px solid var(--sep);}
+.badge-urg{font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;background:rgba(255,59,48,.12);color:var(--red);}
 .btn-res-new{background:var(--orange,#ff9500);color:#fff;}
 
 /* Facility dropdown */
@@ -772,7 +782,7 @@ function renderApp() {
   if (total > 0) {
     html += `<span class="sec-label">患者リスト</span><div class="card" id="plist">
       <div class="h-header">
-        <span>部屋番号</span><span>患者名</span>
+        <span>部屋</span><span>患者名</span>
         <span>S</span><span>O</span>
         <span style="text-align:center">${fac.hasA ? '診察あり' : '変更なし'}</span>
         <span style="text-align:center">緊急</span>
@@ -818,6 +828,7 @@ function renderApp() {
   const split = total > 0 && WIDE_MQ.matches;
   document.body.classList.toggle('split-on', split);
   if (split) html = `<div class="split"><div class="split-main">${html}</div><aside class="side-pane" id="side-pane"></aside></div>`;
+  closeVisitPopup();
   document.getElementById('app').innerHTML = html;
   renderSidePane();
   document.getElementById('action-bar').style.display = done > 0 ? 'flex' : 'none';
@@ -886,10 +897,11 @@ function buildRow(p, fac) {
                ${generating.has(p.room)?'disabled':''}>${generating.has(p.room)?'<span class="spin"></span> 生成中...':'作成'}</button>
              ${p.lastRecord
                ? `<button class="btn btn-secondary btn-sm" style="margin-top:2px;white-space:nowrap"
-                    onclick="showLastRecord('${esc(p.room)}')">前回記録</button>`
+                    onclick="showLastRecord('${esc(p.room)}')">前回</button>`
                : '<span></span>'}
              <span id="res-${esc(p.room)}">${resBtnHtml(p.room)}</span>`}
-      <span style="text-align:center;line-height:34px;font-size:12px;color:var(--p2)">${monthlyVisitCount(p, visitDate)}回</span>
+      <span class="cnt-cell" id="cnt-${esc(p.room)}" title="${esc(visitDatesTitle(p))}"
+        onclick="openVisitPopup('${esc(p.room)}',this)">${monthlyVisitCount(p, visitDate)}回</span>
     </div>
     <div id="err-${esc(p.room)}"></div>
     <div id="pane-slot-${esc(p.room)}"></div>`;
@@ -1372,7 +1384,7 @@ function renderSidePane() {
   const aside = document.getElementById('side-pane');
 
   if (!sidePane) {
-    if (aside) aside.innerHTML = `<div class="side-empty">「前回記録」「結果」を押すと<br>ここに表示されます</div>`;
+    if (aside) aside.innerHTML = `<div class="side-empty">「前回」「結果」を押すと<br>ここに表示されます</div>`;
     return;
   }
   const room = sidePane.room;
@@ -2014,7 +2026,7 @@ async function generateAll() {
       todayVisits.sort((a, b) => Number(a.room) - Number(b.room));
       p.lastRecord  = text;
       p.lastUpdated = fmtDate(now);
-      recordVisitLog(p, fmtISO(now));
+      recordVisitLog(p, fmtISO(now), isUrgent);
       count++;
       save();
     } catch(e) {
@@ -2029,7 +2041,7 @@ async function generateAll() {
           if (idx >= 0) todayVisits[idx] = rec; else todayVisits.push(rec);
           p.lastRecord  = text;
           p.lastUpdated = fmtDate(now);
-          recordVisitLog(p, fmtISO(now));
+          recordVisitLog(p, fmtISO(now), isUrgent);
           count++;
           save();
         } catch(e2) {
@@ -2051,10 +2063,98 @@ async function generateAll() {
 // ─── 月間記録回数 ─────────────────────────────────────────────────────────────
 // 記録を保存した「日」をユニークに積み上げる（同日に再生成・再保存しても1回扱い）。
 // 導入前に書いた記録は遡って数えられないため、導入日以降の保存分から積み上がっていく。
-function recordVisitLog(p, dateStr) {
-  if (!Array.isArray(p.visitLog)) p.visitLog = [];
-  if (!p.visitLog.includes(dateStr)) p.visitLog.push(dateStr);
+// 緊急訪問の日は回数に含めず urgentLog に分けて残す（日付一覧で「緊」として見分けられるように）。
+// 同じ日に通常⇔緊急を切り替えて保存し直した場合は、最後に保存した方に寄せる。
+function recordVisitLog(p, dateStr, urgent = false) {
+  if (!Array.isArray(p.visitLog))  p.visitLog  = [];
+  if (!Array.isArray(p.urgentLog)) p.urgentLog = [];
+  const [to, from] = urgent ? [p.urgentLog, p.visitLog] : [p.visitLog, p.urgentLog];
+  const i = from.indexOf(dateStr);
+  if (i >= 0) from.splice(i, 1);
+  if (!to.includes(dateStr)) to.push(dateStr);
 }
+
+function removeVisitLog(p, dateStr) {
+  [p.visitLog, p.urgentLog].forEach(log => {
+    const i = (log || []).indexOf(dateStr);
+    if (i >= 0) log.splice(i, 1);
+  });
+}
+
+// 選択中の訪問日の月の記録日一覧 [{date, urgent}]（日付順）
+function monthVisitDates(p) {
+  const ym = fmtISO(visitDate).slice(0, 7);
+  return [
+    ...(p.visitLog  || []).map(d => ({ date: d, urgent: false })),
+    ...(p.urgentLog || []).map(d => ({ date: d, urgent: true  }))
+  ].filter(x => x.date.slice(0, 7) === ym).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+const mdLabel = iso => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`;
+
+function visitDatesTitle(p) {
+  const list = monthVisitDates(p);
+  return list.length ? list.map(x => mdLabel(x.date) + (x.urgent ? '(緊)' : '')).join(', ') : '今月の記録なし';
+}
+
+let _visitPopRoom = null;
+function openVisitPopup(room, anchor) {
+  if (_visitPopRoom === room) { closeVisitPopup(); return; }
+  closeVisitPopup();
+  const p = getFac()?.patients.find(p => p.room === room);
+  if (!p) return;
+  _visitPopRoom = room;
+  const pop = document.createElement('div');
+  pop.className = 'visit-pop';
+  pop.id = 'visit-pop';
+  document.body.appendChild(pop);
+  renderVisitPopup();
+  const r = anchor.getBoundingClientRect();
+  const w = pop.offsetWidth, h = pop.offsetHeight;
+  pop.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
+  pop.style.top  = (r.bottom + 4 + h > window.innerHeight ? r.top - h - 4 : r.bottom + 4) + 'px';
+}
+
+function renderVisitPopup() {
+  const pop = document.getElementById('visit-pop');
+  const p   = getFac()?.patients.find(p => p.room === _visitPopRoom);
+  if (!pop || !p) return;
+  const list = monthVisitDates(p);
+  const urg  = list.filter(x => x.urgent).length;
+  pop.innerHTML = `<div class="visit-pop-hd">${esc(p.room)} ${esc(p.name)}　${visitDate.getMonth()+1}月の記録日</div>
+    ${list.length ? list.map(x => `<div class="visit-pop-row">
+        <span class="d">${mdLabel(x.date)}</span>${x.urgent ? '<span class="badge-urg">緊</span>' : ''}
+        <button class="btn btn-danger btn-sm" style="padding:2px 8px"
+          onclick="deleteVisitDate('${esc(p.room)}','${x.date}')">×</button>
+      </div>`).join('') : '<div class="visit-pop-row text-p2">記録なし</div>'}
+    <div class="visit-pop-ft">算定 ${list.length - urg}回${urg ? `（緊${urg}回は除外）` : ''}</div>`;
+}
+
+function closeVisitPopup() {
+  document.getElementById('visit-pop')?.remove();
+  _visitPopRoom = null;
+}
+
+function deleteVisitDate(room, dateStr) {
+  const p = getFac()?.patients.find(p => p.room === room);
+  if (!p || !confirm(`${mdLabel(dateStr)} の記録日を削除しますか？`)) return;
+  removeVisitLog(p, dateStr);
+  save();
+  updateCountCell(p);
+  renderVisitPopup();
+}
+
+// 一覧を再描画すると入力中の欄が崩れるので、回数セルだけ書き換える
+function updateCountCell(p) {
+  const el = document.getElementById('cnt-' + p.room);
+  if (!el) return;
+  el.textContent = monthlyVisitCount(p, visitDate) + '回';
+  el.title = visitDatesTitle(p);
+}
+
+document.addEventListener('mousedown', e => {
+  if (_visitPopRoom && !e.target.closest('#visit-pop, .cnt-cell')) closeVisitPopup();
+});
 
 function monthlyVisitCount(p, refDate) {
   const ym = fmtISO(refDate).slice(0, 7);
@@ -2079,7 +2179,7 @@ function saveRecord(room, text) {
   // Update patient last record
   p.lastRecord  = content;
   p.lastUpdated = fmtDate(visitDate);
-  recordVisitLog(p, fmtISO(visitDate));
+  recordVisitLog(p, fmtISO(visitDate), !!inputState[room]?.isUrgent);
 
   save();
   delete inputState[room];
@@ -2099,6 +2199,9 @@ function toggleToday(i) {
 
 function removeToday(i) {
   if (!confirm('この記録を削除しますか？')) return;
+  const v = todayVisits[i];
+  const p = getFac()?.patients.find(p => p.room === v.room);
+  if (p) removeVisitLog(p, fmtISO(visitDate));
   todayVisits.splice(i, 1);
   save();
   renderApp();
