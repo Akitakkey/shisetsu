@@ -212,7 +212,7 @@ hr{border:none;border-top:1px solid var(--sep);margin:16px 0;}
 /* Horizontal patient row */
 .h-header,.h-row{
   display:grid;
-  grid-template-columns:40px minmax(88px,100px) 3fr 4fr 40px 40px 40px 52px 52px 56px 40px;
+  grid-template-columns:40px minmax(88px,100px) 3fr 4fr 40px 40px 40px 52px 52px 40px;
   gap:8px;padding:9px 12px;align-items:start;
 }
 .h-header{
@@ -787,7 +787,7 @@ function renderApp() {
         <span style="text-align:center">${fac.hasA ? '診察あり' : '変更なし'}</span>
         <span style="text-align:center">緊急</span>
         <span style="text-align:center">入院中</span>
-        <span></span><span></span><span></span>
+        <span></span><span></span>
         <span style="text-align:center">今月</span>
       </div>`;
     fac.patients.forEach(p => { html += buildRow(p, fac); });
@@ -889,16 +889,12 @@ function buildRow(p, fac) {
         </label>
       </div>
       ${isDone
-        ? `<span class="badge badge-done" style="margin-top:5px">完了</span><span></span><span></span>`
+        ? `<span class="badge badge-done" style="margin-top:5px">完了</span><span></span>`
         : isHosp
-          ? `<span class="badge" style="background:#fff0f0;color:var(--red);margin-top:5px">入院中</span><span></span><span></span>`
+          ? `<span class="badge" style="background:#fff0f0;color:var(--red);margin-top:5px">入院中</span><span></span>`
           : `<button class="btn btn-primary btn-sm" style="margin-top:2px;white-space:nowrap"
                id="gen-${esc(p.room)}" onclick="generateRecord('${esc(p.room)}')"
                ${generating.has(p.room)?'disabled':''}>${generating.has(p.room)?'<span class="spin"></span>':'作成'}</button>
-             ${p.lastRecord
-               ? `<button class="btn btn-secondary btn-sm" style="margin-top:2px;white-space:nowrap"
-                    onclick="showLastRecord('${esc(p.room)}')">前回</button>`
-               : '<span></span>'}
              <span id="res-${esc(p.room)}">${resBtnHtml(p.room)}</span>`}
       <span class="cnt-cell" id="cnt-${esc(p.room)}" title="${esc(visitDatesTitle(p))}"
         onclick="openVisitPopup('${esc(p.room)}',this)">${monthlyVisitCount(p, visitDate)}回</span>
@@ -1356,13 +1352,20 @@ function closePane() {
   renderSidePane();
 }
 
+// 「前回」と「結果」は同じ列を使う。作成が終わったら「結果」に置き換わる（前回記録は右パネルのタブから見られる）
 function resBtnHtml(room) {
   const st = inputState[room];
-  if (!st?.output) return '';
+  if (!st?.output) {
+    const p = getFac()?.patients.find(p => p.room === room);
+    if (!p?.lastRecord) return '';
+    const sel = sidePane?.room === room && sidePane.tab === 'prev';
+    return `<button class="btn ${sel ? 'btn-primary' : 'btn-secondary'} btn-sm" style="margin-top:2px;white-space:nowrap;width:100%;padding:5px 0"
+      onclick="showLastRecord('${esc(room)}')">前回</button>`;
+  }
   const sel   = sidePane?.room === room && sidePane.tab === 'out';
   const isNew = !st.outSeen;
   const cls   = sel ? 'btn-primary' : isNew ? 'btn-res-new' : 'btn-secondary';
-  return `<button class="btn ${cls} btn-sm" style="margin-top:2px;white-space:nowrap;padding:5px 8px"
+  return `<button class="btn ${cls} btn-sm" style="margin-top:2px;white-space:nowrap;width:100%;padding:5px 0"
     onclick="showResult('${esc(room)}')">結果${isNew ? '●' : ''}</button>`;
 }
 
